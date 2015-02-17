@@ -972,7 +972,7 @@ void FX_MicroExplosion( Vector &position, Vector &normal )
 						MICRO_EXPLOSION_DAMPEN, 
 						bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
 
-	int	numSparks = random->RandomInt( 8, 16 );
+	int	numSparks = random->RandomInt( 8, 32 );
 	
 	if ( g_Material_Spark == NULL )
 	{
