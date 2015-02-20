@@ -84,6 +84,12 @@ public:
 private:
 	float		m_flExplosionDelay;
 
+	bool m_bMineLikesPlayer;
+	bool m_bMineLikesPlayerAllies;
+	bool m_bMineLikesCitizens;
+	bool m_bMineLikesCombine;
+	bool m_bMineLikesZombies;
+	bool m_bMineLikesAntlions;
 	bool	m_bAwake;
 	bool	m_bBounce;
 	EHANDLE	m_hNearestNPC;
@@ -121,6 +127,7 @@ private:
 
 	COutputEvent	m_OnPulledUp;
 	void InputDisarm( inputdata_t &inputdata );
+	void InputArm( inputdata_t &inputdata );
 };
 
 

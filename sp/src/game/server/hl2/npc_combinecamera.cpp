@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Copyright © Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Security cameras will track a default target (if they have one)
 //			until they either acquire an enemy to track or are told to track
@@ -34,6 +34,7 @@
 #include "explode.h"
 #include "IEffects.h"
 #include "animation.h"
+#include "globalstate.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -138,7 +139,15 @@ public:
 
 	int OnTakeDamage(const CTakeDamageInfo &inputInfo);
 
-	Class_T Classify() { return (m_bEnabled) ? CLASS_MILITARY : CLASS_NONE; }
+	Class_T Classify() 
+	{ 
+		if (!m_bEnabled)
+			return CLASS_NONE;
+		else if (GlobalEntity_GetState("combine_base_hacked") == GLOBAL_ON)
+			return CLASS_PLAYER_ALLY;
+		else
+			return CLASS_MILITARY;
+	}
 	
 	bool IsValidEnemy( CBaseEntity *pEnemy );
 	bool FVisible(CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL);
@@ -640,9 +649,6 @@ void CNPC_CombineCamera::ActiveThink()
 		{
 			m_OnFoundEnemy.Set(pTarget, pTarget, this);
 
-			// If it's a citizen, it's ok. If it's the player, it's not ok.
-			if ( pTarget->IsPlayer() )
-			{
 				SetEyeState(CAMERA_EYE_FOUND_TARGET);
 
 				if (HasSpawnFlags(SF_COMBINE_CAMERA_BECOMEANGRY))
@@ -656,15 +662,6 @@ void CNPC_CombineCamera::ActiveThink()
 
 				m_OnFoundPlayer.Set(pTarget, pTarget, this);
 				m_hEnemyTarget = pTarget;
-			}
-			else
-			{
-				SetEyeState(CAMERA_EYE_HAPPY);
-				m_flEyeHappyTime = gpGlobals->curtime + 2.0;
-
-				// Now forget about this target forever
-				AddEntityRelationship( pTarget, D_NU, 99 );
-			}
 		}
 		else
 		{
