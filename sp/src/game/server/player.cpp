@@ -5885,8 +5885,6 @@ void CBasePlayer::ImpulseCommands( )
 		break;
 
 	case 200:
-		if ( sv_cheats->GetBool() )
-		{
 			CBaseCombatWeapon *pWeapon;
 
 			pWeapon = GetActiveWeapon();
@@ -5899,7 +5897,6 @@ void CBasePlayer::ImpulseCommands( )
 			{
 				pWeapon->Holster();
 			}
-		}
 		break;
 
 	case	201:// paint decal

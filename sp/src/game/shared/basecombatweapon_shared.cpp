@@ -78,6 +78,8 @@ CBaseCombatWeapon::CBaseCombatWeapon()
 
 	m_bFlipViewModel	= false;
 
+	m_bWeaponCanFire = true;
+
 #if defined( CLIENT_DLL )
 	m_iState = m_iOldState = WEAPON_NOT_CARRIED;
 	m_iClip1 = -1;
@@ -1438,6 +1440,9 @@ selects and deploys each weapon as you pass it. (sjb)
 bool CBaseCombatWeapon::Deploy( )
 {
 	MDLCACHE_CRITICAL_SECTION();
+
+	m_bWeaponCanFire = true;
+
 	return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
 }
 
@@ -1456,6 +1461,7 @@ bool CBaseCombatWeapon::Holster( CBaseCombatWeapon *pSwitchingTo )
 	// cancel any reload in progress.
 	m_bInReload = false; 
 	m_bFiringWholeClip = false;
+	m_bWeaponCanFire = false;
 
 	// kill any think functions
 	SetThink(NULL);
@@ -1652,6 +1658,9 @@ void CBaseCombatWeapon::ItemPostFrame( void )
 	if (!pOwner)
 		return;
 
+	if( m_bWeaponCanFire == false )
+		return;
+
 	UpdateAutoFire();
 
 	//Track the duration of the fire
@@ -1782,7 +1791,8 @@ void CBaseCombatWeapon::HandleFireOnEmpty()
 	// If we're already firing on empty, reload if we can
 	if ( m_bFireOnEmpty )
 	{
-		ReloadOrSwitchWeapons();
+		WeaponSound(EMPTY);
+//		ReloadOrSwitchWeapons();
 		m_fFireDuration = 0.0f;
 	}
 	else
@@ -2541,6 +2551,7 @@ BEGIN_PREDICTION_DATA( CBaseCombatWeapon )
 	DEFINE_PRED_FIELD( m_flTimeWeaponIdle, FIELD_FLOAT, FTYPEDESC_INSENDTABLE ),
 	DEFINE_FIELD( m_bInReload, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFireOnEmpty, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bWeaponCanFire, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFiringWholeClip, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flNextEmptySoundTime, FIELD_FLOAT ),
 	DEFINE_FIELD( m_Activity, FIELD_INTEGER ),
@@ -2583,6 +2594,7 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 	DEFINE_FIELD( m_flTimeWeaponIdle, FIELD_TIME ),
 
 	DEFINE_FIELD( m_bInReload, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bWeaponCanFire, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFireOnEmpty, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hOwner, FIELD_EHANDLE ),
 
