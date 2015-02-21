@@ -61,6 +61,7 @@ protected:
 	bool			m_bPerfectAccuracy;	// Entities that shoot at me should be perfectly accurate
 	float			m_fAutoaimRadius;	// How much to influence player's autoaim.
 	float			m_flMinDistValidEnemy;
+	float			m_fTargetDelay;
 
 	DECLARE_DATADESC();
 };

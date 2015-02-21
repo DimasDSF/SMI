@@ -89,6 +89,7 @@ BEGIN_DATADESC( CNPC_Bullseye )
 	DEFINE_KEYFIELD( m_fAutoaimRadius, FIELD_FLOAT, "autoaimradius" ),
 	DEFINE_KEYFIELD( m_flFieldOfView, FIELD_FLOAT, "minangle" ),
 	DEFINE_KEYFIELD( m_flMinDistValidEnemy, FIELD_FLOAT, "mindist" ),
+	DEFINE_KEYFIELD( m_fTargetDelay, FIELD_FLOAT, "DelayOnTargeted" ),
 	// DEFINE_FIELD( m_bPerfectAccuracy, FIELD_BOOLEAN ),	// Don't save
 
 	// Function Pointers
@@ -104,6 +105,7 @@ END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( npc_bullseye, CNPC_Bullseye );
 
+int targettedtime = 0;
 
 
 //-----------------------------------------------------------------------------
@@ -368,6 +370,25 @@ bool CNPC_Bullseye::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 		{
 			return false;
 		}
+	}
+
+	if ( targettedtime == 0 )
+	{
+		targettedtime = gpGlobals->curtime;
+		m_OnTargeted.FireOutput( pEnemy, this, 0 );
+	}
+	else if (targettedtime != 0 && ( targettedtime + m_fTargetDelay <= gpGlobals->curtime ))
+	{
+		targettedtime = gpGlobals->curtime;
+		m_OnTargeted.FireOutput( pEnemy, this, 0 );
+	}
+	else if (targettedtime != 0 && ( targettedtime + m_fTargetDelay >= gpGlobals->curtime ))
+	{
+		DevWarning("4","Npc_bullseye fired an output OnTargeted but was denied due to it being retriggered too early\n");
+	}
+	else
+	{
+		DevWarning("4","Warning Npc_bullseye did not manage to fire OnTargeted output due to unknown error");
 	}
 	return BaseClass::CanBeAnEnemyOf( pEnemy );
 }
