@@ -1791,11 +1791,7 @@ void CBaseCombatWeapon::HandleFireOnEmpty()
 	// If we're already firing on empty, reload if we can
 	if ( m_bFireOnEmpty )
 	{
-		if (m_flNextEmptySoundTime < gpGlobals->curtime)
-		{
-			WeaponSound(EMPTY);
-			m_flNextEmptySoundTime = gpGlobals->curtime + 0.5;
-		}
+		ReloadOrSwitchWeapons();
 	}
 	else
 	{
@@ -2254,6 +2250,7 @@ void CBaseCombatWeapon::PrimaryAttack( void )
 	// If my clip is empty (and I use clips) start reload
 	if ( UsesClipsForAmmo1() && !m_iClip1 ) 
 	{
+		Reload();
 		return;
 	}
 

@@ -170,6 +170,8 @@ public:
 	//  apply the proper filter
 	virtual bool			IsPredicted( void ) const { return false; }
 
+	bool CanDrop( void ){return true;}
+
 	virtual void			Spawn( void );
 	virtual void			Precache( void );
 

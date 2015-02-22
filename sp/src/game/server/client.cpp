@@ -634,6 +634,18 @@ void CC_DrawCross( const CCommand &args )
 }
 static ConCommand drawcross("drawcross", CC_DrawCross, "Draws a cross at the given location\n\tArguments: x y z", FCVAR_CHEAT);
 
+void CC_Player_Drop( void ) 
+{ 
+	CBasePlayer *pPlayer = ToBasePlayer( UTIL_GetCommandClient() );
+
+	CBaseCombatWeapon *pWeapon = pPlayer->GetActiveWeapon();
+
+	if ( pWeapon->CanDrop() ) 
+	{ 
+		pPlayer->Weapon_Drop( pWeapon, NULL, NULL); 
+	} 
+} 
+static ConCommand drop("drop", CC_Player_Drop, "Drop Player Weapon.");
 
 //------------------------------------------------------------------------------
 // helper function for kill and explode

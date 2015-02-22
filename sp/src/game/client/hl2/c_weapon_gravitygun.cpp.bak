@@ -1,11 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 //
+// Purpose: 
 //
-//
-//
-//=============================================================================================//
+// $NoKeywords: $
+//===========================================================================//
 
 #include "cbase.h"
+#include "keydefs.h"
 #include "hud.h"
 #include "in_buttons.h"
 #include "beamdraw.h"
@@ -64,17 +65,17 @@ public:
 	DECLARE_CLIENTCLASS();
 	DECLARE_PREDICTABLE();
 
-	int KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding )
+	int KeyInput( int down, int keynum, const char *pszCurrentBinding )
 	{
 		if ( gHUD.m_iKeyBits & IN_ATTACK )
 		{
 			switch ( keynum )
 			{
-			case MOUSE_WHEEL_UP:
+			case K_MWHEELUP:
 				gHUD.m_iKeyBits |= IN_WEAPON1;
 				return 0;
 
-			case MOUSE_WHEEL_DOWN:
+			case K_MWHEELDOWN:
 				gHUD.m_iKeyBits |= IN_WEAPON2;
 				return 0;
 			}
@@ -89,6 +90,7 @@ public:
 		BaseClass::OnDataChanged( updateType );
 		m_beam.Update( this );
 	}
+
 private:
 	C_WeaponGravityGun( const C_WeaponGravityGun & );
 
@@ -153,8 +155,7 @@ int	C_BeamQuadratic::DrawModel( int )
 	//points[1].z += 4*sin( gpGlobals->curtime*11 ) + 5*cos( gpGlobals->curtime*13 );
 	points[2] = m_worldPosition;
 
-	IMaterial *pMaterial = materials->FindMaterial( "sprites/physbeam", TEXTURE_GROUP_CLIENT_EFFECTS );
-	//IMaterial *pMat = materials->FindMaterial( "sprites/physbeam", TEXTURE_GROUP_CLIENT_EFFECTS );
+	IMaterial *pMat = materials->FindMaterial( "sprites/physbeam", TEXTURE_GROUP_CLIENT_EFFECTS );
 	Vector color;
 	if ( m_glueTouching )
 	{
@@ -166,9 +167,7 @@ int	C_BeamQuadratic::DrawModel( int )
 	}
 
 	float scrollOffset = gpGlobals->curtime - (int)gpGlobals->curtime;
-	CMatRenderContextPtr pRenderContext( materials );
-	pRenderContext->Bind( pMaterial );
-	//materials->Bind( pMat );
+	materials->Bind( pMat );
 	DrawBeamQuadratic( points[0], points[1], points[2], 13, color, scrollOffset );
 	return 1;
 }
