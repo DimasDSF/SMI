@@ -95,6 +95,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "MoveToPosition", InputMoveToPosition ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BeginSequence", InputBeginSequence ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetActor", InputSetActor ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "CancelSequence", InputCancelSequence ),
 
 	DEFINE_KEYFIELD( m_iPlayerDeathBehavior, FIELD_INTEGER, "onplayerdeath" ),
@@ -102,6 +103,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 
 	// Outputs
 	DEFINE_OUTPUT(m_OnBeginSequence, "OnBeginSequence"),
+	DEFINE_OUTPUT(m_OnInPosition, "OnInPosition"),
 	DEFINE_OUTPUT(m_OnEndSequence, "OnEndSequence"),
 	DEFINE_OUTPUT(m_OnPostIdleEndSequence, "OnPostIdleEndSequence"),
 	DEFINE_OUTPUT(m_OnCancelSequence, "OnCancelSequence"),
@@ -410,6 +412,17 @@ void CAI_ScriptedSequence::InputCancelSequence( inputdata_t &inputdata )
 	DevMsg( 2,  "InputCancelScript: Cancelling script '%s'\n", STRING( m_iszPlay ));
 	StopThink();
 	ScriptEntityCancel( this );
+}
+
+void CAI_ScriptedSequence::InputSetActor( inputdata_t &inputdata )
+{
+	//CBaseEntity *pActorToSet = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	//string_t strActortoSet = MAKE_STRING( inputdata.value.String() );
+	//m_iszEntity = strActortoSet;
+		//strActortoSet; inputdata.value.String()
+	CBaseEntity *pActorToSet = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	m_hForcedTarget = pActorToSet;
+	DevMsg( 2,  "Setting Actor for script '%s'\n", STRING( m_iszPlay ));
 }
 
 void CAI_ScriptedSequence::InputScriptPlayerDeath( inputdata_t &inputdata )
@@ -797,6 +810,15 @@ void CAI_ScriptedSequence::OnBeginSequence( void )
 	m_OnBeginSequence.FireOutput( this, this );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Callback used for firing output when npc told to movetoposition
+//			is a place
+//-----------------------------------------------------------------------------
+void CAI_ScriptedSequence::OnInPosition( void )
+{
+	m_OnInPosition.FireOutput( this, this );
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Look up a sequence name and setup the target NPC to play it.
@@ -810,11 +832,17 @@ bool CAI_ScriptedSequence::StartSequence( CAI_BaseNPC *pTarget, string_t iszSeq,
 	Assert( pTarget );
 	m_sequenceStarted = true;
 	m_bIsPlayingEntry = (iszSeq == m_iszEntry);
+	m_bIsPreIdle = (iszSeq == m_iszPreIdle);
 
 	if ( !iszSeq && completeOnEmpty )
 	{
 		SequenceDone( pTarget );
 		return false;
+	}
+
+	if ( m_bIsPreIdle )
+	{
+		OnInPosition();
 	}
 
 	int nSequence = pTarget->LookupSequence( STRING( iszSeq ) );

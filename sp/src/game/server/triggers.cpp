@@ -156,10 +156,16 @@ void CBaseTrigger::InputTouchTest( inputdata_t &inputdata )
 //------------------------------------------------------------------------------
 void CBaseTrigger::Spawn()
 {
-	if ( HasSpawnFlags( SF_TRIGGER_ONLY_PLAYER_ALLY_NPCS ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) )
+	if ( HasSpawnFlags( SF_TRIGGER_ONLY_PLAYER_ALLY_NPCS ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
 	{
 		// Automatically set this trigger to work with NPC's.
 		AddSpawnFlags( SF_TRIGGER_ALLOW_NPCS );
+	}
+
+	if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) && HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
+	{
+		RemoveSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES );
+		RemoveSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES );
 	}
 
 	if ( HasSpawnFlags( SF_TRIGGER_ONLY_CLIENTS_IN_VEHICLES ) )
@@ -360,8 +366,8 @@ bool CBaseTrigger::PassesTriggerFilters(CBaseEntity *pOther)
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_CLIENTS) && (pOther->GetFlags() & FL_CLIENT)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_NPCS) && (pOther->GetFlags() & FL_NPC)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PUSHABLES) && FClassnameIs(pOther, "func_pushable")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon*")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item*")) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PHYSICS) && pOther->GetMoveType() == MOVETYPE_VPHYSICS) 
 #if defined( HL2_EPISODIC ) || defined( TF_DLL )		
 		||
@@ -388,6 +394,11 @@ bool CBaseTrigger::PassesTriggerFilters(CBaseEntity *pOther)
 			if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) )
 			{
 				if ( !pNPC || !pNPC->IsInAVehicle() )
+					return false;
+			}
+			if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
+			{
+				if ( !pNPC || pNPC->IsInAVehicle() )
 					return false;
 			}
 		}
@@ -4391,8 +4402,8 @@ bool CBaseVPhysicsTrigger::PassesTriggerFilters( CBaseEntity *pOther )
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_CLIENTS) && (pOther->GetFlags() & FL_CLIENT)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_NPCS) && (pOther->GetFlags() & FL_NPC)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PUSHABLES) && FClassnameIs(pOther, "func_pushable")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon*")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item*")) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PHYSICS) && pOther->GetMoveType() == MOVETYPE_VPHYSICS))
 	{
 		bool bOtherIsPlayer = pOther->IsPlayer();

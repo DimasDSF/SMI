@@ -443,10 +443,13 @@ public:
 
 	COutputFloat m_OutRemainingHealth;
 	COutputEvent m_OnPlayerUse;
+	COutputEvent m_OnEmpty;
 
 	void StudioFrameAdvance ( void );
 
 	float m_flJuice;
+
+	void InputRecharge( inputdata_t &inputdata );
 
 	DECLARE_DATADESC();
 };
@@ -471,6 +474,9 @@ BEGIN_DATADESC( CNewWallHealth )
 
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
 	DEFINE_OUTPUT( m_OutRemainingHealth, "OutRemainingHealth"),
+	DEFINE_OUTPUT(m_OnEmpty, "OnEmpty" ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "Recharge", InputRecharge ),
 
 END_DATADESC()
 
@@ -621,6 +627,7 @@ void CNewWallHealth::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 	// if there is no juice left, turn it off
 	if (m_iJuice <= 0)
 	{
+		m_OnEmpty.FireOutput( this, this );
 		ResetSequence( LookupSequence( "emptyclick" ) );
 		m_nState = 1;			
 		Off();
@@ -692,6 +699,11 @@ void CNewWallHealth::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 	m_flNextCharge = gpGlobals->curtime + 0.1;
 }
 
+
+void CNewWallHealth::InputRecharge( inputdata_t &inputdata )
+{
+	Recharge();
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 

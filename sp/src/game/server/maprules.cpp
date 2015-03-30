@@ -351,8 +351,6 @@ void CGameText::InputDisplayText( inputdata_t &inputdata )
   // the baseclass already defines a memberfunction to set the 
   // message-text (CGameText::MessageSet), we just call it
   MessageSet( STRING(inputdata.value.StringID()) );
-  // and show the message
-  Display( inputdata.pActivator );
 }
 
 void CGameText::Display( CBaseEntity *pActivator )

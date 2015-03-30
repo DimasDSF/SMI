@@ -239,6 +239,7 @@ void CEnvHeadcrabCanister::Precache( void )
 	PrecacheModel( ENV_HEADCRABCANISTER_SKYBOX_MODEL );
 	PrecacheModel("sprites/smoke.vmt");
 
+	PrecacheScriptSound( "HeadcrabCanister.InFlight" );
 	PrecacheScriptSound( "HeadcrabCanister.LaunchSound" );
 	PrecacheScriptSound( "HeadcrabCanister.AfterLanding" );
 	PrecacheScriptSound( "HeadcrabCanister.Explosion" );
@@ -314,6 +315,7 @@ void CEnvHeadcrabCanister::Spawn( void )
 void CEnvHeadcrabCanister::UpdateOnRemove()
 {
 	BaseClass::UpdateOnRemove();
+	StopSound( "HeadcrabCanister.InFlight" );
 	StopSound( "HeadcrabCanister.AfterLanding" );
 	if ( m_hTrail )
 	{
@@ -483,6 +485,7 @@ void CEnvHeadcrabCanister::InputFireCanister( inputdata_t &inputdata )
 	if ( !HasSpawnFlags( SF_NO_LAUNCH_SOUND ) )
 	{
 		EmitSound( filter, entindex(), "HeadcrabCanister.LaunchSound" );
+		EmitSound( filter, entindex(), "HeadcrabCanister.InFlight" );
 	}
 
 	// Place the canister
@@ -834,6 +837,7 @@ void CEnvHeadcrabCanister::SetLanded( void )
 void CEnvHeadcrabCanister::Landed( void )
 {
 	EmitSound( "HeadcrabCanister.AfterLanding" );
+	StopSound( "HeadcrabCanister.InFlight" );
 
 	// Lock us now that we've stopped
 	SetLanded();
@@ -896,6 +900,7 @@ void CEnvHeadcrabCanister::Detonate( )
 
 	if ( !HasSpawnFlags( SF_NO_IMPACT_SOUND ) )
 	{
+		StopSound( "HeadcrabCanister.InFlight" );
 		StopSound( "HeadcrabCanister.IncomingSound" );
 		EmitSound( "HeadcrabCanister.Explosion" );
 	}

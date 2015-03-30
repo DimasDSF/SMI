@@ -40,10 +40,13 @@ public:
 	void	Think( void );
 	void	DrawOverlays(void);
 
+	void	MessageSet( const char *pMessage ) { m_messageText = AllocPooledString(pMessage); }
+
 	virtual void UpdateOnRemove();
 
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );
+	void	InputSetText( inputdata_t &inputdata );
 
 	DECLARE_DATADESC();
 
@@ -68,8 +71,11 @@ BEGIN_DATADESC( CMessageEntity )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID,	 "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	 "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetText", InputSetText ),
 
 END_DATADESC()
+
+
 
 static CUtlVector< CHandle< CMessageEntity > >	g_MessageEntities;
 
@@ -170,6 +176,11 @@ void CMessageEntity::InputEnable( inputdata_t &inputdata )
 void CMessageEntity::InputDisable( inputdata_t &inputdata )
 {
 	m_bEnabled = false;
+}
+
+void CMessageEntity::InputSetText( inputdata_t &inputdata )
+{
+	MessageSet( STRING(inputdata.value.StringID()) );
 }
 
 // This is a hack to make point_message stuff appear in developer 0 release builds

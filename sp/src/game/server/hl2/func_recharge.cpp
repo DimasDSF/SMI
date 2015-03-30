@@ -535,7 +535,7 @@ void CNewRecharge::StudioFrameAdvance( void )
 
 
 //-----------------------------------------------------------------------------
-// Max juice for recharger
+// Max juice for recharge
 //-----------------------------------------------------------------------------
 float CNewRecharge::MaxJuice()	const
 {
