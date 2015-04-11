@@ -1784,6 +1784,9 @@
     <ClInclude Include="toolframework_server.h">
       <Filter>Tools Framework</Filter>
     </ClInclude>
+    <ClInclude Include="info_target_redirect.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gamedll_replay.cpp">
@@ -3506,6 +3509,9 @@
       <Filter>Tools Framework</Filter>
     </ClCompile>
     <ClCompile Include="physgun.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="info_target_redirect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

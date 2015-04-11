@@ -125,7 +125,14 @@ void CHudFlashlight::Paint()
 	}
 	else if ( bIsOn == false )
 	{
+		if ( (pPlayer->m_HL2Local.m_flFlashBattery) == 100.0f )
+		{
+			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SuitFlashLightOffAndFull" );
+		}
+		else
+		{
 		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SuitFlashlightOff" ); 
+		}
 	}
 
 	// get bar chunks
