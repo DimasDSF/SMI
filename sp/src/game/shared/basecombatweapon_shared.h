@@ -172,6 +172,9 @@ public:
 
 	bool CanDrop( void ){return true;}
 
+	void InputAllowPlayerPickup( inputdata_t &inputdata );
+	void InputDisallowPlayerPickup( inputdata_t &inputdata );
+
 	virtual void			Spawn( void );
 	virtual void			Precache( void );
 

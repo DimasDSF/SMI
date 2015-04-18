@@ -653,6 +653,16 @@ float CBaseCombatWeapon::GetWeaponIdleTime( void )
 	return m_flTimeWeaponIdle;
 }
 
+void CBaseCombatWeapon::InputAllowPlayerPickup( inputdata_t &inputdata )
+{
+	RemoveSpawnFlags( SF_WEAPON_NO_PLAYER_PICKUP );
+}
+
+void CBaseCombatWeapon::InputDisallowPlayerPickup( inputdata_t &inputdata )
+{
+	AddSpawnFlags( 	SF_WEAPON_NO_PLAYER_PICKUP );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Drop/throw the weapon with the given velocity.
 //-----------------------------------------------------------------------------
@@ -2656,6 +2666,8 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 
 	DEFINE_THINKFUNC( HideThink ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "AllowPlayerPickup", InputAllowPlayerPickup ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisallowPlayerPickup", InputDisallowPlayerPickup ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse"),
