@@ -189,6 +189,7 @@ protected:
 
 	int m_nInnerRadius;	// The camera will only lock onto enemies that are within the inner radius.
 	int m_nOuterRadius; // The camera will flash amber when enemies are within the outer radius, but outside the inner radius.
+	int m_nRandomClickCount;
 
 	bool m_bActive;		// The camera is deployed and looking for targets
 	bool m_bAngry;		// The camera has gotten angry at someone and sounded an alarm.
@@ -659,6 +660,7 @@ void CNPC_CombineCamera::ActiveThink()
 				if (HasSpawnFlags(SF_COMBINE_CAMERA_BECOMEANGRY))
 				{
 					SetAngry(true);
+					m_nRandomClickCount = random->RandomInt(1,5);
 				}
 				else
 				{
@@ -744,14 +746,17 @@ void CNPC_CombineCamera::TrackTarget( CBaseEntity *pTarget )
 void CNPC_CombineCamera::MaintainEye()
 {
 	// Angry cameras take a few pictures of their target.
-	if ((m_bAngry) && (m_nClickCount <= 3))
+	if ((m_bAngry) && (m_nClickCount <= m_nRandomClickCount))
 	{
+		if ( m_nClickCount == 1 )
+		{
+			m_OnPhoto.FireOutput( m_hEnemyTarget, this, 0);
+		}
 		if ((m_flClickTime != 0) && (m_flClickTime < gpGlobals->curtime))
 		{
 			m_pEyeFlash->SetScale(1.0);
 			m_pEyeFlash->SetBrightness(255);
 			m_pEyeFlash->SetColor(255,255,255);
-			m_OnPhoto.FireOutput( m_hEnemyTarget, this, 0);
 			EmitSound("NPC_CombineCamera.Click");
 
 			m_flTurnOffEyeFlashTime = gpGlobals->curtime + 0.1;
