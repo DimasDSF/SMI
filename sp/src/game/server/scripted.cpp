@@ -314,6 +314,7 @@ void CAI_ScriptedSequence::InputMoveToPosition( inputdata_t &inputdata )
 		// Yes, are they already playing this script?
 		if ( pTarget->m_scriptState == CAI_BaseNPC::SCRIPT_PLAYING || pTarget->m_scriptState == CAI_BaseNPC::SCRIPT_POST_IDLE )
 		{
+			OnInPosition();
 			// Yes, see if we can enqueue ourselves.
 			if ( pTarget->CanPlaySequence( FCanOverrideState(), SS_INTERRUPT_BY_NAME ) )
 			{
@@ -833,6 +834,7 @@ bool CAI_ScriptedSequence::StartSequence( CAI_BaseNPC *pTarget, string_t iszSeq,
 	m_sequenceStarted = true;
 	m_bIsPlayingEntry = (iszSeq == m_iszEntry);
 	m_bIsPreIdle = (iszSeq == m_iszPreIdle);
+	m_bIsPlaying = (iszSeq == m_iszPlay);
 
 	if ( !iszSeq && completeOnEmpty )
 	{
@@ -841,6 +843,16 @@ bool CAI_ScriptedSequence::StartSequence( CAI_BaseNPC *pTarget, string_t iszSeq,
 	}
 
 	if ( m_bIsPreIdle )
+	{
+		OnInPosition();
+	}
+
+	if ( m_iszPreIdle == NULL_STRING && m_iszEntry != NULL_STRING && m_bIsPlayingEntry)
+	{
+		OnInPosition();
+	}
+
+	if ( m_iszPreIdle == NULL_STRING && m_iszEntry == NULL_STRING && IsPlayingAction())
 	{
 		OnInPosition();
 	}
@@ -886,7 +898,6 @@ void CAI_ScriptedSequence::SynchronizeSequence( CAI_BaseNPC *pNPC )
 	Assert( m_iDelay == 0 );
 	Assert( m_bWaitForBeginSequence == false );
 	m_bForceSynch = false;
-
 	// Reset cycle position
 	float flCycleRate = pNPC->GetSequenceCycleRate( pNPC->GetSequence() );
 	float flInterval = gpGlobals->curtime - m_startTime;

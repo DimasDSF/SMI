@@ -163,6 +163,7 @@ private:
 	int m_fMoveTo;
 	bool m_bIsPlayingEntry;
 	bool m_bIsPreIdle;
+	bool m_bIsPlaying;
 	bool m_bLoopActionSequence;
 	bool m_bSynchPostIdles;
 	bool m_bIgnoreGravity;

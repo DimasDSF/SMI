@@ -132,6 +132,7 @@ public:
 	void InputDisable(inputdata_t &inputdata);
 	void InputSetAngry(inputdata_t &inputdata);
 	void InputSetIdle(inputdata_t &inputdata);
+	void InputShotTarget(inputdata_t &inputdata);
 
 	void DrawDebugGeometryOverlays(void);
 	
@@ -198,6 +199,8 @@ protected:
 
 	EHANDLE	m_hEnemyTarget;			// Entity we acquired as an enemy.	
 
+	COutputEvent	m_OnPhoto;
+
 	float m_flPingTime;
 	float m_flClickTime;			// Time to take next picture while angry.
 	int m_nClickCount;				// Counts pictures taken since we last became angry.
@@ -247,6 +250,8 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_INPUTFUNC(FIELD_VOID, "Disable", InputDisable),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetAngry", InputSetAngry),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetIdle", InputSetIdle),
+
+	DEFINE_OUTPUT( m_OnPhoto, "OnPhoto"),
 
 END_DATADESC()
 
@@ -746,7 +751,7 @@ void CNPC_CombineCamera::MaintainEye()
 			m_pEyeFlash->SetScale(1.0);
 			m_pEyeFlash->SetBrightness(255);
 			m_pEyeFlash->SetColor(255,255,255);
-
+			m_OnPhoto.FireOutput( m_hEnemyTarget, this, 0);
 			EmitSound("NPC_CombineCamera.Click");
 
 			m_flTurnOffEyeFlashTime = gpGlobals->curtime + 0.1;
@@ -1182,4 +1187,12 @@ void CNPC_CombineCamera::DrawDebugGeometryOverlays(void)
 	}
 
 	BaseClass::DrawDebugGeometryOverlays();
+}
+
+//-----------------------------------------
+//
+//-----------------------------------------
+void CNPC_CombineCamera::InputShotTarget( inputdata_t &inputdata )
+{
+	m_OnPhoto.FireOutput( inputdata.pActivator, inputdata.pCaller, 0 );
 }

@@ -111,6 +111,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_FIELD( m_bHackedByAlyx, FIELD_BOOLEAN ),
 
 	DEFINE_KEYFIELD( m_iKeySkin, FIELD_INTEGER, "SkinNumber" ),
+	DEFINE_KEYFIELD( m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed" ),
 	
 	DEFINE_THINKFUNC( Retire ),
 	DEFINE_THINKFUNC( Deploy ),
@@ -133,6 +134,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "DepleteAmmo", InputDepleteAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "RestoreAmmo", InputRestoreAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
 
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
 	DEFINE_OUTPUT( m_OnRetire, "OnRetire" ),
@@ -164,6 +166,7 @@ CNPC_FloorTurret::CNPC_FloorTurret( void ) :
 	m_flPlayerDropTime( 0.0f ),
 	m_flShotTime( 0.0f ),
 	m_flLastSight( 0.0f ),
+	m_flTurnSpeed( 360.0f ),
 	m_bBlinkState( false ),
 	m_flThrashTime( 0.0f ),
 	m_pMotionController( NULL ),
@@ -621,8 +624,11 @@ bool CNPC_FloorTurret::HandleInteraction(int interactionType, void *data, CBaseC
 //-----------------------------------------------------------------------------
 float CNPC_FloorTurret::MaxYawSpeed( void )
 {
-	//TODO: Scale by difficulty?
-	return 360.0f;
+	if ( m_flTurnSpeed <= 0.0 || m_flTurnSpeed > 360.0)
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	return m_flTurnSpeed;
 }
 
 //-----------------------------------------------------------------------------
@@ -1733,6 +1739,28 @@ void CNPC_FloorTurret::Disable( void )
 	}
 	else
 		SetThink( &CNPC_FloorTurret::DisabledThink );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputSetTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetTurnSpeed;
+	m_flTempSetTurnSpeed = inputdata.value.Float();
+//	m_flTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetTurnSpeed <= 0.0 )
+	{
+		m_flTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetTurnSpeed > 360.0 )
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flTurnSpeed = m_flTempSetTurnSpeed;
+	}
 }
 
 //-----------------------------------------------------------------------------

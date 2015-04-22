@@ -6632,11 +6632,11 @@ bool CBasePlayer::BumpWeapon( CBaseCombatWeapon *pWeapon )
 			if ( !PlayerHasMegaPhysCannon() )
 			{
 				// If it uses clips, load it full. (this is the first time you've picked up this type of weapon)
-				if ( pWeapon->UsesClipsForAmmo1() )
-				{
-					pWeapon->m_iClip1 = pWeapon->GetMaxClip1();
-				}
-
+//				if ( pWeapon->UsesClipsForAmmo1() )
+//				{
+//					pWeapon->m_iClip1 = pWeapon->GetMaxClip1();
+//				}
+//
 				Weapon_Switch( pWeapon );
 			}
 #endif

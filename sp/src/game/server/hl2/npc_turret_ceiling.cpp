@@ -110,6 +110,8 @@ public:
 	void	InputToggle( inputdata_t &inputdata );
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );
+	void	InputSetTurnSpeed( inputdata_t &inputdata );
+	void	InputForceSetTarget( inputdata_t &inputdata );
 
 	void	SetLastSightTime();
 	
@@ -172,6 +174,8 @@ protected:
 	float	m_flShotTime;
 	float	m_flLastSight;
 	float	m_flPingTime;
+	float	m_flTurnSpeed;
+	float	m_fForceTargetDelay;
 
 	QAngle	m_vecGoalAngles;
 
@@ -187,6 +191,8 @@ protected:
 //Datatable
 BEGIN_DATADESC( CNPC_CeilingTurret )
 
+	DEFINE_KEYFIELD( m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed" ),
+	DEFINE_KEYFIELD( m_fForceTargetDelay, FIELD_FLOAT, "DelayOfForceTarget" ),
 	DEFINE_FIELD( m_iAmmoType,		FIELD_INTEGER ),
 	DEFINE_KEYFIELD( m_iMinHealthDmg, FIELD_INTEGER, "minhealthdmg" ),
 	DEFINE_FIELD( m_bAutoStart,		FIELD_BOOLEAN ),
@@ -210,6 +216,8 @@ BEGIN_DATADESC( CNPC_CeilingTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "Toggle", InputToggle ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
+	DEFINE_INPUTFUNC( FIELD_STRING, "ForceSetTarget", InputForceSetTarget),
 
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
 	DEFINE_OUTPUT( m_OnRetire, "OnRetire" ),
@@ -219,6 +227,7 @@ END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( npc_turret_ceiling, CNPC_CeilingTurret );
 
+int forcetargettime;
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
@@ -232,6 +241,8 @@ CNPC_CeilingTurret::CNPC_CeilingTurret( void )
 	m_flPingTime		= 0;
 	m_flShotTime		= 0;
 	m_flLastSight		= 0;
+	m_flTurnSpeed		= 360.0;
+	m_fForceTargetDelay = 5.0;
 	m_bBlinkState		= false;
 	m_bEnabled			= false;
 
@@ -490,8 +501,11 @@ void CNPC_CeilingTurret::SetLastSightTime()
 //-----------------------------------------------------------------------------
 float CNPC_CeilingTurret::MaxYawSpeed( void )
 {
-	//TODO: Scale by difficulty?
-	return 360.0f;
+	if ( m_flTurnSpeed <= 0.0 || m_flTurnSpeed > 360.0)
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	return m_flTurnSpeed;
 }
 
 //-----------------------------------------------------------------------------
@@ -951,6 +965,71 @@ void CNPC_CeilingTurret::Ping( void )
 	SetEyeState( TURRET_EYE_SEEKING_TARGET );
 
 	m_flPingTime = gpGlobals->curtime + CEILING_TURRET_PING_TIME;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Forcing turret to attack a specific target
+//-----------------------------------------------------------------------------
+void CNPC_CeilingTurret::InputForceSetTarget( inputdata_t &inputdata )
+{
+	if ( forcetargettime == 0 )
+	{
+		forcetargettime = gpGlobals->curtime;
+		CBaseEntity *pFTarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+		if ( pFTarget == NULL )
+		{
+			CBaseEntity *pFTarget = gEntList.FindEntityByClassname( NULL, inputdata.value.String() );
+			if ( pFTarget == NULL )
+			{
+				DevMsg( 2,  "Unable to set target to this'\n", inputdata.value.String());
+			}
+		}
+		SetEnemy( pFTarget );
+	}
+	else if (forcetargettime != 0 && ( forcetargettime + m_fForceTargetDelay <= gpGlobals->curtime ))
+	{
+		forcetargettime = gpGlobals->curtime;
+		CBaseEntity *pFTarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+		if ( pFTarget == NULL )
+		{
+			CBaseEntity *pFTarget = gEntList.FindEntityByClassname( NULL, inputdata.value.String() );
+			if ( pFTarget == NULL )
+			{
+				DevMsg( 2,  "Unable to set target to this'\n", inputdata.value.String());
+			}
+		}
+		SetEnemy( pFTarget );
+	}
+	else if (forcetargettime != 0 && ( forcetargettime + m_fForceTargetDelay >= gpGlobals->curtime ))
+	{
+		DevWarning( 2, "Turret refused changing target because it already is forced to a target less then a specified delay before\n" );
+	}
+	else
+	{
+		DevWarning( 2, "Warning refused to change target due to unknown error" );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_CeilingTurret::InputSetTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetTurnSpeed;
+	m_flTempSetTurnSpeed = inputdata.value.Float();
+//	m_flTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetTurnSpeed <= 0.0 )
+	{
+		m_flTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetTurnSpeed > 360.0 )
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flTurnSpeed = m_flTempSetTurnSpeed;
+	}
 }
 
 //-----------------------------------------------------------------------------
