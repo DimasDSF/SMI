@@ -639,11 +639,11 @@ void CC_Player_Drop( void )
 	CBasePlayer *pPlayer = ToBasePlayer( UTIL_GetCommandClient() );
 
 	CBaseCombatWeapon *pWeapon = pPlayer->GetActiveWeapon();
-
-	if ( pWeapon->CanDrop() ) 
+	
+	if ( pWeapon && pWeapon->CanDrop() ) 
 	{ 
 		pPlayer->Weapon_Drop( pWeapon, NULL, NULL); 
-	} 
+	}
 } 
 static ConCommand drop("drop", CC_Player_Drop, "Drop Player Weapon.");
 

@@ -1420,6 +1420,7 @@ CWeaponRPG::CWeaponRPG()
 	m_bInitialStateUpdate= false;
 	m_bHideGuiding = false;
 	m_bGuiding = false;
+	m_bCanBeDropped = false;
 
 	m_fMinRange1 = m_fMinRange2 = 40*12;
 	m_fMaxRange1 = m_fMaxRange2 = 500*12;

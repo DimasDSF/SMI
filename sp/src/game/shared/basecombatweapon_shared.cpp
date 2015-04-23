@@ -71,6 +71,8 @@ CBaseCombatWeapon::CBaseCombatWeapon()
 	m_fMaxRange1		= 1024;
 	m_fMaxRange2		= 1024;
 
+	m_bCanBeDropped	= true; //Can be Dropped (All weapons By Default)
+
 	m_bReloadsSingly	= false;
 
 	// Defaults to zero

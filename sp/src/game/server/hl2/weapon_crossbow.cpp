@@ -504,6 +504,7 @@ CWeaponCrossbow::CWeaponCrossbow( void )
 	m_bAltFiresUnderwater = true;
 	m_bInZoom			= false;
 	m_bMustReload		= false;
+	m_bCanBeDropped		= false;
 }
 
 #define	CROSSBOW_GLOW_SPRITE	"sprites/light_glow02_noz.vmt"
