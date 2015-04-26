@@ -256,6 +256,7 @@ public:
 	bool			Weapon_CanUse( CBaseCombatWeapon *pWeapon );
 	void			Weapon_Equip( CBaseCombatWeapon *pWeapon );
 	void			PickupWeapon( CBaseCombatWeapon *pWeapon );
+	void			ForcePickupWeapon( CBaseCombatWeapon *pWeapon, CBaseEntity *pThisNPC );
 	
 	bool 			FindCoverPos( CBaseEntity *pEntity, Vector *pResult);
 	bool			FindCoverPosInRadius( CBaseEntity *pEntity, const Vector &goalPos, float coverRadius, Vector *pResult );
@@ -302,6 +303,9 @@ public:
 	void			InputSetReadinessMedium( inputdata_t &inputdata );
 	void			InputSetReadinessHigh( inputdata_t &inputdata );
 	void			InputLockReadiness( inputdata_t &inputdata );
+	void			InputPickupWeapon( inputdata_t &inputdata );
+	void			InputEquipSpecificWeapon( inputdata_t &inputdata );
+	void			InputDropWeapon( inputdata_t &inputdata );
 #if HL2_EPISODIC
 	void			InputClearAllOuputs( inputdata_t &inputdata ); ///< annihilate every output on this npc
 #endif

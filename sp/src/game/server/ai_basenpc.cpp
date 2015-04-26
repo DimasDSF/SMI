@@ -5185,8 +5185,8 @@ bool CAI_BaseNPC::ShouldLookForBetterWeapon()
 	if( IsMovingToPickupWeapon() )
 		return false;
 
-	if( !IsPlayerAlly() && GetActiveWeapon() )
-		return false;
+//	if( !IsPlayerAlly() && GetActiveWeapon() )
+//		return false;
 
 	if( IsInAScript() )
 		return false;
