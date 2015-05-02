@@ -657,12 +657,16 @@ float CBaseCombatWeapon::GetWeaponIdleTime( void )
 
 void CBaseCombatWeapon::InputAllowPlayerPickup( inputdata_t &inputdata )
 {
+#if !defined( CLIENT_DLL )
 	RemoveSpawnFlags( SF_WEAPON_NO_PLAYER_PICKUP );
+#endif
 }
 
 void CBaseCombatWeapon::InputDisallowPlayerPickup( inputdata_t &inputdata )
 {
+#if !defined( CLIENT_DLL )
 	AddSpawnFlags( 	SF_WEAPON_NO_PLAYER_PICKUP );
+#endif
 }
 
 //-----------------------------------------------------------------------------

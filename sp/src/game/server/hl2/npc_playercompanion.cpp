@@ -2334,10 +2334,10 @@ WeaponProficiency_t CNPC_PlayerCompanion::CalcWeaponProficiency( CBaseCombatWeap
 {
 	if( FClassnameIs( pWeapon, "weapon_ar2" ) )
 	{
-		return WEAPON_PROFICIENCY_VERY_GOOD;
+		return WEAPON_PROFICIENCY_GOOD;
 	}
 
-	return WEAPON_PROFICIENCY_PERFECT;
+	return WEAPON_PROFICIENCY_VERY_GOOD;
 }
 
 //-----------------------------------------------------------------------------

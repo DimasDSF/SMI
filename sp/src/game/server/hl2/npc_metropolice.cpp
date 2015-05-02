@@ -4966,7 +4966,7 @@ WeaponProficiency_t CNPC_MetroPolice::CalcWeaponProficiency( CBaseCombatWeapon *
 {
 	if( FClassnameIs( pWeapon, "weapon_pistol" ) )
 	{
-		return WEAPON_PROFICIENCY_POOR;
+		return WEAPON_PROFICIENCY_VERY_GOOD;
 	}
 
 	if( FClassnameIs( pWeapon, "weapon_smg1" ) )
