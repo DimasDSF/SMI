@@ -1689,7 +1689,7 @@ void CWeaponRPG::SuppressGuiding( bool state )
 
 	if ( m_hLaserDot == NULL )
 	{
-		StartGuiding();
+		//StartGuiding();
 
 		//STILL!?
 		if ( m_hLaserDot == NULL )
@@ -1712,7 +1712,7 @@ void CWeaponRPG::SuppressGuiding( bool state )
 //-----------------------------------------------------------------------------
 bool CWeaponRPG::Lower( void )
 {
-	if ( m_hMissile != NULL )
+	if ( m_hMissile != NULL && IsGuiding() )
 		return false;
 
 	return BaseClass::Lower();
@@ -1749,13 +1749,13 @@ void CWeaponRPG::ItemPostFrame( void )
 
 	//Player has toggled guidance state
 	//Adrian: Players are not allowed to remove the laser guide in single player anymore, bye!
-	if ( g_pGameRules->IsMultiplayer() == true )
-	{
+//	if ( g_pGameRules->IsMultiplayer() == true )
+//	{
 		if ( pPlayer->m_afButtonPressed & IN_ATTACK2 )
 		{
 			ToggleGuiding();
 		}
-	}
+//	}
 
 	//Move the laser
 	UpdateLaserPosition();
@@ -1841,7 +1841,7 @@ bool CWeaponRPG::Deploy( void )
 bool CWeaponRPG::Holster( CBaseCombatWeapon *pSwitchingTo )
 {
 	//Can't have an active missile out
-	if ( m_hMissile != NULL )
+	if ( m_hMissile != NULL && IsGuiding() )
 		return false;
 
 	StopGuiding();
@@ -2012,6 +2012,9 @@ bool CWeaponRPG::Reload( void )
 
 	if ( pOwner->GetAmmoCount(m_iPrimaryAmmoType) <= 0 )
 		return false;
+
+	if ( pOwner->GetActiveWeapon() != this )
+	return false;
 
 	WeaponSound( RELOAD );
 	
