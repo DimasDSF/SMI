@@ -59,7 +59,7 @@ bool CBaseCombatCharacter::Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmo
 			return false;
 	}
 
-	m_hActiveWeapon = pWeapon;
+//	m_hActiveWeapon = pWeapon;
 
 	return pWeapon->Deploy( );
 }
@@ -78,8 +78,12 @@ bool CBaseCombatCharacter::Weapon_CanSwitchTo( CBaseCombatWeapon *pWeapon )
 #else
 		IClientVehicle *pVehicle = pPlayer->GetVehicle();
 #endif
-		if (pVehicle && !pPlayer->UsingStandardWeaponsInVehicle())
-			return false;
+	if (pVehicle && !pPlayer->UsingStandardWeaponsInVehicle())
+		return false;
+#ifndef CLIENT_DLL
+	if(pPlayer->IsSpawning())
+		return false;
+#endif
 	}
 
 	if ( !pWeapon->HasAnyAmmo() && !GetAmmoCount( pWeapon->m_iPrimaryAmmoType ) )

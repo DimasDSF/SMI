@@ -125,6 +125,8 @@ public:
 	virtual void		Spawn( void );
 	virtual void		Precache();
 
+	friend class CShowWeapon; // This allows CShowWeapon to access whatever it needs to update for the character
+
 	virtual int			Restore( IRestore &restore );
 
 	virtual const impactdamagetable_t	&GetPhysicsImpactDamageTable( void );

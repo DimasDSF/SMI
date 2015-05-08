@@ -304,6 +304,86 @@ void CBaseCombatWeapon::Precache( void )
 	}
 }
 
+#ifdef CLIENT_DLL
+#define CShowWeapon C_ShowWeapon
+#endif
+class CShowWeapon : public CAutoGameSystemPerFrame
+{
+public:
+	bool Init()
+	{
+		ClearShowWeapon();
+		return true;
+	}
+	void FrameUpdatePreEntityThink()
+	{
+		if(m_pWeapon&&m_flTime<gpGlobals->curtime)
+		{
+			ShowWeapon();
+		}
+	}
+	void Update(float frametime)
+	{
+		FrameUpdatePreEntityThink(); // This adds compatibility to this gamesystem on the client
+	}
+	void SetShowWeapon(CBaseCombatWeapon *pWeapon, int iActivity, float delta)
+	{
+		m_pWeapon = pWeapon;
+		m_iActivity = iActivity;
+		if(delta==0)
+		{
+			ShowWeapon();
+		}
+		else
+		{
+			m_flTime = gpGlobals->curtime + delta;
+		}
+	}
+	void ClearShowWeapon()
+	{
+		m_pWeapon = NULL;
+	}
+private:
+	void ShowWeapon()
+	{
+		Assert(m_pWeapon);
+		m_pWeapon->SetWeaponVisible(true);
+		if(m_pWeapon->GetOwner())
+		{
+			CBaseCombatWeapon *pLastWeapon = m_pWeapon->GetOwner()->GetActiveWeapon();
+			m_pWeapon->GetOwner()->m_hActiveWeapon = m_pWeapon;
+			CBasePlayer *pOwner = ToBasePlayer( m_pWeapon->GetOwner() );
+			if ( pOwner )
+			{
+				m_pWeapon->SetViewModel();
+				m_pWeapon->SendWeaponAnim( m_iActivity );
+ 
+				pOwner->SetNextAttack( gpGlobals->curtime + m_pWeapon->SequenceDuration() );
+ 
+				if ( pLastWeapon && pOwner->Weapon_ShouldSetLast( pLastWeapon, m_pWeapon ) )
+				{
+					pOwner->Weapon_SetLast( pLastWeapon->GetLastWeapon() );
+				}
+ 
+				CBaseViewModel *pViewModel = pOwner->GetViewModel();
+				Assert( pViewModel );
+				if ( pViewModel )
+					pViewModel->RemoveEffects( EF_NODRAW );
+				pOwner->ResetAutoaim( );
+			}
+		}
+ 
+		// Can't shoot again until we've finished deploying
+		m_pWeapon->m_flNextSecondaryAttack = m_pWeapon->m_flNextPrimaryAttack	= gpGlobals->curtime + m_pWeapon->SequenceDuration();
+ 
+		ClearShowWeapon();
+	}
+	CBaseCombatWeapon *m_pWeapon;
+	int m_iActivity;
+	float m_flTime;
+};
+static CShowWeapon g_ShowWeapon;
+
 //-----------------------------------------------------------------------------
 // Purpose: Get my data in the file weapon info array
 //-----------------------------------------------------------------------------
@@ -1404,49 +1484,35 @@ bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, int iActivity, char *szAnimExt )
 {
 	// Msg( "deploy %s at %f\n", GetClassname(), gpGlobals->curtime );
-
+ 
 	// Weapons that don't autoswitch away when they run out of ammo 
 	// can still be deployed when they have no ammo.
 	if ( !HasAnyAmmo() && AllowsAutoSwitchFrom() )
 		return false;
-
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	if ( pOwner )
+ 
+	float flSequenceDuration = 0.0f;
+	if(GetOwner())
 	{
-		// Dead men deploy no weapons
-		if ( pOwner->IsAlive() == false )
+		if ( !GetOwner()->IsAlive() )
 			return false;
-
-		pOwner->SetAnimationExtension( szAnimExt );
-
-		SetViewModel();
-		SendWeaponAnim( iActivity );
-
-		pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
+		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+		if ( pOwner )
+		{
+			pOwner->SetAnimationExtension( szAnimExt );
+		}
+		CBaseCombatWeapon *pActive = GetOwner()->GetActiveWeapon();
+		if ( pActive && pActive->GetActivity() == ACT_VM_HOLSTER )
+		{
+			flSequenceDuration = pActive->SequenceDuration();
+		}
 	}
-
-	// Can't shoot again until we've finished deploying
-	m_flNextPrimaryAttack	= gpGlobals->curtime + SequenceDuration();
-	m_flNextSecondaryAttack	= gpGlobals->curtime + SequenceDuration();
-	m_flHudHintMinDisplayTime = 0;
-
-	m_bAltFireHudHintDisplayed = false;
-	m_bReloadHudHintDisplayed = false;
-	m_flHudHintPollTime = gpGlobals->curtime + 5.0f;
-	
-	WeaponSound( DEPLOY );
-
-	SetWeaponVisible( true );
-
-/*
-
-This code is disabled for now, because moving through the weapons in the carousel 
-selects and deploys each weapon as you pass it. (sjb)
-
-*/
-
-	SetContextThink( NULL, 0, HIDEWEAPON_THINK_CONTEXT );
-
+	g_ShowWeapon.SetShowWeapon( this, iActivity, flSequenceDuration );
+ 
+#ifndef CLIENT_DLL
+	// Cancel any pending hide events
+	g_EventQueue.CancelEventOn( this, "HideWeapon" );
+#endif
+ 
 	return true;
 }
 

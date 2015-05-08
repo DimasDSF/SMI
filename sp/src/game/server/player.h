@@ -257,7 +257,7 @@ public:
 	void					SetBodyPitch( float flPitch );
 
 	virtual void			UpdateOnRemove( void );
-
+	bool IsSpawning() { return m_bSpawning; }
 	static CBasePlayer		*CreatePlayer( const char *className, edict_t *ed );
 
 	virtual void			CreateViewModel( int viewmodelindex = 0 );
@@ -897,7 +897,7 @@ private:
 	Activity				m_Activity;
 
 protected:
-
+	bool m_bSpawning;
 	void					CalcPlayerView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
 	void					CalcVehicleView( IServerVehicle *pVehicle, Vector& eyeOrigin, QAngle& eyeAngles, 	
 								float& zNear, float& zFar, float& fov );
