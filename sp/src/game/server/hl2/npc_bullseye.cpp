@@ -384,11 +384,11 @@ bool CNPC_Bullseye::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 	}
 	else if (targettedtime != 0 && ( targettedtime + m_fTargetDelay >= gpGlobals->curtime ))
 	{
-		DevWarning( 2, "Npc_bullseye fired an output OnTargeted but was denied due to it being retriggered too early\n" );
+		//DevWarning( 2, "Npc_bullseye fired an output OnTargeted but was denied due to it being retriggered too early\n" );
 	}
 	else
 	{
-		DevWarning( 2, "Warning Npc_bullseye did not manage to fire OnTargeted output due to unknown error" );
+		//DevWarning( 2, "Warning Npc_bullseye did not manage to fire OnTargeted output due to unknown error" );
 	}
 	return BaseClass::CanBeAnEnemyOf( pEnemy );
 }

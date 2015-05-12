@@ -3264,7 +3264,7 @@ int CNPC_MetroPolice::SelectScheduleInvestigateSound()
 	// Don't investigate if the player's not a criminal.
 	if ( PlayerIsCriminal() && !HasCondition( COND_SEE_ENEMY ) )
 	{
-		if ( HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_HEAR_PLAYER ) )
+		if ( (m_NPCState != NPC_STATE_COMBAT) && ( HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_HEAR_PLAYER ) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_WORLD ) || HasCondition( COND_HEAR_PHYSICS_DANGER ) ) )
 		{
 			if ( m_pSquad && OccupyStrategySlot( SQUAD_SLOT_INVESTIGATE_SOUND ) )
 			{
@@ -5273,7 +5273,7 @@ DEFINE_SCHEDULE
 	"		TASK_STORE_LASTPOSITION			0"
 	"		TASK_METROPOLICE_GET_PATH_TO_BESTSOUND_LOS		0"
 	"		TASK_FACE_IDEAL					0"
-//	"		TASK_SET_TOLERANCE_DISTANCE		32"
+//	"		TASK_SET_TOLERANCE_DISTANCE		16"
 	"		TASK_RUN_PATH					0"
 	"		TASK_WAIT_FOR_MOVEMENT			0"
 	"		TASK_STOP_MOVING				0"
@@ -5292,6 +5292,7 @@ DEFINE_SCHEDULE
 	"		COND_LIGHT_DAMAGE"
 	"		COND_HEAVY_DAMAGE"
 	"		COND_HEAR_DANGER"
+	"		COND_IDLE_INTERRUPT"
 );
 
 

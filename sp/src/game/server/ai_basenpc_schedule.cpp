@@ -4394,13 +4394,14 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
-	if ( HasCondition ( COND_HEAR_DANGER ) ||
-		 HasCondition ( COND_HEAR_COMBAT ) ||
-		 HasCondition ( COND_HEAR_WORLD  ) ||
-		 HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
-		 HasCondition ( COND_HEAR_PLAYER ) )
+if ( (m_NPCState != NPC_STATE_COMBAT) &&
+			 ( HasCondition ( COND_HEAR_DANGER ) ||
+			  HasCondition ( COND_HEAR_PLAYER ) ||
+			  HasCondition ( COND_HEAR_WORLD  ) ||
+			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
+			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		return SCHED_ALERT_FACE_BESTSOUND;
+		return SCHED_INVESTIGATE_SOUND;
 	}
 	
 	// no valid route!
@@ -4433,16 +4434,23 @@ int CAI_BaseNPC::SelectAlertSchedule()
 		return SCHED_ALERT_REACT_TO_COMBAT_SOUND;
 	}
 
-	if ( (m_NPCState != NPC_STATE_COMBAT) ||
-			  HasCondition ( COND_HEAR_DANGER ) ||
+	if ( (m_NPCState != NPC_STATE_COMBAT) &&
+			 ( HasCondition ( COND_HEAR_DANGER ) ||
 			  HasCondition ( COND_HEAR_PLAYER ) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_PHYSICS_DANGER ) ||
 			  HasCondition ( COND_HEAR_BUGBAIT ) ||
-			  HasCondition ( COND_HEAR_COMBAT ) )
+			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		return SCHED_INVESTIGATE_SOUND;
+		if ( random->RandomInt(0,100) > 49)
+		{
+			return SCHED_INVESTIGATE_SOUND;
+		}
+		else
+		{
+			return SCHED_ALERT_FACE_BESTSOUND;
+		}
 	}
 
 	if ( gpGlobals->curtime - GetEnemies()->LastTimeSeen( AI_UNKNOWN_ENEMY ) < TIME_CARE_ABOUT_DAMAGE )

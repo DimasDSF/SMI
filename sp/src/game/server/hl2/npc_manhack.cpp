@@ -393,7 +393,7 @@ void CNPC_Manhack::Event_Killed( const CTakeDamageInfo &info )
 	}
 
 	// Always gib when clubbed or blasted or crushed, or just randomly
-	if ( ( info.GetDamageType() & (DMG_CLUB|DMG_CRUSH|DMG_BLAST) ) || ( random->RandomInt( 0, 1 ) ) )
+	if ( ( info.GetDamageType() & (DMG_CLUB|DMG_CRUSH|DMG_BLAST) ) )
 	{
 		m_bGib = true;
 	}
