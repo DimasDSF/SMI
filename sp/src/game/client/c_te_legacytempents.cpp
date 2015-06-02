@@ -1688,7 +1688,7 @@ void CTempEnts::EjectBrass( const Vector &pos1, const QAngle &angles, const QAng
 						dir[1] + random->RandomFloat(-64,64),
 						dir[2] + random->RandomFloat(  0,64) ) );
 
-	pTemp->die = gpGlobals->curtime + 60.0f + random->RandomFloat( 0.0f, 1.0f );	// Add an extra 0-1 secs of life	
+	pTemp->die = gpGlobals->curtime + 30.0f + random->RandomFloat( 0.0f, 1.0f );	// Add an extra 0-1 secs of life	
 }
 
 //-----------------------------------------------------------------------------

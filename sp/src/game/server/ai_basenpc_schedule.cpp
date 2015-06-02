@@ -44,6 +44,7 @@ extern ConVar ai_use_think_optimizations;
 #define ShouldUseEfficiency() ( ai_use_think_optimizations.GetBool() && ai_use_efficiency.GetBool() )
 
 ConVar	ai_simulate_task_overtime( "ai_simulate_task_overtime", "0" );
+int m_iRInvestSched;
 
 #define MAX_TASKS_RUN 10
 
@@ -4439,11 +4440,10 @@ int CAI_BaseNPC::SelectAlertSchedule()
 			  HasCondition ( COND_HEAR_PLAYER ) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
-			  HasCondition ( COND_HEAR_PHYSICS_DANGER ) ||
-			  HasCondition ( COND_HEAR_BUGBAIT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		if ( random->RandomInt(0,100) > 49)
+		m_iRInvestSched=random->RandomInt(1,10);
+		if ( m_iRInvestSched > 4 )
 		{
 			return SCHED_INVESTIGATE_SOUND;
 		}

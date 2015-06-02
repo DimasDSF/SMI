@@ -127,7 +127,7 @@ public:
 	Class_T	Classify( void ) 
 	{
 		if( m_bEnabled ) 
-			return CLASS_COMBINE;
+			return CLASS_COMBINE_TURRET_STAT;
 
 		return CLASS_NONE;
 	}
@@ -188,6 +188,7 @@ protected:
 	COutputEvent m_OnDeploy;
 	COutputEvent m_OnRetire;
 	COutputEvent m_OnTipped;
+	COutputEvent m_OnShotFired;
 
 	DECLARE_DATADESC();
 };
@@ -228,6 +229,7 @@ BEGIN_DATADESC( CNPC_CeilingTurret )
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
 	DEFINE_OUTPUT( m_OnRetire, "OnRetire" ),
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
+	DEFINE_OUTPUT( m_OnShotFired, "OnShotFired" ),
 
 END_DATADESC()
 
@@ -319,7 +321,7 @@ void CNPC_CeilingTurret::Spawn( void )
 	SetPoseParameter( m_poseAim_Yaw, 0 );
 	SetPoseParameter( m_poseAim_Pitch, 0 );
 
-	m_iAmmoType = GetAmmoDef()->Index( "PISTOL" );
+	m_iAmmoType = GetAmmoDef()->Index( "AR2" );
 
 	//Create our eye sprite
 	m_pEyeGlow = CSprite::SpriteCreate( CEILING_TURRET_GLOW_SPRITE, GetLocalOrigin(), false );
@@ -888,8 +890,8 @@ void CNPC_CeilingTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnem
 	FireBullets( info );
 	EmitSound( "NPC_CeilingTurret.ShotSounds" );
 	DoMuzzleFlash();
+	m_OnShotFired.FireOutput( NULL, this );
 }
-
 //-----------------------------------------------------------------------------
 // Purpose: Allows a generic think function before the others are called
 // Input  : state - which state the turret is currently in

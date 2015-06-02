@@ -60,6 +60,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 	DEFINE_KEYFIELD( m_bSynchPostIdles, FIELD_BOOLEAN, "m_bSynchPostIdles" ),
 	DEFINE_KEYFIELD( m_bIgnoreGravity, FIELD_BOOLEAN, "m_bIgnoreGravity" ),
 	DEFINE_KEYFIELD( m_bDisableNPCCollisions, FIELD_BOOLEAN, "m_bDisableNPCCollisions" ),
+	DEFINE_KEYFIELD( m_bProtectActor, FIELD_BOOLEAN, "ProtectActor" ),
 
 	DEFINE_FIELD( m_iDelay, FIELD_INTEGER ),
 	DEFINE_FIELD( m_bDelayed, FIELD_BOOLEAN ),
@@ -187,12 +188,19 @@ void CAI_ScriptedSequence::ScriptEntityCancel( CBaseEntity *pentCine, bool bPret
 		else
 		{
 			// Fire the cancel
+			if ( pCineTarget->m_bProtectActor )
+			{
+				pTarget->m_takedamage = DAMAGE_YES;
+			}
  			pCineTarget->m_OnCancelSequence.FireOutput(NULL, pCineTarget);
-
 			if ( pCineTarget->m_startTime == 0 )
 			{
 				// If start time is 0, this sequence never actually ran. Fire the failed output.
 				pCineTarget->m_OnCancelFailedSequence.FireOutput(NULL, pCineTarget);
+				if ( pCineTarget->m_bProtectActor )
+				{
+					pTarget->m_takedamage = DAMAGE_YES;
+				}
 			}
 		}
 	}
@@ -631,7 +639,10 @@ void CAI_ScriptedSequence::StartScript( void )
 	if ( pTarget )
 	{
 		pTarget->RemoveSpawnFlags( SF_NPC_WAIT_FOR_SCRIPT );
-
+		if ( m_bProtectActor )
+		{
+			pEntity->m_takedamage = DAMAGE_NO;
+		}
 		//
 		// If the NPC is in another script, just enqueue ourselves and bail out.
 		// We'll possess the NPC when the current script finishes with the NPC.
@@ -1003,6 +1014,10 @@ void CAI_ScriptedSequence::SequenceDone( CAI_BaseNPC *pNPC )
 		}
 	}
 
+	if ( m_bProtectActor )
+	{
+		pNPC->m_takedamage = DAMAGE_YES;
+	}
 	m_OnEndSequence.FireOutput(NULL, this);
 }
 

@@ -147,7 +147,7 @@ public:
 		else if (GlobalEntity_GetState("combine_base_hacked") == GLOBAL_ON)
 			return CLASS_PLAYER_ALLY;
 		else
-			return CLASS_MILITARY;
+			return CLASS_COMBINE_TURRET_STAT;
 	}
 	
 	bool IsValidEnemy( CBaseEntity *pEnemy );

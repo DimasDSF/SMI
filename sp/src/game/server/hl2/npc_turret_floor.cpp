@@ -141,6 +141,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPhysGunPickup, "OnPhysGunPickup" ),
 	DEFINE_OUTPUT( m_OnPhysGunDrop, "OnPhysGunDrop" ),
+	DEFINE_OUTPUT( m_OnShotFired, "OnShotFired" ),
 
 	DEFINE_BASENPCINTERACTABLE_DATADESC(),
 
@@ -1168,6 +1169,7 @@ void CNPC_FloorTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnemy,
 	FireBullets( info );
 	EmitSound( "NPC_FloorTurret.ShotSounds", m_ShotSounds );
 	DoMuzzleFlash();
+	m_OnShotFired.FireOutput( NULL, this );
 }
 
 //-----------------------------------------------------------------------------

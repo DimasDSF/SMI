@@ -81,6 +81,7 @@
 ConVar	sk_manhack_health( "sk_manhack_health","0");
 ConVar	sk_manhack_melee_dmg( "sk_manhack_melee_dmg","0");
 ConVar	sk_manhack_v2( "sk_manhack_v2","1");
+ConVar	sk_rel_mh_combine_allied_to_human( "sk_rel_mh_combine_allied_to_human","0");
 
 extern void		SpawnBlood(Vector vecSpot, const Vector &vAttackDir, int bloodColor, float flDamage);
 extern float	GetFloorZ(const Vector &origin);
@@ -240,7 +241,19 @@ CNPC_Manhack::~CNPC_Manhack()
 //-----------------------------------------------------------------------------
 Class_T	CNPC_Manhack::Classify(void)
 {
-	return (m_bHeld||m_bHackedByAlyx) ? CLASS_PLAYER_ALLY : CLASS_MANHACK; 
+	if ( sk_rel_mh_combine_allied_to_human.GetInt() == 1)
+	{
+		return CLASS_MANHACK_HUMAN_FR;
+	}
+	else if (m_bHeld||m_bHackedByAlyx)
+	{
+		return CLASS_PLAYER_ALLY;
+	}
+	else
+	{
+		return CLASS_MANHACK;
+	}
+	//return (m_bHeld||m_bHackedByAlyx) ? CLASS_PLAYER_ALLY : CLASS_MANHACK; 
 }
 
 

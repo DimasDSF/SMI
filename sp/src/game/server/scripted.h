@@ -174,6 +174,8 @@ private:
 
 	int m_iDelay;					// A counter indicating how many scripts are NOT ready to start.
 
+	bool m_bProtectActor;
+
 	bool m_bDelayed;				// This moderately hacky hack ensures that we don't calls to DelayStart(true) or DelayStart(false)
 									// twice in succession. This is necessary because we didn't want to remove the call to DelayStart(true)
 									// from StartScript, even though DelayStart(true) is called from TASK_PRE_SCRIPT.

@@ -250,6 +250,7 @@ protected:
 	COutputEvent m_OnTipped;
 	COutputEvent m_OnPhysGunPickup;
 	COutputEvent m_OnPhysGunDrop;
+	COutputEvent m_OnShotFired;
 
 	bool	m_bHackedByAlyx;
 	HSOUNDSCRIPTHANDLE			m_ShotSounds;
