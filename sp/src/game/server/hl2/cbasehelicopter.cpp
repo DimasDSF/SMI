@@ -40,6 +40,15 @@ virtual void NullThink( void );
 #define HELICOPTER_ROTORWASH_THINK_INTERVAL 0.01
 #define	BASECHOPPER_DEBUG_WASH		1
 
+#define ROCKET_ATTACK_RANGE_MAX 5500.0f
+#define ROCKET_ATTACK_RANGE_MIN 1250.0f
+
+#define ROCKET_SALVO_SIZE				5
+#define ROCKET_DELAY_TIME				1.5
+#define ROCKET_MIN_BURST_PAUSE_TIME		3
+#define ROCKET_MAX_BURST_PAUSE_TIME		4
+#define ROCKET_SPEED					1400
+
 ConVar g_debug_basehelicopter( "g_debug_basehelicopter", "0", FCVAR_CHEAT );
 
 //---------------------------------------------------------
@@ -93,7 +102,16 @@ BEGIN_DATADESC( CBaseHelicopter )
 	DEFINE_FIELD( m_flMaxSpeed,		FIELD_FLOAT ),
 	DEFINE_FIELD( m_flMaxSpeedFiring,	FIELD_FLOAT ),
 	DEFINE_FIELD( m_flGoalSpeed,		FIELD_FLOAT ),
+	DEFINE_FIELD( m_hRocketTarget,			FIELD_EHANDLE ),
+	DEFINE_FIELD( m_iRocketSalvoLeft,	FIELD_INTEGER ),
+	DEFINE_FIELD( m_flRocketTime,		FIELD_TIME ),
+	DEFINE_FIELD( m_hSpecificRocketTarget, FIELD_EHANDLE ),
 	DEFINE_KEYFIELD( m_flInitialSpeed, FIELD_FLOAT, "InitialSpeed" ),
+	DEFINE_KEYFIELD( m_strMissileHint,	FIELD_STRING, "missilehint" ),
+	DEFINE_KEYFIELD( m_flRocketDelay, FIELD_FLOAT, "RocketDelay" ),
+	DEFINE_KEYFIELD( m_iSalvoSize, FIELD_INTEGER, "RocketSalvoSize" ),
+	DEFINE_KEYFIELD( m_bRocketDownward, FIELD_BOOLEAN, "RocketDownward" ),
+	DEFINE_KEYFIELD( m_flRocketReloadTimeMult, FIELD_FLOAT, "RocketReloadMult" ),
 
 	DEFINE_FIELD( m_flRandomOffsetTime, FIELD_TIME ),
 	DEFINE_FIELD( m_vecRandomOffset, FIELD_VECTOR ),
@@ -120,6 +138,13 @@ BEGIN_DATADESC( CBaseHelicopter )
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableRotorSound", InputEnableRotorSound ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableRotorSound", InputDisableRotorSound ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Kill", InputKill ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetMissileDelay", InputSetMissileDelay ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "FireMissileAt", InputFireMissileAt ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetRocketSalvoSize", InputSetSalvoSize ),
+	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetRocketDownward", InputSetRocketDownward ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetRocketReloadTimeMult", InputSetRocketReloadTimeMult ),
+
+	DEFINE_OUTPUT( m_OnFiredMissile, "OnFiredMissile" ),
 
 END_DATADESC()
 
@@ -147,6 +172,7 @@ CBaseHelicopter::CBaseHelicopter( void )
 //------------------------------------------------------------------------------
 void CBaseHelicopter::Precache( void )
 {
+	PrecacheScriptSound( "PropAPC.FireRocket" );
 }
 
 //------------------------------------------------------------------------------
@@ -184,9 +210,13 @@ void CBaseHelicopter::Spawn( void )
 	// Set the appropriate flags in your derived class' Spawn() function.
 	m_fHelicopterFlags &= ~BITS_HELICOPTER_MISSILE_ON;
 	m_fHelicopterFlags &= ~BITS_HELICOPTER_GUN_ON;
-
+	m_flRocketDelay = ROCKET_DELAY_TIME;
+	m_iSalvoSize = ROCKET_SALVO_SIZE;
 	m_pRotorSound = NULL;
 	m_pRotorBlast = NULL;
+	m_bRAttachment = 0;
+	m_bRocketDownward = 1;
+	m_flRocketReloadTimeMult = 1.0;
 
 	SetCycle( 0 );
 	ResetSequenceInfo();
@@ -211,6 +241,8 @@ void CBaseHelicopter::Spawn( void )
 
 	InitPathingData( 0, BASECHOPPER_MIN_CHASE_DIST_DIFF, BASECHOPPER_AVOID_DIST );
 
+	CreateHelicopterLaserDot();
+
 	// Setup collision hull
 	ExpandBBox( m_cullBoxMins, m_cullBoxMaxs );
 	CollisionProp()->SetSurroundingBoundsType( USE_SPECIFIED_BOUNDS, &m_cullBoxMins, &m_cullBoxMaxs );
@@ -219,7 +251,11 @@ void CBaseHelicopter::Spawn( void )
 	m_vecRandomOffset.Init( 0, 0, 0 );
 }
 
-
+void CBaseHelicopter::Activate( void )
+{
+	m_nRocketAttachment1 = LookupAttachment( "damage0" );
+	m_nRocketAttachment2 = LookupAttachment( "damage3" );
+}
 //------------------------------------------------------------------------------
 // Cleanup
 //------------------------------------------------------------------------------
@@ -786,7 +822,186 @@ void CBaseHelicopter::FireWeapons()
 	}
 }
 
+bool CBaseHelicopter::TargetIsAMissile( void )
+{
+	if ( GetEnemy() == NULL )
+		return false;
 
+	if ( FClassnameIs( GetEnemy(), "rpg_missile" ) == false )
+		return false;
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Create a laser
+//-----------------------------------------------------------------------------
+void CBaseHelicopter::CreateHelicopterLaserDot( void )
+{
+	// Create a laser if we don't have one
+	if ( m_hLaserDot == NULL )
+	{
+		m_hLaserDot = CreateLaserDot( GetAbsOrigin(), this, false );
+	}
+}
+
+void CBaseHelicopter::AimRocketGun( void )
+{
+	UpdateEnemy();
+
+		if( HasEnemy() )
+		{
+			CBaseEntity *pEnemy = GetEnemy();
+			GatherEnemyConditions( pEnemy );
+			if ( FVisible( pEnemy ) && !TargetIsAMissile() )
+			{
+				if (m_flLastSeen < gpGlobals->curtime - 2)
+				{
+					m_flPrevSeen = gpGlobals->curtime;
+				}
+
+				m_flLastSeen = gpGlobals->curtime;
+				AimRocketGunAtTarget( pEnemy );
+			}
+		}
+}
+
+void CBaseHelicopter::AimRocketGunAtTarget( CBaseEntity *pTarget )
+{
+	m_hRocketTarget = pTarget;
+
+	// Update the rocket target
+	CreateHelicopterLaserDot();
+
+	if ( m_hRocketTarget )
+	{
+		m_hLaserDot->SetAbsOrigin( m_hRocketTarget->BodyTarget( WorldSpaceCenter(), false ) );
+	}
+	SetLaserDotTarget( m_hLaserDot, m_hRocketTarget );
+	EnableLaserDot( m_hLaserDot, m_hRocketTarget != NULL );
+	FireRocket();
+}
+
+void CBaseHelicopter::FireRocket( void )
+{
+	if ( m_flRocketTime > gpGlobals->curtime )
+		return;
+
+	// If we're still firing the salvo, fire quickly
+	m_iRocketSalvoLeft--;
+	if ( m_iRocketSalvoLeft > 0 )
+	{
+		m_flRocketTime = gpGlobals->curtime + m_flRocketDelay;
+	}
+	else
+	{
+		// Reload the salvo
+		m_iRocketSalvoLeft = m_iSalvoSize;
+		float m_flReloadTime;
+		float m_flCorrectLoadTime;
+		if ( 2-m_flRocketDelay < 0 )
+		{
+			m_flReloadTime = 0;
+		}
+		else
+		{
+			m_flReloadTime = 2-m_flRocketDelay;
+		}
+		m_flCorrectLoadTime = ( ( random->RandomFloat( ROCKET_MIN_BURST_PAUSE_TIME, ROCKET_MAX_BURST_PAUSE_TIME ) + ( (m_iSalvoSize*m_flReloadTime)/2 ) ) * m_flRocketReloadTimeMult );
+		if ( m_flCorrectLoadTime < m_flReloadTime )
+		{
+			m_flCorrectLoadTime = m_flReloadTime;
+		}
+		m_flRocketTime = gpGlobals->curtime + m_flCorrectLoadTime;
+	}
+	Vector vecRocketOrigin;
+	GetRocketShootPosition(	&vecRocketOrigin );
+
+	float m_flRocketVecZ;
+	float m_flRocketVecY;
+
+	static float s_pSide[] = { 0.966, 0.866, 0.5, -0.5, -0.866, -0.966 };
+	if ( m_bRocketDownward )
+		{
+			m_flRocketVecZ = -1.0;
+		}
+	else
+		{
+			m_flRocketVecZ = 0.0;
+		}
+
+	if ( !m_bRAttachment )
+	{
+		m_flRocketVecY = -1.0;
+	}
+	else
+	{
+		m_flRocketVecY = 1.0;
+	}
+
+	Vector forward, right, up;
+	GetVectors( &forward, &right, &up );
+
+	Vector VecRocketY, VecRocketZ;
+	VectorMultiply( up, m_flRocketVecZ, VecRocketZ );
+	VectorMultiply( right, m_flRocketVecY, VecRocketY );
+
+	Vector vecLaunchDir;
+	CrossProduct( VecRocketY, VecRocketZ, vecLaunchDir);
+
+	Vector vecDir;
+	CrossProduct( vecLaunchDir, forward, vecDir );
+	vecDir.z = m_flRocketVecZ;
+	vecDir.x = forward.x;
+	//vecDir.x = m_flRocketVecY;
+	vecDir.y = VecRocketY.y;
+	//vector 001
+	VectorNormalize( vecDir );
+
+	Vector vecVelocity;
+	VectorMultiply( vecDir, ROCKET_SPEED, vecVelocity );
+
+	QAngle angles;
+	VectorAngles( vecDir, angles );
+
+	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecVelocity, this );
+	if ( !m_bRocketDownward )
+	{
+		pRocket->IgniteDelay();
+	}
+	else
+	{
+		pRocket->IgniteDelayTime(0.1);
+	}
+
+	if ( m_hSpecificRocketTarget )
+	{
+		pRocket->AimAtSpecificTarget( m_hSpecificRocketTarget );
+		m_hSpecificRocketTarget = NULL;
+	}
+	else if ( m_strMissileHint != NULL_STRING )
+	{
+		pRocket->SetGuidanceHint( STRING( m_strMissileHint ) );
+	}
+
+	EmitSound( "PropAPC.FireRocket" );
+	m_OnFiredMissile.FireOutput( this, this );
+}
+
+void CBaseHelicopter::GetRocketShootPosition( Vector *pPosition )
+{
+
+	if ( random->RandomInt(0,1) == 1 )
+	{
+		GetAttachment( m_nRocketAttachment1, *pPosition );
+		m_bRAttachment = 0;
+	}
+	else
+	{
+		GetAttachment( m_nRocketAttachment2, *pPosition );
+		m_bRAttachment = 1;
+	}
+}
 //------------------------------------------------------------------------------
 // Purpose :
 // Input   :
@@ -1406,6 +1621,66 @@ void CBaseHelicopter::InputMissileOff( inputdata_t &inputdata )
 	m_fHelicopterFlags &= ~BITS_HELICOPTER_MISSILE_ON;
 }
 
+//-----------------------------------------------------------------------------
+// Aim the next rocket at a specific target
+//-----------------------------------------------------------------------------
+void CBaseHelicopter::InputFireMissileAt( inputdata_t &inputdata )
+{
+	string_t strMissileTarget = MAKE_STRING( inputdata.value.String() );
+	CBaseEntity *pTarget = gEntList.FindEntityByName( NULL, strMissileTarget, NULL, inputdata.pActivator, inputdata.pCaller );
+	if ( pTarget == NULL )
+	{
+		DevWarning( "%s: Could not find target '%s'!\n", GetClassname(), STRING( strMissileTarget ) );
+		return;
+	}
+
+	m_hSpecificRocketTarget = pTarget;
+}
+
+void CBaseHelicopter::InputSetMissileDelay( inputdata_t &inputdata )
+{
+	float m_flInputMissileDelay = inputdata.value.Float();
+		if ( m_flInputMissileDelay <= 0.0 || m_flInputMissileDelay >= 60.0 )
+		{
+			m_flRocketDelay = 1.5;
+		}
+		else
+		{
+			m_flRocketDelay = m_flInputMissileDelay;
+		}
+}
+
+void CBaseHelicopter::InputSetRocketReloadTimeMult( inputdata_t &inputdata )
+{
+	float m_flInputRocketReloadTimeMult = inputdata.value.Float();
+		if ( m_flInputRocketReloadTimeMult < 0.0 )
+		{
+			m_flRocketReloadTimeMult = 1.0;
+		}
+		else
+		{
+			m_flRocketReloadTimeMult = m_flInputRocketReloadTimeMult;
+		}
+}
+
+void CBaseHelicopter::InputSetSalvoSize( inputdata_t &inputdata )
+{
+	float m_iInputSalvoSize = inputdata.value.Int();
+		if ( m_iInputSalvoSize < 0 || m_iInputSalvoSize > 100 )
+		{
+			m_iSalvoSize = 5;
+		}
+		else
+		{
+			m_iSalvoSize = m_iInputSalvoSize;
+		}
+}
+
+void CBaseHelicopter::InputSetRocketDownward( inputdata_t &inputdata )
+{
+	bool m_bRocketDownwardInput = inputdata.value.Bool();
+	m_bRocketDownward = m_bRocketDownwardInput;
+}
 
 //-----------------------------------------------------------------------------
 // Enable, disable rotor wash
@@ -1533,6 +1808,11 @@ bool CBaseHelicopter::ChooseEnemy( void )
 		ClearCondition( COND_NEW_ENEMY );
 		return false;
 	}
+}
+
+float CBaseHelicopter::MaxRocketAttackRange() const
+{
+	return ROCKET_ATTACK_RANGE_MAX;
 }
 
 //-----------------------------------------------------------------------------

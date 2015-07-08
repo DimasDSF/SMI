@@ -1041,6 +1041,16 @@ void CAPCMissile::IgniteDelay( void )
 	AddSolidFlags( FSOLID_NOT_SOLID );
 }
 
+void CAPCMissile::IgniteDelayTime( float flIDelay )
+{
+	m_flIgnitionTime = gpGlobals->curtime + flIDelay;
+
+	SetThink( &CAPCMissile::BeginSeekThink );
+	SetNextThink( m_flIgnitionTime );
+	Init();
+	AddSolidFlags( FSOLID_NOT_SOLID );
+}
+
 void CAPCMissile::AugerDelay( float flDelay )
 {
 	m_flIgnitionTime = gpGlobals->curtime;

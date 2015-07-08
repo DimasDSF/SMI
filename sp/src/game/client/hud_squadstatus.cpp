@@ -44,7 +44,7 @@ private:
 	CPanelAnimationVarAliasType( float, text_xpos, "text_xpos", "8", "proportional_float" );
 	CPanelAnimationVarAliasType( float, text_ypos, "text_ypos", "20", "proportional_float" );
 
-	CPanelAnimationVar( vgui::HFont, m_hIconFont, "IconFont", "HudNumbers" );
+	CPanelAnimationVar( vgui::HFont, m_hIconFont, "IconFont", "SquadIcon" );
 	CPanelAnimationVarAliasType( float, m_flIconInsetX, "IconInsetX", "8", "proportional_float" );
 	CPanelAnimationVarAliasType( float, m_flIconInsetY, "IconInsetY", "8", "proportional_float" );
 	CPanelAnimationVarAliasType( float, m_flIconGap, "IconGap", "20", "proportional_float" );
@@ -142,12 +142,12 @@ void CHudSquadStatus::OnThink( void )
 	if ( squadMembers > 0)
 	{
 		// we have squad members, show the display
-		g_pClientMode->GetViewportAnimationController()->RunAnimationCommand( this, "alpha", 255.0f, 0.0f, 0.4f, AnimationController::INTERPOLATOR_LINEAR);
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberNotEmpty" ); 
 	}
 	else
 	{
 		// no squad members, hide the display
-		g_pClientMode->GetViewportAnimationController()->RunAnimationCommand( this, "alpha", 0.0f, 0.0f, 0.4f, AnimationController::INTERPOLATOR_LINEAR);
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberEmpty" ); 
 	}
 
 	if ( squadMembers > m_iSquadMembers )
@@ -173,6 +173,10 @@ void CHudSquadStatus::OnThink( void )
 		else
 		{
 			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberLeft" ); 
+		}
+		if ( squadMembers == 0 )
+		{
+			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberLastLeft" ); 
 		}
 	}
 

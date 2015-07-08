@@ -124,6 +124,7 @@ public:
 	CAPCMissile();
 	~CAPCMissile();
 	void	IgniteDelay( void );
+	void	IgniteDelayTime( float flIDelay );
 	void	AugerDelay( float flDelayTime );
 	void	ExplodeDelay( float flDelayTime );
 	void	DisableGuiding();

@@ -1324,12 +1324,15 @@ private:
 	void InputGetValue( inputdata_t &inputdata );
 	void InputEnable( inputdata_t &inputdata );
 	void InputDisable( inputdata_t &inputdata );
+	void InputPay( inputdata_t &inputdata );
 
 	// Outputs
 	COutputFloat m_OutValue;
 	COutputFloat m_OnGetValue;	// Used for polling the counter value.
 	COutputEvent m_OnHitMin;
 	COutputEvent m_OnHitMax;
+	COutputFloat m_OnNotEnough; //Fired when math_counter has not enough to pay the in.value
+	COutputFloat m_OnEnough; //Fired when math_counter has enough to pay the in.value
 
 	DECLARE_DATADESC();
 };
@@ -1360,12 +1363,15 @@ BEGIN_DATADESC( CMathCounter )
 	DEFINE_INPUTFUNC(FIELD_VOID, "GetValue", InputGetValue),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "Pay", InputPay ),
 
 	// Outputs
 	DEFINE_OUTPUT(m_OutValue, "OutValue"),
 	DEFINE_OUTPUT(m_OnHitMin, "OnHitMin"),
 	DEFINE_OUTPUT(m_OnHitMax, "OnHitMax"),
 	DEFINE_OUTPUT(m_OnGetValue, "OnGetValue"),
+	DEFINE_OUTPUT(m_OnEnough, "OnEnough"),
+	DEFINE_OUTPUT(m_OnNotEnough, "OnNotEnough"),
 
 END_DATADESC()
 
@@ -1478,7 +1484,30 @@ void CMathCounter::InputSetHitMin( inputdata_t &inputdata )
 	UpdateOutValue( inputdata.pActivator, m_OutValue.Get() );
 }
 
-	
+//-----------------------------------------------------------------------------
+// Purpose: Input handler for adding to the accumulator value.
+// Input  : Float value to add.
+//-----------------------------------------------------------------------------
+void CMathCounter::InputPay( inputdata_t &inputdata )
+{
+	if( m_bDisabled )
+	{
+		DevMsg("Math Counter %s ignoring PAY because it is disabled\n", GetDebugName() );
+		return;
+	}
+
+	float fNewValue = m_OutValue.Get() - inputdata.value.Float();
+	if ( fNewValue >= 0 )
+	{
+		m_OnEnough.Set( inputdata.value.Float(), inputdata.pActivator, this );
+		UpdateOutValue( inputdata.pActivator, fNewValue );
+	}
+	else if ( fNewValue < 0 )
+	{
+		m_OnNotEnough.Set( inputdata.value.Float(), inputdata.pActivator, this );
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Input handler for adding to the accumulator value.
 // Input  : Float value to add.

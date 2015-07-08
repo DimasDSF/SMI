@@ -436,9 +436,11 @@ private:
 	virtual void Startup();
 
 	void	InitializeRotorSound( void );
+	bool m_bSpotlightForcedOn;
 
 	// Weaponry
 	bool	FireGun( void );
+	bool	SpotlightForced() {return m_bSpotlightForcedOn; }
 
 	// Movement:	
 	virtual void Flight( void );
@@ -473,6 +475,8 @@ private:
 	void	InputStartLongCycleShooting( inputdata_t &inputdata );
 	void	InputStartContinuousShooting( inputdata_t &inputdata );
 	void	InputStartFastShooting( inputdata_t &inputdata );
+	void	InputForceEnableSpotlight( inputdata_t &inputdata );
+	void	InputForceDisableSpotlight( inputdata_t &inputdata );
 
 	int		GetShootingMode( );
 	bool	IsDeadlyShooting();
@@ -709,6 +713,7 @@ private:
 	float		m_flGracePeriod;
 	bool		m_bBombsExplodeOnContact;
 	bool		m_bNonCombat;
+	bool		m_bSpotlightOn;
 
 	int			m_nNearShots;
 	int			m_nMaxNearShots;
@@ -823,6 +828,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_FIELD( m_nShootingMode,		FIELD_INTEGER ),
 	DEFINE_FIELD( m_bDeadlyShooting,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bBombingSuppressed,	FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSpotlightOn, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSpotlightForcedOn, FIELD_BOOLEAN ),
 	DEFINE_SOUNDPATCH( m_pGunFiringSound ),
 	DEFINE_AUTO_ARRAY( m_hLights,		FIELD_EHANDLE ),
 	DEFINE_FIELD( m_bIgnorePathVisibilityTests, FIELD_BOOLEAN ),
@@ -869,6 +876,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetHealthFraction", InputSetHealthFraction ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartBombExplodeOnContact", InputStartBombExplodeOnContact ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopBombExplodeOnContact", InputStopBombExplodeOnContact ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpotlight", InputForceEnableSpotlight ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSpotlight", InputForceDisableSpotlight ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePathVisibilityTests", InputDisablePathVisibilityTests ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePathVisibilityTests", InputEnablePathVisibilityTests ),
@@ -1096,6 +1105,8 @@ void CNPC_AttackHelicopter::Spawn( void )
 	m_nAttackMode = ATTACK_MODE_DEFAULT;
 	m_flInputDropBombTime = gpGlobals->curtime;
 	SetActivity( ACT_IDLE );
+	m_bSpotlightForcedOn = false;
+	m_bSpotlightOn = false;
 
 	int nBombAttachment = LookupAttachment("bomb");
 	m_hSensor = static_cast<CBombDropSensor*>(CreateEntityByName( "npc_helicoptersensor" ));
@@ -1205,6 +1216,8 @@ void CNPC_AttackHelicopter::SpotlightStartup()
 	if ( !HasSpawnFlags( SF_HELICOPTER_LIGHTS ) )
 		return;
 
+	m_bSpotlightOn = true;
+
 	Vector vecForward;
 	Vector vecOrigin;
 	GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
@@ -1218,8 +1231,12 @@ void CNPC_AttackHelicopter::SpotlightStartup()
 //------------------------------------------------------------------------------
 void CNPC_AttackHelicopter::SpotlightShutdown()
 {
-	m_Spotlight.SpotlightDestroy();
-	SetContextThink( NULL, gpGlobals->curtime, s_pSpotlightThinkContext );
+	if ( !SpotlightForced() )
+	{
+		m_bSpotlightOn = false;
+		m_Spotlight.SpotlightDestroy();
+		SetContextThink( NULL, gpGlobals->curtime, s_pSpotlightThinkContext );
+	}
 }
 
 
@@ -1231,12 +1248,65 @@ void CNPC_AttackHelicopter::SpotlightThink()
 	// NOTE: This function should deal with all deactivation cases
 	if ( m_lifeState != LIFE_ALIVE ) 
 	{
+		m_bSpotlightForcedOn = false;
 		SpotlightShutdown();
 		return;
 	}
 
 	switch( m_nAttackMode )
 	{
+	case ATTACK_MODE_DEFAULT:
+		{
+			Vector vecForward;
+			Vector vecOrigin;
+			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+			m_Spotlight.SetSpotlightTargetDirection( vecForward );
+			if ( GetEnemy() )
+			{
+				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+			}
+		}
+		break;
+
+	case ATTACK_MODE_BOMB_VEHICLE:
+		{
+			Vector vecForward;
+			Vector vecOrigin;
+			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+			m_Spotlight.SetSpotlightTargetDirection( vecForward );
+			if ( GetEnemy() )
+			{
+				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+			}
+		}
+		break;
+
+	case ATTACK_MODE_TRAIL_VEHICLE:
+		{
+			Vector vecForward;
+			Vector vecOrigin;
+			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+			m_Spotlight.SetSpotlightTargetDirection( vecForward );
+			if ( GetEnemy() )
+			{
+				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+			}
+		}
+		break;
+
+	case ATTACK_MODE_ALWAYS_LEAD_VEHICLE:
+		{
+			Vector vecForward;
+			Vector vecOrigin;
+			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+			m_Spotlight.SetSpotlightTargetDirection( vecForward );
+			if ( GetEnemy() )
+			{
+				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+			}
+		}
+		break;
+
 	case ATTACK_MODE_BULLRUSH_VEHICLE:
 		{
 			switch ( m_nSecondaryMode )
@@ -1323,6 +1393,8 @@ void CNPC_AttackHelicopter::Activate( void )
 	m_nGunTipAttachment = LookupAttachment("muzzle");
 	m_nBombAttachment = LookupAttachment("bomb");
 	m_nSpotlightAttachment = LookupAttachment("spotlight");
+	m_nRocketAttachment1 = LookupAttachment( "damage0" );
+	m_nRocketAttachment2 = LookupAttachment( "damage3" );
 
 	if ( HasSpawnFlags( SF_HELICOPTER_LONG_SHADOW ) )
 	{
@@ -2869,6 +2941,29 @@ void CNPC_AttackHelicopter::InputDropBomb( inputdata_t &inputdata )
 	}
 }
 
+//------------------------------------------------------------------------------
+// Enable Spotlight
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputForceEnableSpotlight( inputdata_t &inputdata )
+{
+	m_bSpotlightForcedOn = true;
+	if ( m_bSpotlightOn == false )
+	{
+		SpotlightStartup();
+	}
+}
+
+//------------------------------------------------------------------------------
+// Disable Spotlight
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputForceDisableSpotlight( inputdata_t &inputdata )
+{
+	m_bSpotlightForcedOn = false;
+	if ( m_bSpotlightOn == true )
+	{
+		SpotlightShutdown();
+	}
+}
 
 //------------------------------------------------------------------------------
 // Drops a bomb straight downwards

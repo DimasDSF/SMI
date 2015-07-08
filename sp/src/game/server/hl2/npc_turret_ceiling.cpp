@@ -19,12 +19,16 @@
 #include "animation.h"
 #include "basehlcombatweapon_shared.h"
 #include "iservervehicle.h"
+#include "effect_dispatch_data.h"
+#include "te_effect_dispatch.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 //Debug visualization
 ConVar	g_debug_turret_ceiling( "g_debug_turret_ceiling", "0" );
+ConVar	g_debug_turret_ceiling_effect_scale( "g_debug_turret_ceiling_effect_scale", "0.4" );
+ConVar  g_debug_turret_ceiling_effect_name( "g_debug_turret_ceiling_effect_name", "CeilingTMuzzleFlash" );
 
 #define	CEILING_TURRET_MODEL		"models/combine_turrets/ceiling_turret.mdl"
 #define CEILING_TURRET_GLOW_SPRITE	"sprites/glow1.vmt"
@@ -123,6 +127,7 @@ public:
 	int		OnTakeDamage( const CTakeDamageInfo &inputInfo );
 
 	virtual bool CanBeAnEnemyOf( CBaseEntity *pEnemy );
+	virtual void DoMuzzleFlash( void );
 
 	Class_T	Classify( void ) 
 	{
@@ -321,7 +326,7 @@ void CNPC_CeilingTurret::Spawn( void )
 	SetPoseParameter( m_poseAim_Yaw, 0 );
 	SetPoseParameter( m_poseAim_Pitch, 0 );
 
-	m_iAmmoType = GetAmmoDef()->Index( "AR2" );
+	m_iAmmoType = GetAmmoDef()->Index( "PISTOL" );
 
 	//Create our eye sprite
 	m_pEyeGlow = CSprite::SpriteCreate( CEILING_TURRET_GLOW_SPRITE, GetLocalOrigin(), false );
@@ -891,6 +896,20 @@ void CNPC_CeilingTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnem
 	EmitSound( "NPC_CeilingTurret.ShotSounds" );
 	DoMuzzleFlash();
 	m_OnShotFired.FireOutput( NULL, this );
+}
+//----------
+// Purpose: Muzzleflash fix
+//----------
+void CNPC_CeilingTurret::DoMuzzleFlash( void )
+{
+	BaseClass::DoMuzzleFlash();
+		
+	CEffectData data;
+
+	data.m_flScale = g_debug_turret_ceiling_effect_scale.GetFloat();
+	data.m_nAttachmentIndex = LookupAttachment( "eyes" );
+	data.m_nEntIndex = entindex();
+	DispatchEffect( g_debug_turret_ceiling_effect_name.GetString(), data );
 }
 //-----------------------------------------------------------------------------
 // Purpose: Allows a generic think function before the others are called

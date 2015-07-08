@@ -131,12 +131,16 @@ public:
 	void	InputDepleteAmmo( inputdata_t &inputdata );
 	void	InputRestoreAmmo( inputdata_t &inputdata );
 	void	InputSelfDestruct( inputdata_t &inputdata );
+	void	InputForceSetTarget( inputdata_t &inputdata );
+	void	InputSetMaxRange( inputdata_t &inputdata );
 	void	InputSetTurnSpeed( inputdata_t &inputdata );
 
 	virtual bool	IsValidEnemy( CBaseEntity *pEnemy );
 	bool			CanBeAnEnemyOf( CBaseEntity *pEnemy );
 	bool			IsBeingCarriedByPlayer( void ) { return m_bCarriedByPlayer; }
 	bool			WasJustDroppedByPlayer( void );
+
+	float	MaxTargetRange( void );
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 	float	MaxYawSpeed( void );
@@ -217,7 +221,9 @@ protected:
 	float	m_flLastSight;
 	float	m_flThrashTime;
 	float	m_flPingTime;
+	float	m_flMaxTargetRange;
 	float	m_flTurnSpeed;
+	float	m_fForceTargetDelay;
 	float	m_flNextActivateSoundTime;
 	bool	m_bCarriedByPlayer;
 	bool	m_bUseCarryAngles;

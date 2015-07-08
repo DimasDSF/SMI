@@ -78,6 +78,7 @@ public:
 	CBaseHelicopter( void );
 
 	void Spawn( void );
+	void Activate( void );
 	void Precache( void );
 	virtual void UpdateOnRemove();
 
@@ -90,6 +91,7 @@ public:
 	Class_T Classify ( void ) { return CLASS_COMBINE; }
 			 
 	void CallDyingThink( void ) { DyingThink(); }
+	bool	TargetIsAMissile( void );
 
 	bool HasEnemy( void ) { return GetEnemy() != NULL; }
 	virtual void GatherEnemyConditions( CBaseEntity *pEnemy );
@@ -124,7 +126,10 @@ public:
 	virtual void InitializeRotorSound( void );
 	virtual void UpdateRotorSoundPitch( int iPitch );
 
-	virtual void AimRocketGun(void) {};
+	virtual void AimRocketGun(void);
+	void AimRocketGunAtTarget(CBaseEntity *pTarget );
+	void CreateHelicopterLaserDot( void );
+	float			MaxRocketAttackRange() const;
 	virtual void FireRocket(  Vector vLaunchPos, Vector vLaunchDir  ) {};
 
 	virtual bool	GetTrackPatherTarget( Vector *pPos );
@@ -146,7 +151,8 @@ public:
 
 	// Helicopters never burn
 	virtual void	Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner ) { return; }
-
+	int		m_nRocketAttachment1;
+	int		m_nRocketAttachment2;
 
 protected:
 	void			HelicopterMove( );
@@ -240,6 +246,26 @@ protected:
 	void SetStartupTime( float time ) { m_flStartupTime = time; }
 private:
 	CNetworkVar( float, m_flStartupTime );
+	EHANDLE	m_hLaserDot;
+	EHANDLE m_hRocketTarget;
+	float	m_flRocketTime;
+	float	m_flRocketDelay;
+	float	m_flRocketReloadTimeMult;
+	int		m_iSalvoSize;
+	int		m_iRocketSalvoLeft;
+	EHANDLE m_hSpecificRocketTarget;
+	string_t m_strMissileHint;
+	void InputFireMissileAt( inputdata_t &inputdata );
+	void InputSetMissileDelay( inputdata_t &inputdata );
+	void InputSetSalvoSize( inputdata_t &inputdata );
+	void InputSetRocketDownward( inputdata_t &inputdata );
+	void InputSetRocketReloadTimeMult( inputdata_t &inputdata );
+	bool m_bRocketDownward;
+	bool m_bRAttachment;
+	COutputEvent m_OnFiredMissile;
+
+	void GetRocketShootPosition( Vector *pPosition );
+	void FireRocket( void );
 };
 
 //-----------------------------------------------------------------------------
