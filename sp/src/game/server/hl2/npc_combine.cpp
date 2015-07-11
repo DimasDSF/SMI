@@ -41,7 +41,7 @@ int g_fCombineQuestion;				// true if an idle grunt asked a question. Cleared wh
 
 #define COMBINE_GRENADE_THROW_SPEED 650
 #define COMBINE_GRENADE_TIMER		3.5
-#define COMBINE_GRENADE_FLUSH_TIME	3.0		// Don't try to flush an enemy who has been out of sight for longer than this.
+#define COMBINE_GRENADE_FLUSH_TIME	6.0		// Don't try to flush an enemy who has been out of sight for longer than this.
 #define COMBINE_GRENADE_FLUSH_DIST	256.0	// Don't try to flush an enemy who has moved farther than this distance from the last place I saw him.
 
 #define COMBINE_LIMP_HEALTH				20

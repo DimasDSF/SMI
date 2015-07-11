@@ -1692,6 +1692,7 @@ BEGIN_DATADESC( CFuncCombineBallSpawner )
 	DEFINE_KEYFIELD( m_flMaxSpeed, FIELD_FLOAT, "maxspeed" ),
 	DEFINE_KEYFIELD( m_flBallRadius, FIELD_FLOAT, "ballradius" ),
 	DEFINE_KEYFIELD( m_flBallRespawnTime,	FIELD_FLOAT, "ballrespawntime" ),
+	DEFINE_KEYFIELD( m_iszBallName, FIELD_STRING, "ballname" ),
 	DEFINE_FIELD( m_flRadius,		FIELD_FLOAT ),
 	DEFINE_FIELD( m_nBallsRemainingInField, FIELD_INTEGER ),
 	DEFINE_FIELD( m_bEnabled,		FIELD_BOOLEAN ),
@@ -1700,6 +1701,7 @@ BEGIN_DATADESC( CFuncCombineBallSpawner )
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SpawnBall", InputSpawnBall ),
 
 	DEFINE_OUTPUT( m_OnBallGrabbed, "OnBallGrabbed" ),
 	DEFINE_OUTPUT( m_OnBallReinserted, "OnBallReinserted" ),
@@ -1743,6 +1745,10 @@ void CFuncCombineBallSpawner::SpawnBall()
 
 	pBall->SetAbsOrigin( vecAbsOrigin );
 	pBall->SetSpawner( this );
+	if ( m_iszBallName != NULL_STRING )
+	{
+		pBall->KeyValue( "targetname", STRING(m_iszBallName) );
+	}
 
 	float flSpeed = random->RandomFloat( m_flMinSpeed, m_flMaxSpeed );
 
@@ -1850,6 +1856,14 @@ void CFuncCombineBallSpawner::InputDisable( inputdata_t &inputdata )
 	}
 
 	SetThink( NULL );
+}
+
+void CFuncCombineBallSpawner::InputSpawnBall( inputdata_t &inputdata )
+{
+	if ( m_bEnabled )
+	{
+		SpawnBall();
+	}
 }
 
 	
@@ -2071,6 +2085,7 @@ void CFuncCombineBallSpawner::BallThink()
 BEGIN_DATADESC( CPointCombineBallLauncher )
 	DEFINE_KEYFIELD( m_flConeDegrees, FIELD_FLOAT, "launchconenoise" ),
 	DEFINE_KEYFIELD( m_iszBullseyeName, FIELD_STRING, "bullseyename" ),
+	DEFINE_KEYFIELD( m_iszBallName, FIELD_STRING, "ballname" ),
 	DEFINE_KEYFIELD( m_iBounces, FIELD_INTEGER, "maxballbounces" ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "LaunchBall", InputLaunchBall ),
 END_DATADESC()
@@ -2134,6 +2149,10 @@ void CPointCombineBallLauncher::SpawnBall()
 	pBall->Activate();
 	pBall->SetState( CPropCombineBall::STATE_LAUNCHED );
 	pBall->SetMaxBounces( m_iBounces );
+	if ( m_iszBallName != NULL_STRING )
+	{
+		pBall->KeyValue( "targetname", STRING(m_iszBallName) );
+	}
 
 	if ( HasSpawnFlags( SF_COMBINE_BALL_LAUNCHER_COLLIDE_PLAYER ) )
 	{

@@ -55,11 +55,14 @@ BEGIN_DATADESC( CPointTemplate )
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[14], FIELD_STRING, "Template15"),
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[15], FIELD_STRING, "Template16"),
 	DEFINE_UTLVECTOR( m_hTemplateEntities, FIELD_CLASSPTR ),
+	DEFINE_KEYFIELD( m_iszSpawnTarget, FIELD_EHANDLE, "SpawnPoint"),
 
 	DEFINE_UTLVECTOR( m_hTemplates, FIELD_EMBEDDED ),
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "ForceSpawn", InputForceSpawn ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetSpawnPoint", InputSetSpawnPoint ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "ResetSpawnPoint", InputResetSpawnPoint ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_pOutputOnSpawned, "OnEntitySpawned" ),
@@ -371,8 +374,19 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 		vecNewOrigin = matStoredLocalToWorld.GetTranslation();
 		MatrixToAngles( matStoredLocalToWorld, vecNewAngles );
 
-		// Set its origin & angles
-		pEntity->SetAbsOrigin( vecNewOrigin );
+		if ( m_iszSpawnTarget != NULL )
+		{
+			CBaseEntity *pSTarget = m_iszSpawnTarget;
+			Vector vecSPOrigin;
+			vecSPOrigin = pSTarget->GetAbsOrigin();
+			pEntity->SetAbsOrigin( vecSPOrigin );
+		}
+		else
+		{
+		// Set its origin
+			pEntity->SetAbsOrigin( vecNewOrigin );
+		}
+		//& angles
 		pEntity->SetAbsAngles( vecNewAngles );
 
 		pSpawnList[i].m_pEntity = pEntity;
@@ -391,6 +405,33 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 	}
 
 	return true;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting spawnpoint
+// Input  : &inputdata -
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputSetSpawnPoint( inputdata_t &inputdata )
+{
+	CBaseEntity *pSITarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	if ( !pSITarget )
+	{
+		DevMsg("%s (%s) received SetSpawn input, but couldn't find target entity '%s'\n", GetClassname(), GetDebugName(), inputdata.value.String() );
+		return;
+	}
+
+	m_iszSpawnTarget = pSITarget;
+
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Reset Spawnpoint
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputResetSpawnPoint( inputdata_t &inputdata )
+{
+	m_iszSpawnTarget = NULL;
 }
 
 //-----------------------------------------------------------------------------

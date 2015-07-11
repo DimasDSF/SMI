@@ -1261,10 +1261,6 @@ void CNPC_AttackHelicopter::SpotlightThink()
 			Vector vecOrigin;
 			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
 			m_Spotlight.SetSpotlightTargetDirection( vecForward );
-			if ( GetEnemy() )
-			{
-				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
-			}
 		}
 		break;
 
@@ -1274,10 +1270,6 @@ void CNPC_AttackHelicopter::SpotlightThink()
 			Vector vecOrigin;
 			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
 			m_Spotlight.SetSpotlightTargetDirection( vecForward );
-			if ( GetEnemy() )
-			{
-				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
-			}
 		}
 		break;
 
@@ -1287,10 +1279,6 @@ void CNPC_AttackHelicopter::SpotlightThink()
 			Vector vecOrigin;
 			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
 			m_Spotlight.SetSpotlightTargetDirection( vecForward );
-			if ( GetEnemy() )
-			{
-				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
-			}
 		}
 		break;
 
@@ -1300,10 +1288,6 @@ void CNPC_AttackHelicopter::SpotlightThink()
 			Vector vecOrigin;
 			GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
 			m_Spotlight.SetSpotlightTargetDirection( vecForward );
-			if ( GetEnemy() )
-			{
-				m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
-			}
 		}
 		break;
 

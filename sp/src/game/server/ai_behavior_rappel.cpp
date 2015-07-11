@@ -47,7 +47,7 @@ LINK_ENTITY_TO_CLASS( rope_anchor, CRopeAnchor );
 
 //---------------------------------------------------------
 //---------------------------------------------------------
-#define RAPPEL_ROPE_WIDTH 1
+#define RAPPEL_ROPE_WIDTH 2
 void CRopeAnchor::Spawn()
 {
 	BaseClass::Spawn();
@@ -144,6 +144,11 @@ void CAI_RappelBehavior::SetDescentSpeed()
 
 	float speed = RAPPEL_MAX_SPEED;
 
+	if( GetEnemy() )
+	{
+		speed = ( RAPPEL_MAX_SPEED / 2 );
+	}
+
 	if( flDist <= RAPPEL_DECEL_DIST )
 	{
 		float factor;
@@ -151,7 +156,6 @@ void CAI_RappelBehavior::SetDescentSpeed()
 
 		speed = MAX( RAPPEL_MIN_SPEED, speed * factor );
 	}
-
 	Vector vecNewVelocity = vec3_origin;
 	vecNewVelocity.z = -speed;
 	GetOuter()->SetAbsVelocity( vecNewVelocity );
@@ -300,7 +304,7 @@ void CAI_RappelBehavior::GatherConditions()
 	if( HasCondition( COND_CAN_RANGE_ATTACK1 ) )
 	{
 		// Shoot at the enemy so long as I'm six feet or more above them.
-		if( (GetAbsOrigin().z - GetEnemy()->GetAbsOrigin().z >= 36.0f) && GetOuter()->GetShotRegulator()->ShouldShoot() )
+		if( (GetAbsOrigin().z - GetEnemy()->GetAbsOrigin().z >= 18.0f) && GetOuter()->GetShotRegulator()->ShouldShoot() )
 		{
 			Activity activity = GetOuter()->TranslateActivity( ACT_GESTURE_RANGE_ATTACK1 );
 			Assert( activity != ACT_INVALID );
@@ -386,7 +390,7 @@ void CAI_RappelBehavior::CreateZipline()
 		if( attachment > 0 )
 		{
 			CBeam *pBeam;
-			pBeam = CBeam::BeamCreate( "cable/cable.vmt", 1 );
+			pBeam = CBeam::BeamCreate( "cable/cable.vmt", 2 );
 			pBeam->SetColor( 150, 150, 150 );
 			pBeam->SetWidth( 0.3 );
 			pBeam->SetEndWidth( 0.3 );
