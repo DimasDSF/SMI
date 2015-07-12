@@ -66,6 +66,7 @@ BEGIN_DATADESC( CPointTemplate )
 
 	// Outputs
 	DEFINE_OUTPUT( m_pOutputOnSpawned, "OnEntitySpawned" ),
+	DEFINE_OUTPUT( m_pOutputEntSpawned, "OnSingleEntSpawned" ),
 
 END_DATADESC()
 
@@ -380,11 +381,13 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 			Vector vecSPOrigin;
 			vecSPOrigin = pSTarget->GetAbsOrigin();
 			pEntity->SetAbsOrigin( vecSPOrigin );
+			m_pOutputEntSpawned.FireOutput( this, pEntity );
 		}
 		else
 		{
 		// Set its origin
 			pEntity->SetAbsOrigin( vecNewOrigin );
+			m_pOutputEntSpawned.FireOutput( this, pEntity );
 		}
 		//& angles
 		pEntity->SetAbsAngles( vecNewAngles );

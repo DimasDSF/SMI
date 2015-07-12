@@ -68,6 +68,7 @@ private:
 	CUtlVector< template_t >		m_hTemplates;
 
 	COutputEvent					m_pOutputOnSpawned;
+	COutputEvent					m_pOutputEntSpawned;
 };
 
 #endif // POINT_TEMPLATE_H

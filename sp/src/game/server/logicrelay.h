@@ -29,7 +29,11 @@ public:
 	void InputDisable( inputdata_t &inputdata );
 	void InputToggle( inputdata_t &inputdata );
 	void InputTrigger( inputdata_t &inputdata );
+	void InputTriggerInstant( inputdata_t &inputdata );
 	void InputCancelPending( inputdata_t &inputdata );
+	void InputSetMaxDelay( inputdata_t &inputdata );
+	void InputSetMinDelay( inputdata_t &inputdata );
+
 
 	DECLARE_DATADESC();
 
@@ -41,6 +45,9 @@ public:
 	
 private:
 
+	float m_flMaxDelay;
+	float m_flMinDelay;
+	float m_flCurrentDelay;
 	bool m_bDisabled;
 	bool m_bWaitForRefire;			// Set to disallow a refire while we are waiting for our outputs to finish firing.
 };

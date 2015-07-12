@@ -29,6 +29,8 @@ BEGIN_DATADESC( CLogicRelay )
 
 	DEFINE_FIELD(m_bWaitForRefire, FIELD_BOOLEAN),
 	DEFINE_KEYFIELD(m_bDisabled, FIELD_BOOLEAN, "StartDisabled"),
+	DEFINE_KEYFIELD(m_flMaxDelay, FIELD_FLOAT, "MaxDelay"),
+	DEFINE_KEYFIELD(m_flMinDelay, FIELD_FLOAT, "MinDelay"),
 
 	// Inputs
 	DEFINE_INPUTFUNC(FIELD_VOID, "Enable", InputEnable),
@@ -36,7 +38,10 @@ BEGIN_DATADESC( CLogicRelay )
 	DEFINE_INPUTFUNC(FIELD_VOID, "Disable", InputDisable),
 	DEFINE_INPUTFUNC(FIELD_VOID, "Toggle", InputToggle),
 	DEFINE_INPUTFUNC(FIELD_VOID, "Trigger", InputTrigger),
+	DEFINE_INPUTFUNC(FIELD_VOID, "TriggerInstant", InputTriggerInstant),
 	DEFINE_INPUTFUNC(FIELD_VOID, "CancelPending", InputCancelPending),
+	DEFINE_INPUTFUNC(FIELD_VOID, "SetMaxDelay", InputSetMaxDelay),
+	DEFINE_INPUTFUNC(FIELD_VOID, "SetMinDelay", InputSetMinDelay),
 
 	// Outputs
 	DEFINE_OUTPUT(m_OnTrigger, "OnTrigger"),
@@ -135,6 +140,44 @@ void CLogicRelay::InputToggle( inputdata_t &inputdata )
 }
 
 
+//------------------------------------------------------------------------------
+// Purpose: Sets m_flMaxDelay
+//------------------------------------------------------------------------------
+void CLogicRelay::InputSetMaxDelay( inputdata_t &inputdata )
+{ 
+	float m_flInputMax = inputdata.value.Float();
+	if ( m_flInputMax >= 0 )
+	{
+		if ( m_flMinDelay != NULL && m_flInputMax > m_flMinDelay || m_flMinDelay == NULL )
+		{
+			if ( m_flMinDelay == NULL )
+			{
+				DevWarning( 1, "Warning: Max delay set for logic_relay while Min delay is NULL" );
+			}
+			m_flMaxDelay = m_flInputMax;
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+// Purpose: Sets m_flMaxDelay
+//------------------------------------------------------------------------------
+void CLogicRelay::InputSetMinDelay( inputdata_t &inputdata )
+{ 
+	float m_flInputMin = inputdata.value.Float();
+	if ( m_flInputMin >= 0 )
+	{
+		if ( m_flMaxDelay != NULL && m_flInputMin < m_flMaxDelay || m_flMaxDelay == NULL )
+		{
+			if ( m_flMaxDelay == NULL )
+			{
+				DevWarning( 1, "Warning: Min delay set for logic_relay while Max delay is NULL" );
+			}
+			m_flMinDelay = m_flInputMin;
+		}
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Input handler that triggers the relay.
 //-----------------------------------------------------------------------------
@@ -142,8 +185,50 @@ void CLogicRelay::InputTrigger( inputdata_t &inputdata )
 {
 	if ((!m_bDisabled) && (!m_bWaitForRefire))
 	{
+		if (m_flMaxDelay == NULL || m_flMinDelay == NULL && m_flMaxDelay == NULL || m_flMaxDelay < m_flMinDelay )
+		{
+			m_OnTrigger.FireOutput( inputdata.pActivator, this );
+		}
+		else if ( m_flMaxDelay == m_flMinDelay != 0 )
+		{
+			m_OnTrigger.FireOutput( inputdata.pActivator, this, m_flMaxDelay );
+		}
+		else
+		{
+			m_flCurrentDelay = random->RandomFloat(m_flMinDelay, m_flMaxDelay);
+			if ( m_flCurrentDelay > 0 )
+			{
+				m_OnTrigger.FireOutput( inputdata.pActivator, this, m_flCurrentDelay );
+			}
+			else
+			{
+				m_OnTrigger.FireOutput( inputdata.pActivator, this );
+			}
+		}
+		if (m_spawnflags & SF_REMOVE_ON_FIRE)
+		{
+			UTIL_Remove(this);
+		}
+		else if (!(m_spawnflags & SF_ALLOW_FAST_RETRIGGER))
+		{
+			//
+			// Disable the relay so that it cannot be refired until after the last output
+			// has been fired and post an input to re-enable ourselves.
+			//
+			m_bWaitForRefire = true;
+			g_EventQueue.AddEvent(this, "EnableRefire", m_OnTrigger.GetMaxDelay() + 0.001, this, this);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Input handler that triggers the relay instantly.
+//-----------------------------------------------------------------------------
+void CLogicRelay::InputTriggerInstant( inputdata_t &inputdata )
+{
+	if ((!m_bDisabled) && (!m_bWaitForRefire))
+	{
 		m_OnTrigger.FireOutput( inputdata.pActivator, this );
-		
 		if (m_spawnflags & SF_REMOVE_ON_FIRE)
 		{
 			UTIL_Remove(this);
