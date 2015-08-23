@@ -865,6 +865,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "DropBombDelay", InputDropBombDelay ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartCarpetBombing", InputStartCarpetBombing ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopCarpetBombing", InputStopCarpetBombing ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableBombing", InputEnableBombing ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableBombing", InputDisableBombing ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeIndestructible", InputBecomeIndestructible ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableDeadlyShooting", InputEnableDeadlyShooting ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableDeadlyShooting", InputDisableDeadlyShooting ),

@@ -274,7 +274,7 @@ public:
 
 	void InputDisplay( inputdata_t &inputdata );
 	void Display( CBaseEntity *pActivator );
-	void InputDisplayText( inputdata_t &inputdata );
+	void InputSetText( inputdata_t &inputdata );
 
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 	{
@@ -308,7 +308,7 @@ BEGIN_DATADESC( CGameText )
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Display", InputDisplay ),
-	DEFINE_INPUTFUNC( FIELD_STRING, "SetText", InputDisplayText ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetText", InputSetText ),
 
 END_DATADESC()
 
@@ -346,11 +346,11 @@ void CGameText::InputDisplay( inputdata_t &inputdata )
 	Display( inputdata.pActivator );
 }
 
-void CGameText::InputDisplayText( inputdata_t &inputdata )
+void CGameText::InputSetText( inputdata_t &inputdata )
 {
   // the baseclass already defines a memberfunction to set the 
   // message-text (CGameText::MessageSet), we just call it
-  MessageSet( STRING(inputdata.value.StringID()) );
+	  MessageSet( STRING(inputdata.value.StringID()) );
 }
 
 void CGameText::Display( CBaseEntity *pActivator )

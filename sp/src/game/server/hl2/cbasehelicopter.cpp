@@ -173,6 +173,7 @@ CBaseHelicopter::CBaseHelicopter( void )
 void CBaseHelicopter::Precache( void )
 {
 	PrecacheScriptSound( "PropAPC.FireRocket" );
+	PrecacheScriptSound( "NPC_AttackHelicopter.RocketsReloading" );
 }
 
 //------------------------------------------------------------------------------
@@ -897,6 +898,7 @@ void CBaseHelicopter::FireRocket( void )
 	{
 		// Reload the salvo
 		m_iRocketSalvoLeft = m_iSalvoSize;
+		EmitSound( "NPC_AttackHelicopter.RocketsReloading" );
 		float m_flReloadTime;
 		float m_flCorrectLoadTime;
 		if ( 2-m_flRocketDelay < 0 )
@@ -914,20 +916,32 @@ void CBaseHelicopter::FireRocket( void )
 		}
 		m_flRocketTime = gpGlobals->curtime + m_flCorrectLoadTime;
 	}
-	Vector vecRocketOrigin;
-	GetRocketShootPosition(	&vecRocketOrigin );
+	Vector vecRocketOrigin, forward, right, up;
+	//GetRocketShootPosition(	&vecRocketOrigin );
+	if ( random->RandomInt(0,1) == 1 )
+	{
+		GetAttachment( m_nRocketAttachment1, vecRocketOrigin, &forward, &right, &up );
+		m_bRAttachment = false;
+	}
+	else
+	{
+		GetAttachment( m_nRocketAttachment2, vecRocketOrigin, &forward, &right, &up );
+		m_bRAttachment = true;
+	}
 
 	float m_flRocketVecZ;
 	float m_flRocketVecY;
+	float m_flForwardMult;
 
-	static float s_pSide[] = { 0.966, 0.866, 0.5, -0.5, -0.866, -0.966 };
 	if ( m_bRocketDownward )
 		{
 			m_flRocketVecZ = -1.0;
+			m_flForwardMult = 2.0;
 		}
 	else
 		{
 			m_flRocketVecZ = 0.0;
+			m_flForwardMult = 6.0;
 		}
 
 	if ( !m_bRAttachment )
@@ -939,8 +953,8 @@ void CBaseHelicopter::FireRocket( void )
 		m_flRocketVecY = 1.0;
 	}
 
-	Vector forward, right, up;
-	GetVectors( &forward, &right, &up );
+	//Vector forward, right, up;
+	//GetVectors( &forward, &right, &up );
 
 	Vector VecRocketY, VecRocketZ;
 	VectorMultiply( up, m_flRocketVecZ, VecRocketZ );
@@ -949,22 +963,24 @@ void CBaseHelicopter::FireRocket( void )
 	Vector vecLaunchDir;
 	CrossProduct( VecRocketY, VecRocketZ, vecLaunchDir);
 
-	Vector vecDir;
-	CrossProduct( vecLaunchDir, forward, vecDir );
+	Vector vecDir, vecForwardMult;
+	VectorMultiply(forward, m_flForwardMult, vecForwardMult );
+	CrossProduct( vecLaunchDir, vecForwardMult, vecDir );
 	vecDir.z = m_flRocketVecZ;
-	vecDir.x = forward.x;
+	vecDir.x = vecForwardMult.x;
 	//vecDir.x = m_flRocketVecY;
 	vecDir.y = VecRocketY.y;
 	//vector 001
 	VectorNormalize( vecDir );
 
-	Vector vecVelocity;
+	Vector vecVelocity, vecFinalVel;
 	VectorMultiply( vecDir, ROCKET_SPEED, vecVelocity );
+	VectorAdd( vecVelocity, GetAbsVelocity()/2, vecFinalVel );
 
 	QAngle angles;
 	VectorAngles( vecDir, angles );
 
-	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecVelocity, this );
+	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecFinalVel, this );
 	if ( !m_bRocketDownward )
 	{
 		pRocket->IgniteDelay();
@@ -988,20 +1004,20 @@ void CBaseHelicopter::FireRocket( void )
 	m_OnFiredMissile.FireOutput( this, this );
 }
 
-void CBaseHelicopter::GetRocketShootPosition( Vector *pPosition )
-{
+//void CBaseHelicopter::GetRocketShootPosition( Vector *pPosition )
+//{
 
-	if ( random->RandomInt(0,1) == 1 )
-	{
-		GetAttachment( m_nRocketAttachment1, *pPosition );
-		m_bRAttachment = 0;
-	}
-	else
-	{
-		GetAttachment( m_nRocketAttachment2, *pPosition );
-		m_bRAttachment = 1;
-	}
-}
+//	if ( random->RandomInt(0,1) == 1 )
+//	{
+//		GetAttachment( m_nRocketAttachment1, *pPosition );
+//		m_bRAttachment = 0;
+//	}
+//	else
+//	{
+//		GetAttachment( m_nRocketAttachment2, *pPosition );
+//		m_bRAttachment = 1;
+//	}
+//}
 //------------------------------------------------------------------------------
 // Purpose :
 // Input   :
@@ -1635,6 +1651,7 @@ void CBaseHelicopter::InputFireMissileAt( inputdata_t &inputdata )
 	}
 
 	m_hSpecificRocketTarget = pTarget;
+	FireRocket();
 }
 
 void CBaseHelicopter::InputSetMissileDelay( inputdata_t &inputdata )

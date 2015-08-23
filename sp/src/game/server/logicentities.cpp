@@ -1333,6 +1333,7 @@ private:
 	COutputEvent m_OnHitMax;
 	COutputFloat m_OnNotEnough; //Fired when math_counter has not enough to pay the in.value
 	COutputFloat m_OnEnough; //Fired when math_counter has enough to pay the in.value
+	COutputString m_OnOutputValueToString; //Fired to send String values to text output entities
 
 	DECLARE_DATADESC();
 };
@@ -1372,6 +1373,7 @@ BEGIN_DATADESC( CMathCounter )
 	DEFINE_OUTPUT(m_OnGetValue, "OnGetValue"),
 	DEFINE_OUTPUT(m_OnEnough, "OnEnough"),
 	DEFINE_OUTPUT(m_OnNotEnough, "OnNotEnough"),
+	DEFINE_OUTPUT(m_OnOutputValueToString, "OnOutputAsString"),
 
 END_DATADESC()
 
@@ -1499,8 +1501,8 @@ void CMathCounter::InputPay( inputdata_t &inputdata )
 	float fNewValue = m_OutValue.Get() - inputdata.value.Float();
 	if ( fNewValue >= 0 )
 	{
-		m_OnEnough.Set( inputdata.value.Float(), inputdata.pActivator, this );
 		UpdateOutValue( inputdata.pActivator, fNewValue );
+		m_OnEnough.Set( inputdata.value.Float(), inputdata.pActivator, this );
 	}
 	else if ( fNewValue < 0 )
 	{
@@ -1683,11 +1685,13 @@ void CMathCounter::UpdateOutValue(CBaseEntity *pActivator, float fNewValue)
 		{
 			m_bHitMin = false;
 		}
-
 		fNewValue = clamp(fNewValue, m_flMin, m_flMax);
 	}
 
 	m_OutValue.Set(fNewValue, pActivator, this);
+	int input = (int)m_OutValue.Get();
+	string_t vstring = MAKE_STRING( UTIL_VarArgs("%i", input ) );
+	m_OnOutputValueToString.Set( vstring, pActivator, this );
 }
 
 
