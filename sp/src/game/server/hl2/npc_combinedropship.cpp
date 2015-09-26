@@ -37,6 +37,7 @@
 
 // Spawnflags
 #define SF_DROPSHIP_WAIT_FOR_DROPOFF_INPUT		( 1 << 15 )	
+#define SF_DROPSHIP_WAIT_FOR_TAKEOFF_INPUT		( 1 << 16 )
 
 #define DROPSHIP_ACCEL_RATE				300
 
@@ -254,6 +255,7 @@ public:
 	void	InputDropMines( inputdata_t &inputdata );
 	void	InputDropStrider( inputdata_t &inputdata );
 	void	InputDropAPC( inputdata_t &inputdata );
+	void	InputTakeOff( inputdata_t &inputdata );
 
 	void	InputPickup( inputdata_t &inputdata );
 	void	InputSetGunRange( inputdata_t &inputdata );
@@ -301,6 +303,7 @@ private:
 	float	m_existPitch;
 	float	m_existRoll;
 	bool	m_bDropMines;		// signal to drop mines
+	bool	m_bWaitingForTakeoff;
 	bool	m_bIsFiring;
 	int		m_iBurstRounds;
 	bool	m_leaveCrate;
@@ -352,6 +355,7 @@ private:
 
 	// Outputs
 	COutputEvent	m_OnFinishedDropoff;
+	COutputEvent	m_OnTakeoff;
 	COutputEvent	m_OnFinishedPickup;
 
 	COutputFloat	m_OnContainerShotDownBeforeDropoff;
@@ -816,8 +820,10 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopWaitingForDropoff", InputStopWaitingForDropoff ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "Hover", InputHover ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "FlyToPathTrack", InputFlyToPathTrack ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TakeOff", InputTakeOff ),
 	
 	DEFINE_OUTPUT( m_OnFinishedDropoff, "OnFinishedDropoff" ),
+	DEFINE_OUTPUT( m_OnTakeoff, "OnTakeoff" ),
 	DEFINE_OUTPUT( m_OnFinishedPickup, "OnFinishedPickup" ),
 
 	DEFINE_OUTPUT( m_OnContainerShotDownBeforeDropoff, "OnCrateShotDownBeforeDropoff" ),
@@ -1013,6 +1019,15 @@ void CNPC_CombineDropship::Spawn( void )
 	SetSchedule( SCHED_IDLE_STAND );
 
 	SetLandingState( LANDING_NO );
+
+	if ( HasSpawnFlags( SF_DROPSHIP_WAIT_FOR_TAKEOFF_INPUT ) )
+	{
+		m_bWaitingForTakeoff = true;
+	}
+	else
+	{
+		m_bWaitingForTakeoff = false;
+	}
 
 	if ( HasSpawnFlags( SF_DROPSHIP_WAIT_FOR_DROPOFF_INPUT ) )
 	{
@@ -2198,12 +2213,13 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 					{
 						// We're out of troops, time to leave
 						m_flTimeTakeOff = gpGlobals->curtime + 0.5;
+						m_OnFinishedDropoff.FireOutput( this, this );
 					}
 				}
 			}
 			else
 			{
-				if( gpGlobals->curtime > m_flTimeTakeOff )
+				if( gpGlobals->curtime > m_flTimeTakeOff && !m_bWaitingForTakeoff )
 				{
 					SetLandingState( LANDING_LIFTOFF );
 					SetActivity( (Activity)ACT_DROPSHIP_LIFTOFF );
@@ -2239,7 +2255,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 						UTIL_SetSize( this, DROPSHIP_BBOX_MIN, DROPSHIP_BBOX_MAX );
 					}
 				}
-				else if ( (m_flTimeTakeOff - gpGlobals->curtime) < 0.5f )
+				else if ( (m_flTimeTakeOff - gpGlobals->curtime) < 0.5f && !m_bWaitingForTakeoff )
 				{
 					// Manage engine wash and volume
 					m_engineThrust = UTIL_Approach( 1.0f, m_engineThrust, 0.1f );
@@ -2257,7 +2273,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				SetLandingState( LANDING_NO );
 				m_hLandTarget = NULL;
 				m_bHasDroppedOff = true;
-				m_OnFinishedDropoff.FireOutput( this, this );
+				m_OnTakeoff.FireOutput( this, this );
 			}
 
 			if ( m_hContainer )
@@ -2586,6 +2602,11 @@ void CNPC_CombineDropship::InputNPCFinishDustoff( inputdata_t &inputdata )
 void CNPC_CombineDropship::InputStopWaitingForDropoff( inputdata_t &inputdata )
 {
 	m_bWaitForDropoffInput = false;
+}
+
+void CNPC_CombineDropship::InputTakeOff( inputdata_t &inputdata )
+{
+	m_bWaitingForTakeoff = false;
 }
 
 //------------------------------------------------------------------------------

@@ -862,6 +862,7 @@ void CBaseHelicopter::AimRocketGun( void )
 				}
 
 				m_flLastSeen = gpGlobals->curtime;
+				UpdateFacingDirection();
 				AimRocketGunAtTarget( pEnemy );
 			}
 		}

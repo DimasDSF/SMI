@@ -1221,8 +1221,16 @@ int CNPC_Citizen::SelectScheduleHeal()
 				// use the new heal toss algorithm
 				if ( ShouldHealTossTarget( pEntity, HasCondition( COND_CIT_PLAYERHEALREQUEST ) ) )
 				{
-					SetTarget( pEntity );
-					return SCHED_CITIZEN_HEAL_TOSS;
+					//if ( pEntity->IsPlayer())
+					//{
+						SetTarget( pEntity );
+						return SCHED_CITIZEN_HEAL_TOSS;
+					//}
+					//else
+					//{
+					//	SetTarget( pEntity );
+					//	return SCHED_CITIZEN_HEAL;
+					//}
 				}
 			}
 			else if ( PlayerInRange( GetLocalOrigin(), HEAL_MOVE_RANGE ) )
@@ -1882,10 +1890,14 @@ void CNPC_Citizen::HandleAnimEvent( animevent_t *pEvent )
 		{
 			CBaseCombatCharacter *pTarget = dynamic_cast<CBaseCombatCharacter *>( GetTarget() );
 			Assert(pTarget);
-			if ( pTarget )
+			if ( pTarget && pTarget->IsPlayer() )
 			{
 				m_flPlayerHealTime 	= gpGlobals->curtime + sk_citizen_heal_toss_player_delay.GetFloat();;
 				TossHealthKit( pTarget, Vector(48.0f, 0.0f, 0.0f)  );
+			}
+			else
+			{
+				Heal();
 			}
 		}
 		else
@@ -3523,6 +3535,9 @@ bool CNPC_Citizen::ShouldHealTossTarget( CBaseEntity *pTarget, bool bActiveUse )
 		return false;
 
 	bool bTargetIsPlayer = pTarget->IsPlayer();
+
+	if ( pTarget && (!pTarget->IsPlayer()))
+		return false;
 
 	// Don't heal or give ammo to targets in vehicles
 	CBaseCombatCharacter *pCCTarget = pTarget->MyCombatCharacterPointer();

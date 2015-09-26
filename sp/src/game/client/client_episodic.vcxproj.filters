@@ -1889,6 +1889,9 @@
     <ClInclude Include="toolframework_client.h">
       <Filter>Tool Framework</Filter>
     </ClInclude>
+    <ClInclude Include="worldlight.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="mp3player.cpp">
@@ -3417,6 +3420,9 @@
     </ClCompile>
     <ClCompile Include="hud_fscolor.cpp">
       <Filter>Source Files\HL2 DLL</Filter>
+    </ClCompile>
+    <ClCompile Include="worldlight.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

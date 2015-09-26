@@ -5100,7 +5100,7 @@ bool CNPC_MetroPolice::QueryHearSound( CSound *pSound )
 	if ( PlayerIsCriminal() == false )
 	{
 		// If the person making the sound was a friend, don't respond
-		if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) == D_NU )
+		if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
 			return false;
 	}
 
@@ -5274,7 +5274,8 @@ DEFINE_SCHEDULE
 	"		TASK_METROPOLICE_GET_PATH_TO_BESTSOUND_LOS		0"
 	"		TASK_FACE_IDEAL					0"
 //	"		TASK_SET_TOLERANCE_DISTANCE		16"
-	"		TASK_RUN_PATH					0"
+	"		TASK_RUN_PATH_WITHIN_DIST		10"
+	"		TASK_FACE_RANDOM				0"
 	"		TASK_WAIT_FOR_MOVEMENT			0"
 	"		TASK_STOP_MOVING				0"
 	"		TASK_WAIT						10"

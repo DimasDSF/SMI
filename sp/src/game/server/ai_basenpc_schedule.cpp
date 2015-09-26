@@ -1609,6 +1609,11 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			break;
 		}
 
+	case TASK_FACE_RANDOM:
+		GetMotor()->SetIdealYaw( random->RandomFloat(0.0, 360.0 ));
+		SetTurnActivity();
+		break;
+
 	case TASK_FACE_IDEAL:
 		SetTurnActivity();
 		break;
@@ -3417,6 +3422,7 @@ void CAI_BaseNPC::RunTask( const Task_t *pTask )
 		break;
 
 	case TASK_FACE_HINTNODE:
+	case TASK_FACE_RANDOM:
 	case TASK_FACE_LASTPOSITION:
 	case TASK_FACE_SAVEPOSITION:
 	case TASK_FACE_AWAY_FROM_SAVEPOSITION:
@@ -4402,7 +4408,15 @@ if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		return SCHED_INVESTIGATE_SOUND;
+		m_iRInvestSched=random->RandomInt(1,10);
+		if ( m_iRInvestSched > 6 )
+		{
+			return SCHED_INVESTIGATE_SOUND;
+		}
+		else
+		{
+			return SCHED_ALERT_FACE_BESTSOUND;
+		}
 	}
 	
 	// no valid route!
@@ -4443,7 +4457,7 @@ int CAI_BaseNPC::SelectAlertSchedule()
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
 		m_iRInvestSched=random->RandomInt(1,10);
-		if ( m_iRInvestSched > 4 )
+		if ( m_iRInvestSched > 3 )
 		{
 			return SCHED_INVESTIGATE_SOUND;
 		}

@@ -1937,13 +1937,28 @@ bool CAI_BaseNPC::QueryHearSound( CSound *pSound )
 
 	if ( pSound->IsSoundType( SOUND_PLAYER ) && GetState() == NPC_STATE_IDLE && !FVisible( pSound->GetSoundReactOrigin() ) )
 	{
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
 		// NPC's that are IDLE should disregard player movement sounds if they can't see them.
 		// This does not affect them hearing the player's weapon.
 		// !!!BUGBUG - this probably makes NPC's not hear doors opening, because doors opening put SOUND_PLAYER
 		// in the world, but the door's model will block the FVisible() trace and this code will then
 		// deduce that the sound can not be heard
-		return false;
+		if ( IRelationType( pPlayer ) >= D_LI )
+		{
+			return false;
+		}
+		if ( IRelationType( pPlayer ) < D_LI )
+		{
+			if ( random->RandomInt(0,100) < 100 )
+			{
+				return false;
+			}
+		}
 	}
+
+	// If the person making the sound was a friend, don't respond
+	if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
+		return false;
 
 	// Disregard footsteps from our own class type
 	if ( pSound->IsSoundType( SOUND_COMBAT ) && pSound->SoundChannel() == SOUNDENT_CHANNEL_NPC_FOOTSTEP )
@@ -2169,6 +2184,16 @@ void CAI_BaseNPC::OnListened()
 	{
 		m_OnHearCombat.FireOutput(this, this);
 	}
+}
+
+CSound * CAI_BaseNPC::GetCurrentSound()
+{
+	int	iSound = CSoundEnt::ActiveList();
+					
+	CSound *pCurrentSound = CSoundEnt::SoundPointerForIndex( iSound );
+	Assert( pCurrentSound );
+
+	return pCurrentSound;
 }
 
 //=========================================================
@@ -3277,10 +3302,10 @@ void CAI_BaseNPC::UpdateEfficiency( bool bInPVS )
 			// In PVS
 				// Facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 				// Not facing
-					AIE_EFFICIENT,
+					AIE_NORMAL,
 					AIE_EFFICIENT,
 					AIE_VERY_EFFICIENT,
 			// Not in PVS
@@ -3291,30 +3316,30 @@ void CAI_BaseNPC::UpdateEfficiency( bool bInPVS )
 			// In PVS
 				// Facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 				// Not facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 			// Not in PVS
+					AIE_NORMAL,
 					AIE_EFFICIENT,
 					AIE_VERY_EFFICIENT,
-					AIE_SUPER_EFFICIENT,
 		// Combat
 			// In PVS
 				// Facing
 					AIE_NORMAL,
 					AIE_NORMAL,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
 				// Not facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 			// Not in PVS
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_VERY_EFFICIENT,	
+					AIE_NORMAL,
+					AIE_EFFICIENT,	
 	};
 
 	static const int stateBase[] = { 0, 9, 18 };

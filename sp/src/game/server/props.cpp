@@ -3945,7 +3945,7 @@ void CBasePropDoor::OnUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TY
 //-----------------------------------------------------------------------------
 void CBasePropDoor::InputClose(inputdata_t &inputdata)
 {
-	if (!IsDoorClosed())
+	if (!IsDoorClosed() && !m_bLocked)
 	{	
 		m_OnClose.FireOutput(inputdata.pActivator, this);
 		DoorClose();

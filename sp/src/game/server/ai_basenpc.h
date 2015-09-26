@@ -991,7 +991,7 @@ public:
 	CSound *			GetLoudestSoundOfType( int iType );
 	virtual CSound *	GetBestSound( int validTypes = ALL_SOUNDS );
 	virtual CSound *	GetBestScent( void );
-	virtual float		HearingSensitivity( void )		{ return 1.0;	}
+	virtual float		HearingSensitivity( void )		{ return 3.0;	}
 	virtual bool		ShouldIgnoreSound( CSound * )	{ return false; }
 	bool				SoundIsVisible( CSound *pSound );
 
@@ -1728,7 +1728,7 @@ public:
 	virtual float		GetHintDelay( short sHintType );
 	virtual Activity	GetCoverActivity( CAI_Hint* pHint );
 	virtual Activity	GetReloadActivity( CAI_Hint* pHint );
-
+	CSound *			GetCurrentSound( void );
 	virtual void		SetTurnActivity( void );
 	bool				UpdateTurnGesture( void );
 

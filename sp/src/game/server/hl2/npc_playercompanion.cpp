@@ -3372,7 +3372,7 @@ void CNPC_PlayerCompanion::InputCancelEnterVehicle( inputdata_t &inputdata )
 void CNPC_PlayerCompanion::InputEquipSpecificWeapon( inputdata_t &inputdata )
 {
 	CBaseEntity *pThisNPC = this;
-	CBaseEntity *pWeaponPickup = FindNamedEntity (inputdata.value.String() );
+	CBaseEntity *pWeaponPickup = gEntList.FindEntityByName(NULL, inputdata.value.String());
 	if ( pWeaponPickup )
 	{
 		if ( FClassnameIs( pWeaponPickup, "weapon_*" ) )
@@ -3429,7 +3429,7 @@ void CNPC_PlayerCompanion::InputEquipSpecificWeapon( inputdata_t &inputdata )
 void CNPC_PlayerCompanion::InputPickupWeapon( inputdata_t &inputdata )
 {
 	CBaseEntity *pThisNPC = this;
-	CBaseEntity *pWeaponPickup = FindNamedEntity (inputdata.value.String() );
+	CBaseEntity *pWeaponPickup = gEntList.FindEntityByName(NULL, inputdata.value.String());
 	if ( pWeaponPickup )
 	{
 		if ( FClassnameIs( pWeaponPickup, "weapon_*" ) )
@@ -3455,22 +3455,37 @@ void CNPC_PlayerCompanion::InputPickupWeapon( inputdata_t &inputdata )
 				DevMsg( 2, "This npc is not allowed to pickup a weapon of this type\n");
 			}
 		}
+		else if ( FClassnameIs( pWeaponPickup, "item_healthkit" ) || FClassnameIs( pWeaponPickup, "item_healthvial" ) )
+		{
+			SetTarget( pWeaponPickup );
+			SetSchedule( SCHED_GET_HEALTHKIT );
+		}
 		else 
 		{
-			DevMsg( 2, "Selected entity is not a weapon\n");
+			DevMsg( 2, "Selected entity is not a weapon, and not an item\n");
 		}
 	}
 }
 
 void CNPC_PlayerCompanion::InputDropWeapon( inputdata_t &inputdata )
 {
-	if ( GetActiveWeapon() )
+	CBaseEntity *pWeaponDropTarget = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if ( GetActiveWeapon() && pWeaponDropTarget != NULL )
+	{
+		Vector vecTargetPos = pWeaponDropTarget->WorldSpaceCenter();
+		Weapon_Drop( GetActiveWeapon(), &vecTargetPos );
+	}
+	else if ( GetActiveWeapon() && pWeaponDropTarget == NULL )
 	{
 		Weapon_Drop( GetActiveWeapon() );
 	}
-	else 
+	else if (!GetActiveWeapon())
 	{
 		DevMsg( 2, "Selected NPC has no weapon\n");
+	}
+	else
+	{
+		DevMsg( 2, "Unexpected Error in weapon throw input function\n");
 	}
 }
 

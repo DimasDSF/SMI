@@ -137,7 +137,7 @@ public:
 
 	void			NotifyDeadFriend( CBaseEntity* pFriend );
 
-	virtual float	HearingSensitivity( void ) { return 1.0; };
+	virtual float	HearingSensitivity( void ) { return 3.0; };
 	int				GetSoundInterests( void );
 	virtual bool	QueryHearSound( CSound *pSound );
 
