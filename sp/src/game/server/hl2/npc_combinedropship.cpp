@@ -515,9 +515,9 @@ void CCombineDropshipContainer::CreateCorpse()
 		ThrowFlamingGib();
 	}
 
-	AddSolidFlags( FSOLID_NOT_SOLID );
-	AddEffects( EF_NODRAW );
-	UTIL_Remove( this );
+	//AddSolidFlags( FSOLID_NOT_SOLID );
+	//AddEffects( EF_NODRAW );
+	//UTIL_Remove( this );
 }
 
 
@@ -2184,6 +2184,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			{
 				float flHoverTime = ( m_iCrateType >= 0 ) ? DROPSHIP_LANDING_HOVER_TIME : 0.5f;
 				m_flTimeTakeOff = gpGlobals->curtime + flHoverTime;
+				m_OnFinishedDropoff.FireOutput( this, this );
 			}
 		}
 		break;
@@ -2387,6 +2388,7 @@ void CNPC_CombineDropship::SpawnTroop( void )
 	// Are we fully unloaded? If so, take off. Otherwise, tell the next troop to exit.
 	if ( m_iCurrentTroopExiting >= m_soldiersToDrop || m_sNPCTemplateData[m_iCurrentTroopExiting] == NULL_STRING )
 	{
+		m_OnFinishedDropoff.FireOutput( this, this );
 		// We're done, take off.
 		m_flTimeTakeOff = gpGlobals->curtime + 0.5;
 		return;

@@ -917,18 +917,25 @@ void CBaseHelicopter::FireRocket( void )
 		}
 		m_flRocketTime = gpGlobals->curtime + m_flCorrectLoadTime;
 	}
-	Vector vecRocketOrigin, forward, right, up;
-	//GetRocketShootPosition(	&vecRocketOrigin );
+	Vector vecRocketOrigin, forward, right, up, vecRocketOriginLowered;
+	QAngle angles;
+
 	if ( random->RandomInt(0,1) == 1 )
 	{
 		GetAttachment( m_nRocketAttachment1, vecRocketOrigin, &forward, &right, &up );
+		GetAttachment( m_nRocketAttachment1, vecRocketOrigin, angles );
 		m_bRAttachment = false;
 	}
 	else
 	{
 		GetAttachment( m_nRocketAttachment2, vecRocketOrigin, &forward, &right, &up );
+		GetAttachment( m_nRocketAttachment2, vecRocketOrigin, angles );
 		m_bRAttachment = true;
 	}
+
+	//----
+	vecRocketOrigin.z += -30;
+	//----
 
 	float m_flRocketVecZ;
 	float m_flRocketVecY;
@@ -954,9 +961,6 @@ void CBaseHelicopter::FireRocket( void )
 		m_flRocketVecY = 1.0;
 	}
 
-	//Vector forward, right, up;
-	//GetVectors( &forward, &right, &up );
-
 	Vector VecRocketY, VecRocketZ;
 	VectorMultiply( up, m_flRocketVecZ, VecRocketZ );
 	VectorMultiply( right, m_flRocketVecY, VecRocketY );
@@ -964,22 +968,18 @@ void CBaseHelicopter::FireRocket( void )
 	Vector vecLaunchDir;
 	CrossProduct( VecRocketY, VecRocketZ, vecLaunchDir);
 
-	Vector vecDir, vecForwardMult;
-	VectorMultiply(forward, m_flForwardMult, vecForwardMult );
+	Vector vecDir, vecForwardMult, vecAngleForward;
+	AngleVectors( angles, &vecAngleForward );
+	VectorMultiply(vecAngleForward, m_flForwardMult, vecForwardMult );
 	CrossProduct( vecLaunchDir, vecForwardMult, vecDir );
 	vecDir.z = m_flRocketVecZ;
-	vecDir.x = vecForwardMult.x;
-	//vecDir.x = m_flRocketVecY;
-	vecDir.y = VecRocketY.y;
-	//vector 001
+	vecDir.x = vecAngleForward.x;
+	vecDir.y = vecAngleForward.y;
 	VectorNormalize( vecDir );
 
 	Vector vecVelocity, vecFinalVel;
 	VectorMultiply( vecDir, ROCKET_SPEED, vecVelocity );
 	VectorAdd( vecVelocity, GetAbsVelocity()/2, vecFinalVel );
-
-	QAngle angles;
-	VectorAngles( vecDir, angles );
 
 	CAPCMissile *pRocket = (CAPCMissile *)CAPCMissile::Create( vecRocketOrigin, angles, vecFinalVel, this );
 	if ( !m_bRocketDownward )

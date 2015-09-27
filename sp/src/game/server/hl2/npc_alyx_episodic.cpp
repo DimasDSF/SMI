@@ -119,6 +119,7 @@ BEGIN_DATADESC( CNPC_Alyx )
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN,	"GiveEMP",				InputGiveEMP ),
 	DEFINE_INPUTFUNC( FIELD_VOID,		"VehiclePunted",		InputVehiclePunted ),
 	DEFINE_INPUTFUNC( FIELD_VOID,		"OutsideTransition",	InputOutsideTransition ),
+	DEFINE_INPUTFUNC( FIELD_STRING,		"SetModel",				InputSetModel ),
 
 	DEFINE_OUTPUT( m_OnFinishInteractWithObject, "OnFinishInteractWithObject" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -451,6 +452,14 @@ void CNPC_Alyx::SelectModel()
 	{
 		SetModelName( AllocPooledString("models/alyx.mdl") );
 	}
+}
+
+void CNPC_Alyx::InputSetModel(inputdata_t &inputdata)
+{
+	const char *s_sAlyxModel = inputdata.value.String();
+	SetModelName( AllocPooledString( s_sAlyxModel ) );
+	PrecacheModel( STRING( GetModelName() ) );
+	SetModel( STRING( GetModelName() ) );
 }
 
 //-----------------------------------------------------------------------------
