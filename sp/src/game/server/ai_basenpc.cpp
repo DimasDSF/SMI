@@ -1949,7 +1949,7 @@ bool CAI_BaseNPC::QueryHearSound( CSound *pSound )
 		}
 		if ( IRelationType( pPlayer ) < D_LI )
 		{
-			if ( random->RandomInt(0,100) < 100 )
+			if ( random->RandomInt(0,100) < 95 )
 			{
 				return false;
 			}
@@ -1960,10 +1960,12 @@ bool CAI_BaseNPC::QueryHearSound( CSound *pSound )
 	if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
 		return false;
 
-	// Disregard footsteps from our own class type
+	// Disregard footsteps from our own class type or if the owner is friendly
 	if ( pSound->IsSoundType( SOUND_COMBAT ) && pSound->SoundChannel() == SOUNDENT_CHANNEL_NPC_FOOTSTEP )
 	{
 		if ( pSound->m_hOwner && pSound->m_hOwner->ClassMatches( m_iClassname ) )
+				return false;
+		if ( pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
 				return false;
 	}
 
