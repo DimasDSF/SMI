@@ -378,7 +378,7 @@ void CNPC_Combine::PostNPCInit()
 		// an AR2. 
 		if( !GetActiveWeapon() || !FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) )
 		{
-			DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
+			//DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
 		}
 	}
 
@@ -2259,12 +2259,16 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 
 	case SCHED_VICTORY_DANCE:
 		{
+			// A release for combine soldier signalling
+			//-------------
+			m_flAlertRelease = gpGlobals->curtime + 10.0;
+			//-------------
 			return SCHED_COMBINE_VICTORY_DANCE;
 		}
 	case SCHED_COMBINE_SUPPRESS:
 		{
 #define MIN_SIGNAL_DIST	256
-			if ( GetEnemy() != NULL && GetEnemy()->IsPlayer() && m_bFirstEncounter )
+			if ( GetEnemy() != NULL && m_bFirstEncounter )
 			{
 				float flDistToEnemy = ( GetEnemy()->GetAbsOrigin() - GetAbsOrigin() ).Length();
 
@@ -2291,6 +2295,13 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 			// If I have an enemy, don't go off into random patrol mode.
 			if ( GetEnemy() && GetEnemy()->IsAlive() )
 				return SCHED_COMBINE_PATROL_ENEMY;
+			// Reset to a First Encounter Mode
+			//------------
+			if ( gpGlobals->curtime < m_flAlertRelease )
+				{
+					m_bFirstEncounter = true;
+				}
+			//------------
 
 			return SCHED_COMBINE_PATROL;
 		}
@@ -2424,7 +2435,7 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 		case COMBINE_AE_GREN_LAUNCH:
 			{
 				EmitSound( "NPC_Combine.GrenadeLaunch" );
-
+				//npc_contactgrenade
 				CBaseEntity *pGrenade = CreateNoSpawn( "npc_contactgrenade", Weapon_ShootPosition(), vec3_angle, this );
 				pGrenade->KeyValue( "velocity", m_vecTossVelocity );
 				pGrenade->Spawn( );
@@ -2883,7 +2894,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 	if( gpGlobals->curtime < m_flNextAltFireTime )
 		return false;
 
-	if( !GetEnemy() )
+	if( !GetEnemy() && !m_hForcedGrenadeTarget )
 		return false;
 
 	if (gpGlobals->curtime < m_flNextGrenadeCheck )
@@ -2895,19 +2906,39 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 
 	CBaseEntity *pEnemy = GetEnemy();
 
-	if( !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
+	//if( !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
+	//	return false;
+	//if ( !pEnemy->IsNPC() || !pEnemy->IsPlayer() )
+	if ( m_hForcedGrenadeTarget && ( !m_hForcedGrenadeTarget->IsNPC() || !m_hForcedGrenadeTarget->IsPlayer() || !( m_hForcedGrenadeTarget->Classify() == CLASS_BULLSEYE ) ) )
+		return false;
+
+	if ( !m_hForcedGrenadeTarget && ( !pEnemy->IsNPC() || !pEnemy->IsPlayer() || !(pEnemy->Classify() == CLASS_BULLSEYE) ) )
 		return false;
 
 	Vector vecTarget;
 
 	// Determine what point we're shooting at
-	if( bUseFreeKnowledge )
+	if ( m_hForcedGrenadeTarget )
 	{
-		vecTarget = GetEnemies()->LastKnownPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		if( bUseFreeKnowledge )
+		{
+			vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter() + (m_hForcedGrenadeTarget->GetViewOffset()*0.75);
+		}
+		else
+		{
+			vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter() + (m_hForcedGrenadeTarget->GetViewOffset()*0.75);
+		}
 	}
-	else
+	else if (!m_hForcedGrenadeTarget )
 	{
-		vecTarget = GetEnemies()->LastSeenPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		if( bUseFreeKnowledge )
+		{
+			vecTarget = GetEnemies()->LastKnownPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		}
+		else
+		{
+			vecTarget = GetEnemies()->LastSeenPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		}
 	}
 
 	// Trace a hull about the size of the combine ball (don't shoot through grates!)

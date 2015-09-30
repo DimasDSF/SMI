@@ -258,9 +258,9 @@ private:
 private:
 	int				m_nKickDamage;
 	Vector			m_vecTossVelocity;
-	EHANDLE			m_hForcedGrenadeTarget;
 	bool			m_bShouldPatrol;
 	bool			m_bFirstEncounter;// only put on the handsign show in the squad's first encounter.
+	float			m_flAlertRelease;
 
 	// Time Variables
 	float			m_flNextPainSoundTime;
@@ -288,6 +288,7 @@ public:
 	int				m_iLastAnimEventHandled;
 	bool			m_fIsElite;
 	Vector			m_vecAltFireTarget;
+	EHANDLE			m_hForcedGrenadeTarget;
 
 	int				m_iTacticalVariant;
 	int				m_iPathfindingVariant;

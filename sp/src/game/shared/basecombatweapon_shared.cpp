@@ -1504,6 +1504,7 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 		if ( pActive && pActive->GetActivity() == ACT_VM_HOLSTER )
 		{
 			flSequenceDuration = pActive->SequenceDuration();
+			pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
 		}
 	}
 	g_ShowWeapon.SetShowWeapon( this, iActivity, flSequenceDuration );
