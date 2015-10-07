@@ -145,6 +145,8 @@ acttable_t	CWeaponPistol::m_acttable[] =
 	{ ACT_GESTURE_RELOAD,			ACT_GESTURE_RELOAD_PISTOL,		false },
 	{ ACT_WALK,						ACT_WALK_PISTOL,				false },
 	{ ACT_RUN,						ACT_RUN_PISTOL,					false },
+	{ ACT_WALK_PASSIVE,				ACT_WALK,						false },
+	{ ACT_RUN_PASSIVE,				ACT_RUN,						false },
 };
 
 

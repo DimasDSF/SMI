@@ -167,6 +167,9 @@ private:
 	void InputSetPoliceGoal( inputdata_t &inputdata );
 	void InputClearPoliceGoal( inputdata_t &inputdata );
 	void InputActivateBaton( inputdata_t &inputdata );
+	void InputHideWeapon( inputdata_t &inputdata );
+	void InputEnableAutoWeaponHide( inputdata_t &inputdata );
+	void InputDisableAutoWeaponHide( inputdata_t &inputdata );
 
 	void NotifyDeadFriend ( CBaseEntity* pFriend );
 
@@ -400,6 +403,8 @@ private:
 	CRandSimTimer	m_TimeYieldShootSlot;
 	CSimpleSimTimer m_BatonSwingTimer;
 	CSimpleSimTimer m_NextChargeTimer;
+	int m_iLostEnemyTime;
+	bool m_bAllowAutoWeaponHide;
 
 	// All related to burst firing
 	Vector			m_vecBurstTargetPos;

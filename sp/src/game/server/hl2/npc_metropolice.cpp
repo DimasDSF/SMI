@@ -32,6 +32,7 @@
 #define SF_METROPOLICE_NO_MANHACK_DEPLOY	0x00800000
 #define SF_METROPOLICE_ALLOWED_TO_RESPOND	0x01000000
 #define SF_METROPOLICE_MID_RANGE_ATTACK		0x02000000
+#define SF_METROPOLICE_DISALLOW_WEAPON_HIDE	0x04000000
 
 #define METROPOLICE_MID_RANGE_ATTACK_RANGE	3500.0f
 
@@ -228,6 +229,9 @@ BEGIN_DATADESC( CNPC_MetroPolice )
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetPoliceGoal", InputSetPoliceGoal ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ClearPoliceGoal", InputClearPoliceGoal ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "ActivateBaton", InputActivateBaton ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableAutoWeaponHide", InputEnableAutoWeaponHide ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableAutoWeaponHide", InputDisableAutoWeaponHide ),
 	
 	DEFINE_USEFUNC( PrecriminalUse ),
 
@@ -633,6 +637,7 @@ void CNPC_MetroPolice::Spawn( void )
 	SetBloodColor( BLOOD_COLOR_RED );
 	m_nIdleChatterType = METROPOLICE_CHATTER_ASK_QUESTION; 
 	m_bSimpleCops = HasSpawnFlags( SF_METROPOLICE_SIMPLE_VERSION );
+	m_bAllowAutoWeaponHide = !HasSpawnFlags( SF_METROPOLICE_DISALLOW_WEAPON_HIDE );
 	if ( HasSpawnFlags( SF_METROPOLICE_NOCHATTER ) )
 	{
 		AddSpawnFlags( SF_NPC_GAG );
@@ -2491,6 +2496,41 @@ void CNPC_MetroPolice::InputActivateBaton( inputdata_t &inputdata )
 
 
 //-----------------------------------------------------------------------------
+// Purpose: Input to hide cops weapon
+// Input	: void
+//-----------------------------------------------------------------------------
+void CNPC_MetroPolice::InputHideWeapon( inputdata_t &inputdata )
+{
+	if ( GetActiveWeapon() )
+	{
+		CBaseCombatWeapon *pWeapon;
+
+		pWeapon = GetActiveWeapon();
+
+		if( FClassnameIs( pWeapon, "weapon_pistol" ) )
+		{
+			m_fWeaponDrawn = false;
+			pWeapon->AddEffects( EF_NODRAW );
+		}
+	}
+}
+
+void CNPC_MetroPolice::InputEnableAutoWeaponHide( inputdata_t &inputdata )
+{
+	if ( m_bAllowAutoWeaponHide == false )
+	{
+		m_bAllowAutoWeaponHide = true;
+	}
+}
+
+void CNPC_MetroPolice::InputDisableAutoWeaponHide( inputdata_t &inputdata )
+{
+	if ( m_bAllowAutoWeaponHide == true )
+	{
+		m_bAllowAutoWeaponHide = false;
+	}
+}
+//-----------------------------------------------------------------------------
 // Purpose: 
 //
 //-----------------------------------------------------------------------------
@@ -2521,6 +2561,7 @@ void CNPC_MetroPolice::DeathSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CNPC_MetroPolice::LostEnemySound( void)
 {
+	m_iLostEnemyTime = gpGlobals->curtime;
 	// Don't announce enemies when the player isn't a criminal
 	if ( !PlayerIsCriminal() )
 		return;
@@ -3055,6 +3096,21 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 	if ( m_fWeaponDrawn && newActivity == ACT_IDLE && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
 	{
 		newActivity = ACT_IDLE_ANGRY;
+	}
+
+	if ( !m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	{
+		newActivity = ACT_WALK_PASSIVE;
+	}
+
+	if ( !m_fWeaponDrawn && newActivity == ACT_RUN && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	{
+		newActivity = ACT_RUN_PASSIVE;
+	}
+
+	if ( m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
+	{
+		newActivity = ACT_WALK;
 	}
 
 	return newActivity;
@@ -4989,6 +5045,22 @@ void CNPC_MetroPolice::GatherConditions( void )
 		ClearCondition( COND_METROPOLICE_PLAYER_TOO_CLOSE );
 	}
 
+	if ( GetState() == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 15 && m_bAllowAutoWeaponHide )
+	{
+			if ( GetActiveWeapon() )
+			{
+				CBaseCombatWeapon *pWeapon;
+
+				pWeapon = GetActiveWeapon();
+
+				if( FClassnameIs( pWeapon, "weapon_pistol" ) )
+				{
+					m_fWeaponDrawn = false;
+					pWeapon->AddEffects( EF_NODRAW );
+				}
+			}
+	}
+
 	CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 );
 	
 	// FIXME: Player can be NULL here during level transitions.
@@ -5331,7 +5403,6 @@ DEFINE_SCHEDULE
 	"	Interrupts"
 	"	"
 );
-
 
 //=========================================================
 // > ChaseEnemy
