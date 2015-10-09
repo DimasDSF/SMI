@@ -1919,7 +1919,14 @@ int CNPC_Combine::SelectScheduleAttack()
 	// Kick attack?
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
 	{
-		return SCHED_MELEE_ATTACK1;
+		if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))))
+		{
+			return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+		}
+		else
+		{
+			return SCHED_MELEE_ATTACK1;
+		}
 	}
 
 	// If I'm fighting a combine turret (it's been hacked to attack me), I can't really
@@ -3015,6 +3022,15 @@ bool CNPC_Combine::CanGrenadeEnemy( bool bUseFreeKnowledge )
 //-----------------------------------------------------------------------------
 int CNPC_Combine::MeleeAttack1Conditions ( float flDot, float flDist )
 {
+	if (flDist > 192)
+	{
+		SetCondition( COND_ESCAPED_MELEE );
+	}
+	else
+	{
+		ClearCondition( COND_ESCAPED_MELEE );
+	}
+
 	if (flDist > 64)
 	{
 		return COND_NONE; // COND_TOO_FAR_TO_ATTACK;

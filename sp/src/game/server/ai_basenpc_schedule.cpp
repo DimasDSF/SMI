@@ -45,6 +45,8 @@ extern ConVar ai_use_think_optimizations;
 
 ConVar	ai_simulate_task_overtime( "ai_simulate_task_overtime", "0" );
 int m_iRInvestSched;
+int m_iNumInvestigations;
+int m_iLastInvestigation;
 
 #define MAX_TASKS_RUN 10
 
@@ -4409,8 +4411,28 @@ if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
 		m_iRInvestSched=random->RandomInt(1,10);
-		if ( m_iRInvestSched > 6 )
+
+		if (m_iLastInvestigation == NULL)
 		{
+			m_iLastInvestigation = gpGlobals->curtime;
+		}
+
+		if ((m_iLastInvestigation + 30 < gpGlobals->curtime))
+		{
+			m_iNumInvestigations = 0;
+			//DevWarning( 2, "%i > %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 30 , gpGlobals->curtime );
+		}
+		m_iLastInvestigation = gpGlobals->curtime;
+		if ( m_iRInvestSched > 6 && ( m_iNumInvestigations < 2 ))
+		{
+			m_iNumInvestigations = m_iNumInvestigations + 1;
+			//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
+			return SCHED_INVESTIGATE_SOUND_WALK;
+		}
+		else if ( m_iRInvestSched > 6 && ( m_iNumInvestigations >= 2))
+		{
+			m_iNumInvestigations = m_iNumInvestigations + 1;
+			//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
 			return SCHED_INVESTIGATE_SOUND;
 		}
 		else

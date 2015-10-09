@@ -592,7 +592,7 @@ LINK_ENTITY_TO_CLASS( item_ammo_ar2_altfire, CItem_AR2AltFireRound );
 // ==================================================================
 // Ammo crate which will supply infinite ammo of the specified type
 // ==================================================================
-
+#define SF_NOT_AN_INFINITE_AMMO_CRATE 0x00020000
 // Ammo types
 enum
 {
@@ -787,6 +787,15 @@ void CItem_AmmoCrate::Spawn( void )
 	else
 	{
 		SetBodygroup( 1, false );
+	}
+	if (!HasSpawnFlags(SF_NOT_AN_INFINITE_AMMO_CRATE))
+	{
+		m_nUseTimesRemaining = -1;
+	}
+
+	if (m_flAmmoMult == 0)
+	{
+		m_flAmmoMult = 1;
 	}
 
 	m_flCloseTime = gpGlobals->curtime;
@@ -1058,7 +1067,7 @@ void CItem_AmmoCrate::InputKill( inputdata_t &data )
 void CItem_AmmoCrate::InputSetAmmoMult( inputdata_t &inputdata )
 {
 	float m_flTempAmmoMult = inputdata.value.Float();
-	if ( m_flTempAmmoMult >= 0.0 && m_flTempAmmoMult <= 50.0 )
+	if ( m_flTempAmmoMult > 0.0 && m_flTempAmmoMult <= 50.0 )
 	{
 		m_flAmmoMult = m_flTempAmmoMult;
 	}
