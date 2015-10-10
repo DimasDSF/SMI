@@ -1787,6 +1787,9 @@
     <ClInclude Include="info_target_redirect.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="item_ammo.h">
+      <Filter>Source Files\HL2 DLL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gamedll_replay.cpp">
