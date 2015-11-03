@@ -49,9 +49,13 @@ BEGIN_DATADESC( CFlare )
 	DEFINE_FIELD( m_nBounces,		FIELD_INTEGER ),
 	DEFINE_FIELD( m_flTimeBurnOut,	FIELD_TIME ),
 	DEFINE_KEYFIELD( m_flScale,		FIELD_FLOAT, "scale" ),
+	DEFINE_KEYFIELD( m_flLightScale, FIELD_FLOAT, "lightscale" ),
 	DEFINE_KEYFIELD( m_flDuration,	FIELD_FLOAT, "duration" ),
+	DEFINE_KEYFIELD( m_bIsALightCharge,	FIELD_BOOLEAN, "IsALightCharge" ),
+	DEFINE_KEYFIELD( m_bFlarePerfVer, FIELD_BOOLEAN, "IsAPerformanceLight" ),
 	DEFINE_FIELD( m_flNextDamage,	FIELD_TIME ),
 	DEFINE_SOUNDPATCH( m_pBurnSound ),
+	DEFINE_FIELD( m_bIsSlowfall, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFading,		FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bLight,			FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bSmoke,			FIELD_BOOLEAN ),
@@ -64,6 +68,8 @@ BEGIN_DATADESC( CFlare )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "Die", InputDie ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "Launch", InputLaunch),
 
+	DEFINE_OUTPUT( m_OnLightChargeReachedGround, "OnReachedGround" ),
+
 	// Function Pointers
 	DEFINE_FUNCTION( FlareTouch ),
 	DEFINE_FUNCTION( FlareBurnTouch ),
@@ -75,9 +81,13 @@ END_DATADESC()
 IMPLEMENT_SERVERCLASS_ST( CFlare, DT_Flare )
 	SendPropFloat( SENDINFO( m_flTimeBurnOut ), 0,	SPROP_NOSCALE ),
 	SendPropFloat( SENDINFO( m_flScale ), 0, SPROP_NOSCALE ),
+	SendPropFloat( SENDINFO( m_flLightScale ), 0, SPROP_NOSCALE ),
 	SendPropInt( SENDINFO( m_bLight ), 1, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_bSmoke ), 1, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_bPropFlare ), 1, SPROP_UNSIGNED ),
+	SendPropInt( SENDINFO( m_bIsALightCharge ), 1, SPROP_UNSIGNED ),
+	SendPropInt( SENDINFO( m_bFlarePerfVer ), 1, SPROP_UNSIGNED ),
+	SendPropInt( SENDINFO( m_iFlarePerfLength), 1, SPROP_UNSIGNED ),
 END_SEND_TABLE()
 
 CFlare *CFlare::activeFlares = NULL;
@@ -126,16 +136,21 @@ void KillFlare( CBaseEntity *pOwnerEntity, CBaseEntity *pEntity, float flKillTim
 CFlare::CFlare( void )
 {
 	m_flScale		= 1.0f;
+	m_flLightScale	= 1.0f;
 	m_nBounces		= 0;
 	m_bFading		= false;
 	m_bLight		= true;
 	m_bSmoke		= true;
+	m_flFlareLaunched = NULL;
 	m_flNextDamage	= gpGlobals->curtime;
 	m_lifeState		= LIFE_ALIVE;
 	m_iHealth		= 100;
 	m_bPropFlare	= false;
 	m_bInActiveList	= false;
 	m_pNextFlare	= NULL;
+	m_iLaunchSpeed	= 1500;
+	m_bIsSetToDie	= false;
+	m_bFlarePerfVer = false;
 }
 
 CFlare::~CFlare()
@@ -201,6 +216,11 @@ void CFlare::Spawn( void )
 	m_flTimeBurnOut = gpGlobals->curtime + 30;
 
 	AddEffects( EF_NOSHADOW|EF_NORECEIVESHADOW );
+
+	if ( m_bFlarePerfVer && !m_bIsALightCharge )
+	{
+		m_bFlarePerfVer = false;
+	}
 
 	if ( m_spawnflags & SF_FLARE_NO_DLIGHT )
 	{
@@ -313,6 +333,54 @@ void CFlare::FlareThink( void )
 		AddToActiveFlares();
 	}
 
+	if ( m_bIsALightCharge )
+	{
+		if ( m_flFlareLaunched != NULL )
+		{
+			if ( m_flFlareLaunched + 1 < gpGlobals->curtime )
+			{
+				Vector vecSlowZ, vecSlowZ2;
+				vecSlowZ = GetAbsVelocity() * Vector(0.8,0.8,0.5);
+				vecSlowZ2 = GetAbsVelocity() * Vector(0.5,0.5,0.1);
+				if ( gpGlobals->curtime - (m_flFlareLaunched + 2) < 2)
+				{
+					SetAbsVelocity( vecSlowZ );
+				}
+				else if ( gpGlobals->curtime - (m_flFlareLaunched + 2) < 4)
+				{
+					SetAbsVelocity(vecSlowZ2);
+				}
+				else
+				{
+					SetAbsVelocity(Vector(0,0,-1));
+				}
+			}
+		}
+	}
+
+	if ( m_bIsALightCharge )
+	{
+		trace_t trd;
+		UTIL_TraceLine( GetLocalOrigin(), GetLocalOrigin() + Vector(0,0,-3000), MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &trd );
+		Vector trdVec;
+		if ( trd.DidHit() )
+		{
+			trdVec = GetLocalOrigin() - (trd.endpos + Vector(0,0,200));
+			m_iFlarePerfLength = trdVec.Length();
+		}
+		if ( gpGlobals->curtime - (m_flFlareLaunched + 2) > 5)
+		{
+			trace_t tr;
+			UTIL_TraceLine( GetLocalOrigin(), GetLocalOrigin() + Vector(0,0,-200), MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
+			if (tr.DidHit() && !m_bIsSetToDie)
+			{
+				Die( 5 );
+				m_OnLightChargeReachedGround.FireOutput( this, this );
+				m_bIsSetToDie = true;
+			}
+		}
+	}
+
 	if ( m_flTimeBurnOut != -1.0f )
 	{
 		//Fading away
@@ -340,6 +408,11 @@ void CFlare::FlareThink( void )
 	//Act differently underwater
 	if ( GetWaterLevel() > 1 )
 	{
+		if ( m_bIsALightCharge )
+		{
+			Die( 1 );
+			return;
+		}
 		UTIL_Bubbles( GetAbsOrigin() + Vector( -2, -2, -2 ), GetAbsOrigin() + Vector( 2, 2, 2 ), 1 );
 		m_bSmoke = false;
 	}
@@ -563,9 +636,12 @@ void CFlare::Launch( const Vector &direction, float speed )
 	}
 	else
 	{
-		Start( 8.0f );
+		Start( m_flDuration );
 	}
-
+	if ( m_bIsALightCharge )
+	{
+		m_flFlareLaunched = gpGlobals->curtime;
+	}
 	SetMoveType( MOVETYPE_FLYGRAVITY, MOVECOLLIDE_FLY_BOUNCE );
 
 	// Punch our velocity towards our facing
@@ -607,7 +683,7 @@ void CFlare::InputLaunch( inputdata_t &inputdata )
 	{
 		speed = FLARE_LAUNCH_SPEED;
 	}
-
+	m_iLaunchSpeed = speed;
 	Launch( direction, speed );
 }
 

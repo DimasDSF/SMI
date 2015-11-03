@@ -17,6 +17,7 @@
 #define	SF_FLARE_NO_SMOKE	0x00000002
 #define	SF_FLARE_INFINITE	0x00000004
 #define	SF_FLARE_START_OFF	0x00000008
+#define SF_FLARE_L_CHARGE	16
 
 #define	FLARE_DURATION		30.0f
 #define FLARE_DECAY_TIME	10.0f
@@ -71,17 +72,27 @@ public:
 	int			m_nBounces;			// how many times has this flare bounced?
 	CNetworkVar( float, m_flTimeBurnOut );	// when will the flare burn out?
 	CNetworkVar( float, m_flScale );
+	CNetworkVar( float, m_flLightScale );
 	float		m_flDuration;
 	float		m_flNextDamage;
+	float		m_flFlareLaunched;
 	
 	CSoundPatch	*m_pBurnSound;
 	bool		m_bFading;
 	CNetworkVar( bool, m_bLight );
 	CNetworkVar( bool, m_bSmoke );
 	CNetworkVar( bool, m_bPropFlare );
+	CNetworkVar( bool, m_bIsALightCharge );
+	CNetworkVar( bool, m_bFlarePerfVer );
+	CNetworkVar( int, m_iFlarePerfLength );
 
+	bool		m_bIsSlowfall;
 	bool		m_bInActiveList;
+	bool		m_bIsSetToDie;
+	int			m_iLaunchSpeed;
 	CFlare *	m_pNextFlare;
+
+	COutputEvent	m_OnLightChargeReachedGround;
 
 	void		RemoveFromActiveFlares( void );
 	void		AddToActiveFlares( void );

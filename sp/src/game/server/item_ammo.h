@@ -57,12 +57,14 @@ public:
 
 	void	InputKill( inputdata_t &data );
 	void	InputSetRemaining( inputdata_t &inputdata );
+	void	InputAddToRemaining( inputdata_t &inputdata );
 	void	InputSetAmmoMult( inputdata_t &inputdata );
 	void	CrateThink( void );
 	int		m_nUseTimesRemaining;
 	int		m_nUseTimesRemainingTemp;
 	float	m_flAmmoMult;
 	int		m_nAmmoType;
+	bool m_bCombineSUser;
 	
 	virtual int OnTakeDamage( const CTakeDamageInfo &info );
 

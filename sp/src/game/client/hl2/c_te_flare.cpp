@@ -40,6 +40,10 @@ public:
 
 	float	m_flTimeBurnOut;
 	float	m_flScale;
+	float	m_flLightScale;
+	bool	m_bIsALightCharge;
+	bool	m_bFlarePerfVer;
+	int		m_iFlarePerfLength;
 	bool	m_bLight;
 	bool	m_bSmoke;
 	bool	m_bPropFlare;
@@ -58,9 +62,13 @@ private:
 IMPLEMENT_CLIENTCLASS_DT( C_Flare, DT_Flare, CFlare )
 	RecvPropFloat( RECVINFO( m_flTimeBurnOut ) ),
 	RecvPropFloat( RECVINFO( m_flScale ) ),
+	RecvPropFloat( RECVINFO( m_flLightScale) ),
 	RecvPropInt( RECVINFO( m_bLight ) ),
 	RecvPropInt( RECVINFO( m_bSmoke ) ),
 	RecvPropInt( RECVINFO( m_bPropFlare ) ),
+	RecvPropInt( RECVINFO( m_bIsALightCharge ) ),
+	RecvPropInt( RECVINFO( m_bFlarePerfVer ) ),
+	RecvPropInt( RECVINFO( m_iFlarePerfLength ) ),
 END_RECV_TABLE()
 
 //-----------------------------------------------------------------------------
@@ -75,6 +83,8 @@ C_Flare::C_Flare() : CSimpleEmitter( "C_Flare" )
 	m_bLight		= true;
 	m_bSmoke		= true;
 	m_bPropFlare	= false;
+	m_bIsALightCharge = false;
+	m_bFlarePerfVer = false;
 
 	SetDynamicallyAllocated( false );
 	m_queryHandle = 0;
@@ -208,6 +218,7 @@ void C_Flare::Update( float timeDelta )
 	float	fColor;
 #ifdef HL2_CLIENT_DLL
 	float	baseScale = m_flScale;
+	float	baseLightScale = m_flLightScale;
 #else
 	// NOTE!!!  This is bigger by a factor of 1.2 to deal with fixing a bug from HL2.  See dlight_t.h
 	float	baseScale = m_flScale * 1.2f;
@@ -259,9 +270,26 @@ void C_Flare::Update( float timeDelta )
 			dl->origin	= GetAbsOrigin();
 			dl->color.r = 255;
 			dl->die		= gpGlobals->curtime + 0.1f;
+			if (!m_bIsALightCharge)
+			{
+				dl->radius	= baseScale * baseLightScale * random->RandomFloat( 110.0f, 128.0f );
+				dl->color.g = dl->color.b = random->RandomInt( 32, 64 );
+			}
+			else
+			{
+				if (!m_bFlarePerfVer)
+				{
+					dl->radius	= baseScale * baseLightScale * 128.0f * 2;
+					dl->color.g = dl->color.b = random->RandomInt( 45, 55 );
+				}
+				else
+				{
+					dl->origin	= GetAbsOrigin() - Vector(0,0, m_iFlarePerfLength ); // GetAbsOrigin() - Vector( 0, 0, (tr.Length()+200))
+					dl->radius	= baseScale * baseLightScale * 128.0f * 2;
+					dl->color.g = dl->color.b = random->RandomInt( 45, 55 );
+				}
+			}
 
-			dl->radius	= baseScale * random->RandomFloat( 110.0f, 128.0f );
-			dl->color.g = dl->color.b = random->RandomInt( 32, 64 );
 		}
 		else
 		{
@@ -281,16 +309,16 @@ void C_Flare::Update( float timeDelta )
 				dl->origin	= effect_origin + Vector( 0, 0, 4 );
 				dl->color.r = 255;
 				dl->die		= gpGlobals->curtime + 0.1f;
-
-				dl->radius	= baseScale * random->RandomFloat( 245.0f, 256.0f );
 				dl->color.g = dl->color.b = random->RandomInt( 95, 128 );
+				dl->radius	= baseScale * baseLightScale * random->RandomFloat( 245.0f, 256.0f );
 		
 				dlight_t *el= effects->CL_AllocElight( index );
 
 				el->origin	= effect_origin;
 				el->color.r = 255;
+
 				el->color.g = dl->color.b = random->RandomInt( 95, 128 );
-				el->radius	= baseScale * random->RandomFloat( 260.0f, 290.0f );
+				el->radius	= baseScale * baseLightScale * random->RandomFloat( 260.0f, 290.0f );
 				el->die		= gpGlobals->curtime + 0.1f;
 			}
 		}
@@ -356,8 +384,15 @@ void C_Flare::Update( float timeDelta )
 	Vector	offset;
 	
 	//Cause the base of the effect to shake
-	offset.Random( -0.5f * baseScale, 0.5f * baseScale );
-	offset += GetAbsOrigin();
+	if (!m_bIsALightCharge)
+	{
+		offset.Random( -0.5f * baseScale, 0.5f * baseScale );
+		offset += GetAbsOrigin();
+	}
+	else
+	{
+		offset = GetAbsOrigin();
+	}
 
 	if ( m_pParticle[0] != NULL )
 	{
@@ -389,8 +424,15 @@ void C_Flare::Update( float timeDelta )
 	//
 
 	//Cause the base of the effect to shake
-	offset.Random( -1.0f * baseScale, 1.0f * baseScale );
-	offset += GetAbsOrigin();
+	if (!m_bIsALightCharge)
+	{
+		offset.Random( -1.0f * baseScale, 1.0f * baseScale );
+		offset += GetAbsOrigin();
+	}
+	else
+	{
+		offset = GetAbsOrigin();
+	}
 
 	if ( m_pParticle[1] != NULL )
 	{

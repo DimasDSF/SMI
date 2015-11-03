@@ -240,11 +240,12 @@ void DrawPrecipitation()
 
 //-----------------------------------------------------------------------------
 // determines if a weather particle has hit something other than air
+// SMI:FIXME:doesnt trace water (waterlevel>1?)
 //-----------------------------------------------------------------------------
 static bool IsInAir( const Vector& position )
 {
 	int contents = enginetrace->GetPointContents( position ); 	
-	return (contents & CONTENTS_SOLID) == 0;
+	return (contents & (CONTENTS_SOLID | CONTENTS_WATER)) == 0;
 }
 
 

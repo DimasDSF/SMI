@@ -741,6 +741,11 @@ int CAI_BaseNPC::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 		}
 	}
 
+	if( m_iHealth <= 0 && info.GetAttacker()->IsPlayer() )
+	{
+		m_OnKilledByPlayer.FireOutput( info.GetAttacker(), this );
+	}
+
 	// If we're not allowed to die, refuse to die
 	// Allow my interaction partner to kill me though
 	if ( m_iHealth <= 0 && HasInteractionCantDie() && info.GetAttacker() != m_hInteractionPartner )
@@ -10751,6 +10756,7 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_OUTPUT( m_OnHearWorld,				"OnHearWorld" ),
 	DEFINE_OUTPUT( m_OnHearPlayer,				"OnHearPlayer" ),
 	DEFINE_OUTPUT( m_OnHearCombat,				"OnHearCombat" ),
+	DEFINE_OUTPUT( m_OnKilledByPlayer,			"OnKilledByPlayer" ),
 	DEFINE_OUTPUT( m_OnDamagedByPlayer,		"OnDamagedByPlayer" ),
 	DEFINE_OUTPUT( m_OnDamagedByPlayerSquad,	"OnDamagedByPlayerSquad" ),
 	DEFINE_OUTPUT( m_OnDenyCommanderUse,		"OnDenyCommanderUse" ),

@@ -459,7 +459,16 @@ void CNPC_Alyx::InputSetModel(inputdata_t &inputdata)
 	const char *s_sAlyxModel = inputdata.value.String();
 	SetModelName( AllocPooledString( s_sAlyxModel ) );
 	PrecacheModel( STRING( GetModelName() ) );
-	SetModel( STRING( GetModelName() ) );
+	UTIL_SetModel( this, STRING(GetModelName()) );
+	if (!GetMoveParent())
+	{
+		SetupAlyxWithoutParent();
+		SetupVPhysicsHull();
+	}
+	SetHullType(HULL_HUMAN);
+	SetHullSizeNormal();
+	UTIL_SetSize(this, NAI_Hull::Mins(HULL_HUMAN), NAI_Hull::Maxs(HULL_HUMAN));
+	//SetModel( STRING( GetModelName() ) );
 }
 
 //-----------------------------------------------------------------------------

@@ -11,6 +11,7 @@
 #include "ammodef.h"
 #include "eventlist.h"
 #include "npcevent.h"
+#include "npc_combine.h"
 #include "item_ammo.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -615,6 +616,7 @@ BEGIN_DATADESC( CItem_AmmoCrate )
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Kill", InputKill ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetRemainingUses", InputSetRemaining ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "AddToRemainingUses", InputAddToRemaining ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetAmmoMult", InputSetAmmoMult ),
 
 	DEFINE_THINKFUNC( CrateThink ),
@@ -796,9 +798,20 @@ void CItem_AmmoCrate::OnRestore( void )
 void CItem_AmmoCrate::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
 	CBasePlayer *pPlayer = ToBasePlayer( pActivator );
+	m_bCombineSUser = false;
 
-	if ( pPlayer == NULL )
-		return;
+	if ( pPlayer == NULL)
+	{
+		CNPC_Combine *pPlayer = dynamic_cast<CNPC_Combine*>(pActivator);
+		if ( pPlayer == NULL )
+		{
+			return;
+		}
+		else
+		{
+			m_bCombineSUser = true;
+		}
+	}
 
 	m_OnUsed.FireOutput( pActivator, this );
 
@@ -822,8 +835,11 @@ void CItem_AmmoCrate::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TY
 
 		if ( tr.startsolid || tr.allsolid )
 			 return;
-			
-		m_hActivator = pPlayer;
+		
+		if (!m_bCombineSUser)
+		{
+			m_hActivator = pPlayer;
+		}
 
 		// Animate!
 		ResetSequence( iSequence );
@@ -1037,6 +1053,34 @@ void CItem_AmmoCrate::InputSetRemaining( inputdata_t &inputdata )
 	else
 	{
 		m_nUseTimesRemaining = -1;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &data - 
+//-----------------------------------------------------------------------------
+void CItem_AmmoCrate::InputAddToRemaining( inputdata_t &inputdata )
+{
+	int m_nTempRemaining = inputdata.value.Int();
+	if ( m_nTempRemaining != 0 )
+	{
+		if ( m_nUseTimesRemaining + m_nTempRemaining < 0 )
+		{
+			m_nUseTimesRemaining = 0;
+		}
+		else
+		{
+			m_nUseTimesRemaining = m_nUseTimesRemaining + m_nTempRemaining;
+		}
+		if ( m_nUseTimesRemaining != 0 )
+		{
+			SetBodygroup( 1, true );
+		}
+		else
+		{
+			SetBodygroup( 1, false );
+		}
 	}
 }
 

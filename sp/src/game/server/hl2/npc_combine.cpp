@@ -908,9 +908,9 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 				return;
 			}
 
-			GetNavigator()->SetArrivalDistance( 20 );
+			GetNavigator()->SetArrivalDistance( 30 );
 
-			if (( m_hAmmoCrate.Get()->GetAbsOrigin() - GetLocalOrigin()).Length() < 20 )
+			if (( m_hAmmoCrate.Get()->GetAbsOrigin() - GetLocalOrigin()).Length() < 30 )
 			{
 				TaskComplete( true );
 			}
@@ -1894,7 +1894,7 @@ int CNPC_Combine::SelectSchedule( void )
 									if ( pAmmoCrate->m_nUseTimesRemaining != 0 )
 									{
 										//DevWarning( 2, "Ammo crate has >1 charge remaining\n" );
-										if ( (GetAbsOrigin() - pAmmoCrate->GetAbsOrigin()).Length2D() >= 20 )
+										if ( (GetAbsOrigin() - pAmmoCrate->GetAbsOrigin()).Length2D() > 30 )
 										{
 											return SCHED_COMBINE_MOVETO_PICKUP_GRENADES;
 										}
@@ -2404,6 +2404,7 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 
 	case SCHED_COMBINE_PICKUP_GRENADES:
 		{
+			m_hAmmoCrate->Use( this, this, USE_ON, 1 );
 			m_iNumGrenades = 5;
 			return SCHED_COMBINE_PICKUP_GRENADES;
 		}

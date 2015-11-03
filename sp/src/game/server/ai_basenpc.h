@@ -1894,6 +1894,7 @@ public:
 	COutputEvent		m_OnHearWorld;
 	COutputEvent		m_OnHearPlayer;
 	COutputEvent		m_OnHearCombat;
+	COutputEvent		m_OnKilledByPlayer;
 	COutputEvent		m_OnDamagedByPlayer;
 	COutputEvent		m_OnDamagedByPlayerSquad;
 	COutputEvent		m_OnDenyCommanderUse;
@@ -2016,6 +2017,7 @@ private:
 public:
 	void	SetNavigationDeferred( bool bState ) { m_bDeferredNavigation = bState; }
 	bool	IsNavigationDeferred( void ) { return m_bDeferredNavigation; }
+	bool IsNavHullValid() const;
 
 	//-----------------------------------------------------
 protected:
@@ -2024,7 +2026,7 @@ protected:
 
 private:
 	// Checks to see that the nav hull is valid for the NPC
-	bool IsNavHullValid() const;
+
 
 	friend class CAI_SystemHook;
 	friend class CAI_SchedulesManager;
