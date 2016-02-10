@@ -1876,7 +1876,7 @@ int CNPC_Combine::SelectSchedule( void )
 			if (m_iNumGrenades < 5 && (m_iAmmoCrateNextSearchTime < gpGlobals->curtime))
 			{
 				m_iAmmoCrateNextSearchTime = gpGlobals->curtime + 5;
-				while ( (pAmmoCrateEnt = gEntList.FindEntityInSphere( pAmmoCrateEnt, GetLocalOrigin(), 500 )) != NULL)
+				while ( (pAmmoCrateEnt = gEntList.FindEntityInSphere( pAmmoCrateEnt, GetLocalOrigin(), 600 )) != NULL)
 				{
 					//DevWarning( 2, "Found an entity for ammo crate search\n" );
 					if ( FClassnameIs(pAmmoCrateEnt, "item_ammo_crate" ) )
@@ -1982,6 +1982,17 @@ int CNPC_Combine::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 			{
 				return SCHED_COMBINE_MOVE_TO_MELEE;
 			}
+		}
+	}
+	if ( failedSchedule == SCHED_BACK_AWAY_FROM_MELEE_ENEMY )
+	{
+		if (random->RandomInt(1,10) >= 4)
+		{
+			return SCHED_COMBINE_MOVE_TO_MELEE;
+		}
+		else
+		{
+			return SCHED_COMBINE_TAKE_COVER1;
 		}
 	}
 

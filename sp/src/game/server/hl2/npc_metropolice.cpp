@@ -3318,9 +3318,9 @@ int CNPC_MetroPolice::SelectScheduleInvestigateSound()
 {
 	// SEE_ENEMY is set if LOS is available *and* we're looking the right way
 	// Don't investigate if the player's not a criminal.
-	if ( PlayerIsCriminal() && !HasCondition( COND_SEE_ENEMY ) )
+	if ( !HasCondition( COND_SEE_ENEMY ) )
 	{
-		if ( (m_NPCState != NPC_STATE_COMBAT) && ( HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_HEAR_PLAYER ) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_WORLD ) || HasCondition( COND_HEAR_PHYSICS_DANGER ) ) )
+		if ( (m_NPCState != NPC_STATE_COMBAT) && ( HasCondition( COND_HEAR_COMBAT ) || (PlayerIsCriminal() && HasCondition( COND_HEAR_PLAYER )) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_WORLD ) || HasCondition( COND_HEAR_PHYSICS_DANGER ) ) )
 		{
 			if ( m_pSquad && OccupyStrategySlot( SQUAD_SLOT_INVESTIGATE_SOUND ) )
 			{

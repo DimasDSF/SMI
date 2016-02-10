@@ -4741,6 +4741,22 @@ void CAI_BaseNPC::GatherConditions( void )
 			ClearSenseConditions();
 		}
 
+		if ( m_NPCState == NPC_STATE_IDLE && m_iTimeLostEnemy + 20 < gpGlobals->curtime )
+		{
+			if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion"))
+			{
+				if (GetSquad() && (GetSquad()->NumMembers() > 1))
+				{
+					m_bShouldMoveToRVSquadLeader = true;
+				}
+			}
+		}
+
+		if (GetEnemy() != NULL)
+		{
+			m_bMovedToRVSquadLeader = false;
+		}
+
 		// do these calculations if npc has an enemy.
 		if ( GetEnemy() != NULL )
 		{
@@ -10356,6 +10372,7 @@ bool CAI_BaseNPC::ChooseEnemy( void )
 				m_OnLostPlayer.FireOutput( pInitialEnemy, this );
 			}
 			m_OnLostEnemy.FireOutput( pInitialEnemy, this);
+			m_iTimeLostEnemy = gpGlobals->curtime;
 		}
 		else
 		{

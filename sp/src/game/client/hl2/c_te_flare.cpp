@@ -280,7 +280,7 @@ void C_Flare::Update( float timeDelta )
 				if (!m_bFlarePerfVer)
 				{
 					dl->radius	= baseScale * baseLightScale * 128.0f * 2;
-					dl->color.g = dl->color.b = random->RandomInt( 45, 55 );
+					dl->color.g = dl->color.b = 50;
 				}
 				else
 				{

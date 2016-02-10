@@ -226,6 +226,9 @@ enum sharedtasks_e
 		// Path to source of the strongest scend that I care about
 		TASK_GET_PATH_TO_BESTSCENT,
 
+		// Get path to squad leader
+		TASK_GET_PATH_TO_SQUADLEADER,
+
 		// Run the current path
 		TASK_RUN_PATH,	
 
@@ -254,7 +257,7 @@ enum sharedtasks_e
 		TASK_RUN_PATH_WITHIN_DIST,
 
 		//Run the current path until we get a LoS with the goal.
-		TASK_RUN_PATH_TILL_LOS,
+		TASK_GET_PATH_TO_BESTSOUND_LOS,
 
 		// Walk the current path sideways (must be supported by animation)
 		TASK_STRAFE_PATH,

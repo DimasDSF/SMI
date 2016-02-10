@@ -44,9 +44,6 @@ extern ConVar ai_use_think_optimizations;
 #define ShouldUseEfficiency() ( ai_use_think_optimizations.GetBool() && ai_use_efficiency.GetBool() )
 
 ConVar	ai_simulate_task_overtime( "ai_simulate_task_overtime", "0" );
-int m_iRInvestSched;
-int m_iNumInvestigations;
-int m_iLastInvestigation;
 
 #define MAX_TASKS_RUN 10
 
@@ -2225,6 +2222,40 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			break;
 		}
 
+	case TASK_GET_PATH_TO_SQUADLEADER:
+		{
+			if (GetSquad())
+			{
+				//AI_NavGoal_t goal;
+				//GOALTYPE_LOCATION
+				int node = GetNavigator()->GetNetwork()->NearestNodeToPoint( this, GetSquad()->GetLeader()->GetAbsOrigin(), false );
+				CAI_Node *pNode = GetNavigator()->GetNetwork()->GetNode( node );
+				
+				if( !pNode )
+				{
+					TaskFail( FAIL_NO_ROUTE );
+					break;
+				}
+
+				Vector vecNodePos;
+				vecNodePos = pNode->GetPosition( GetHullType() );
+
+				AI_NavGoal_t goal( vecNodePos );
+				goal.type = GOALTYPE_LOCATION_NEAREST_NODE;
+				//goal.dest = GetSquad()->GetLeader()->WorldSpaceCenter();
+				//goal.pTarget = GetSquad()->GetLeader();
+
+				GetNavigator()->SetArrivalDistance( 150 );
+				GetNavigator()->SetGoal( goal );
+			}
+			else
+			{
+				TaskFail( FAIL_NO_TARGET );
+			}
+			break;
+		}
+
+
 	case TASK_GET_PATH_TO_SAVEPOSITION_LOS:
 	{
 		if ( GetEnemy() == NULL )
@@ -4399,18 +4430,42 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
+	if (GetSquad() && (GetSquad()->NumMembers() > 1) && m_bShouldMoveToRVSquadLeader && (GetSquad()->GetLeader() != this) )
+	{
+		if ( !m_bMovedToRVSquadLeader )
+		{
+			if ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 1200)
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_RUN_TO_SQUADLEADER;
+			}
+			else if ( ((GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() <= 1200) && ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250) )
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_WALK_TO_SQUADLEADER;
+			}
+			else
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_IDLE_STAND;
+			}
+		}
+	}
+
 	int nSched = SelectFlinchSchedule();
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
 if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			 ( HasCondition ( COND_HEAR_DANGER ) ||
-			  HasCondition ( COND_HEAR_PLAYER ) ||
+			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly() ) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		m_iRInvestSched=random->RandomInt(1,10);
 
 		if (m_iLastInvestigation == NULL)
 		{
@@ -4423,21 +4478,24 @@ if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			//DevWarning( 2, "%i > %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 30 , gpGlobals->curtime );
 		}
 		m_iLastInvestigation = gpGlobals->curtime;
-		if ( m_iRInvestSched > 6 && ( m_iNumInvestigations < 2 ))
+		if ((random->RandomInt(1,10) > 6) && (m_iLastInvestigation + 5 < gpGlobals->curtime))
 		{
-			m_iNumInvestigations = m_iNumInvestigations + 1;
-			//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
-			return SCHED_INVESTIGATE_SOUND_WALK;
-		}
-		else if ( m_iRInvestSched > 6 && ( m_iNumInvestigations >= 2))
-		{
-			m_iNumInvestigations = m_iNumInvestigations + 1;
-			//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
-			return SCHED_INVESTIGATE_SOUND;
-		}
-		else
-		{
-			return SCHED_ALERT_FACE_BESTSOUND;
+			if (m_iNumInvestigations < 2)
+			{
+				m_iNumInvestigations = m_iNumInvestigations + 1;
+				//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
+				return SCHED_INVESTIGATE_SOUND_WALK;
+			}
+			else if (m_iNumInvestigations >= 2)
+			{
+				m_iNumInvestigations = m_iNumInvestigations + 1;
+				//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
+				return SCHED_INVESTIGATE_SOUND;
+			}
+			else
+			{
+				return SCHED_ALERT_FACE_BESTSOUND;
+			}
 		}
 	}
 	
@@ -4473,19 +4531,28 @@ int CAI_BaseNPC::SelectAlertSchedule()
 
 	if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			 ( HasCondition ( COND_HEAR_DANGER ) ||
-			  HasCondition ( COND_HEAR_PLAYER ) ||
+			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly()) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		m_iRInvestSched=random->RandomInt(1,10);
-		if ( m_iRInvestSched > 3 )
+		if (m_iLastInvestigation == NULL)
 		{
-			return SCHED_INVESTIGATE_SOUND;
+			m_iLastInvestigation = gpGlobals->curtime;
 		}
-		else
+
+		if (m_iLastInvestigation + 5 < gpGlobals->curtime)
 		{
-			return SCHED_ALERT_FACE_BESTSOUND;
+			if (random->RandomInt(1,10) > 3)
+			{
+				m_iLastInvestigation = gpGlobals->curtime;
+				return SCHED_INVESTIGATE_SOUND;
+			}
+			else
+			{
+				m_iLastInvestigation = gpGlobals->curtime;
+				return SCHED_ALERT_FACE_BESTSOUND;
+			}
 		}
 	}
 

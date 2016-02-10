@@ -719,6 +719,11 @@ void CItem_AmmoCrate::Spawn( void )
 	SetSolid( SOLID_VPHYSICS );
 	CreateVPhysics();
 
+	if (!HasSpawnFlags(SF_NOT_AN_INFINITE_AMMO_CRATE))
+	{
+		m_nUseTimesRemaining = -1;
+	}
+
 	ResetSequence( LookupSequence( "Idle" ) );
 	if ( m_nUseTimesRemaining != 0 || m_nUseTimesRemaining == -1 )
 	{
@@ -727,10 +732,6 @@ void CItem_AmmoCrate::Spawn( void )
 	else
 	{
 		SetBodygroup( 1, false );
-	}
-	if (!HasSpawnFlags(SF_NOT_AN_INFINITE_AMMO_CRATE))
-	{
-		m_nUseTimesRemaining = -1;
 	}
 
 	if (m_flAmmoMult == 0)
@@ -997,7 +998,7 @@ void CItem_AmmoCrate::CrateThink( void )
 			// but setting Think to NULL will cause this to never have
 			// StudioFrameAdvance called. What are the consequences of that?
 			ResetSequence( LookupSequence( "Idle" ) );
-			if ( m_nUseTimesRemaining && m_nUseTimesRemaining >= 1 )
+			if ( m_nUseTimesRemaining && (m_nUseTimesRemaining >= 1 || m_nUseTimesRemaining == -1))
 			{
 				SetBodygroup( 1, true );
 			}

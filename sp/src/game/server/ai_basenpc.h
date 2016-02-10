@@ -904,6 +904,11 @@ public:
 
 	NPC_STATE			m_NPCState;				// npc's current state
 	float				m_flLastStateChangeTime;
+	int					m_iTimeLostEnemy;
+	bool				m_bShouldMoveToRVSquadLeader;
+	bool				m_bMovedToRVSquadLeader;
+	int m_iNumInvestigations;
+	int m_iLastInvestigation;
 
 private:
 	NPC_STATE			m_IdealNPCState;		// npc should change to this state
