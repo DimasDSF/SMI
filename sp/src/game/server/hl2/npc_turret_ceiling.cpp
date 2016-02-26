@@ -116,6 +116,7 @@ public:
 	void	InputDisable( inputdata_t &inputdata );
 	void	InputSetTurnSpeed( inputdata_t &inputdata );
 	void	InputForceSetTarget( inputdata_t &inputdata );
+	void	InputForceResetTarget( inputdata_t &inputdata );
 	void	InputSetMaxRange( inputdata_t &inputdata );
 
 	void	SetLastSightTime();
@@ -229,6 +230,7 @@ BEGIN_DATADESC( CNPC_CeilingTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ForceSetTarget", InputForceSetTarget),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ForceResetTarget", InputForceResetTarget),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetMaxRange", InputSetMaxRange),
 
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
@@ -1002,6 +1004,15 @@ void CNPC_CeilingTurret::Ping( void )
 	SetEyeState( TURRET_EYE_SEEKING_TARGET );
 
 	m_flPingTime = gpGlobals->curtime + CEILING_TURRET_PING_TIME;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Forcing turret to reset its attack target
+//-----------------------------------------------------------------------------
+void CNPC_CeilingTurret::InputForceResetTarget( inputdata_t &inputdata )
+{
+	SetEnemy( NULL );
+	ClearEnemyMemory();
 }
 
 //-----------------------------------------------------------------------------

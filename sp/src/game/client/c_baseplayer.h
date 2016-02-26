@@ -426,6 +426,9 @@ public:
 	// For weapon prediction
 	bool			m_fOnTarget;		//Is the crosshair on a target?
 	
+	bool			m_bHolsteredImpulse;
+	bool			m_bHolsteredProp;
+
 	char			m_szAnimExtension[32];
 
 	int				m_afButtonLast;

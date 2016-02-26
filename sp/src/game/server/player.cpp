@@ -5891,10 +5891,12 @@ void CBasePlayer::ImpulseCommands( )
 			
 			if( pWeapon->IsEffectActive( EF_NODRAW ) )
 			{
+				m_bHolsteredImpulse = false;
 				pWeapon->Deploy();
 			}
 			else
 			{
+				m_bHolsteredImpulse = true;
 				pWeapon->Holster();
 			}
 		break;

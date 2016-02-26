@@ -137,6 +137,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "RestoreAmmo", InputRestoreAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ForceSetTarget", InputForceSetTarget),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ForceResetTarget", InputForceResetTarget),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
 
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
@@ -1686,6 +1687,15 @@ void CNPC_FloorTurret::Ping( void )
 	SetEyeState( TURRET_EYE_SEEKING_TARGET );
 
 	m_flPingTime = gpGlobals->curtime + FLOOR_TURRET_PING_TIME;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Forcing turret to reset its attack target
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputForceResetTarget( inputdata_t &inputdata )
+{
+	SetEnemy( NULL );
+	ClearEnemyMemory();
 }
 
 //-----------------------------------------------------------------------------

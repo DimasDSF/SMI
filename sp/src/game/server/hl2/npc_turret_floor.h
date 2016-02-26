@@ -132,6 +132,7 @@ public:
 	void	InputRestoreAmmo( inputdata_t &inputdata );
 	void	InputSelfDestruct( inputdata_t &inputdata );
 	void	InputForceSetTarget( inputdata_t &inputdata );
+	void	InputForceResetTarget( inputdata_t &inputdata );
 	void	InputSetMaxRange( inputdata_t &inputdata );
 	void	InputSetTurnSpeed( inputdata_t &inputdata );
 

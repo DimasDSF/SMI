@@ -1087,6 +1087,8 @@ public:
 	bool					GetToggledDuckState( void ) { return m_bDuckToggled; }
 	void					ToggleDuck( void );
 	float					GetStickDist( void );
+	CNetworkVar( bool, m_bHolsteredImpulse );
+	CNetworkVar( bool, m_bHolsteredProp );
 
 	float					m_flForwardMove;
 	float					m_flSideMove;

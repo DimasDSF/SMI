@@ -50,6 +50,7 @@ ConVar sniperviewdist("sniperviewdist", "35" );
 ConVar showsniperdist("showsniperdist", "0" );
 ConVar sniperspeak( "sniperspeak", "0" );
 ConVar sniper_xbox_delay( "sniper_xbox_delay", "1" );
+ConVar sk_sniper_health( "sk_sniper_health", "100" );
 
 // Moved to HL2_SharedGameRules because these are referenced by shared AmmoDef functions
 extern ConVar sk_dmg_sniper_penetrate_plr;
@@ -218,6 +219,8 @@ public:
 	int IRelationPriority( CBaseEntity *pTarget );
 	bool IsFastSniper() { return HasSpawnFlags(SF_SNIPER_FAST); }
 
+	void			HandleAnimEvent( animevent_t *pEvent );
+
 	bool QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNPC = false );
 
 	virtual bool FInViewCone( CBaseEntity *pEntity );
@@ -291,6 +294,8 @@ private:
 	void InputSweepGroupRandomly( inputdata_t &inputdata );
 	void InputStopSweeping( inputdata_t &inputdata );
 	void InputProtectTarget( inputdata_t &inputdata );
+	void InputBecomeShotVulnerable( inputdata_t &inputdata );
+	void InputBecomeShotInvulnerable( inputdata_t &inputdata );
 
 #if HL2_EPISODIC
 	void InputSetPaintInterval( inputdata_t &inputdata );
@@ -321,6 +326,7 @@ private:
 
 	bool						m_fWeaponLoaded;
 	bool						m_fEnabled;
+	bool						m_bIsShotVulnerable;
 	bool						m_fIsPatient;
 	float						m_flPatience;
 	int							m_iMisses;
@@ -427,6 +433,7 @@ BEGIN_DATADESC( CProtoSniper )
 	DEFINE_KEYFIELD(m_flShieldDist, FIELD_FLOAT, "shielddistance" ),
 	DEFINE_KEYFIELD(m_flShieldRadius, FIELD_FLOAT, "shieldradius" ),
 	DEFINE_KEYFIELD(m_bShootZombiesInChest, FIELD_BOOLEAN, "shootZombiesInChest" ),
+	DEFINE_KEYFIELD(m_bIsShotVulnerable, FIELD_BOOLEAN, "IsShotVulnerable" ),
 
 	DEFINE_KEYFIELD(m_flKeyfieldPaintTime, FIELD_FLOAT, "PaintInterval" ),
 	DEFINE_KEYFIELD(m_flKeyfieldPaintTimeNoise, FIELD_FLOAT, "PaintIntervalVariance" ),
@@ -449,6 +456,8 @@ BEGIN_DATADESC( CProtoSniper )
 	DEFINE_INPUTFUNC( FIELD_STRING, "SweepGroupRandomly", InputSweepGroupRandomly ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "StopSweeping", InputStopSweeping ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ProtectTarget", InputProtectTarget ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeShotVulnerable", InputBecomeShotVulnerable ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeShotInvulnerable", InputBecomeShotInvulnerable ),
 
 #if HL2_EPISODIC
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetPaintInterval", InputSetPaintInterval ),
@@ -632,6 +641,11 @@ void CProtoSniper::LaserOff( void )
 		m_pBeam = NULL;
 	}
 
+	if( !m_fEnabled )
+	{
+		SetIdealActivity(ACT_IDLE);
+	}
+
 	SetNextThink( gpGlobals->curtime + 0.1f );
 }
 
@@ -650,6 +664,11 @@ void CProtoSniper::LaserOn( const Vector &vecTarget, const Vector &vecDeviance )
 	{
 		// Beam seems to be on.
 		//return;
+	}
+
+	if( m_fEnabled )
+	{
+		SetIdealActivity(ACT_IDLE_ANGRY);
 	}
 
 	// Don't aim right at the guy right now.
@@ -907,9 +926,11 @@ void CProtoSniper::Precache( void )
 	PrecacheModel("models/combine_soldier.mdl");
 	sHaloSprite = PrecacheModel("sprites/light_glow03.vmt");
 	sFlashSprite = PrecacheModel( "sprites/muzzleflash1.vmt" );
-	PrecacheModel("effects/bluelaser1.vmt");	
+	PrecacheModel("effects/bluelaser1.vmt");
+	PrecacheModel("models/weapons/w_crossbow.mdl");
 
 	UTIL_PrecacheOther( "sniperbullet" );
+	UTIL_PrecacheOther( "weapon_crossbow" );
 
 	PrecacheScriptSound( "NPC_Sniper.Die" );
 	PrecacheScriptSound( "NPC_Sniper.TargetDestroyed" );
@@ -941,13 +962,26 @@ void CProtoSniper::Spawn( void )
 	SetHullType( HULL_HUMAN );
 	SetHullSizeNormal();
 
-	UTIL_SetSize( this, Vector( -16, -16 , 0 ), Vector( 16, 16, 64 ) );
+	UTIL_SetSize(this, NAI_Hull::Mins(HULL_HUMAN), NAI_Hull::Maxs(HULL_HUMAN));
+	//UTIL_SetSize( this, Vector( -16, -16 , 0 ), Vector( 16, 16, 64 ) );
+
+	if (m_bIsShotVulnerable == NULL)
+	{
+		m_bIsShotVulnerable = false;
+	}
 
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags( FSOLID_NOT_STANDABLE );
 	SetMoveType( MOVETYPE_FLY );
-	m_bloodColor		= DONT_BLEED;
-	m_iHealth			= 10;
+	m_iHealth			= sk_sniper_health.GetFloat();
+	if (!m_bIsShotVulnerable)
+	{
+		m_bloodColor		= DONT_BLEED;
+	}
+	else
+	{
+		m_bloodColor		= BLOOD_COLOR_RED;
+	}
 	m_flFieldOfView		= 0.2;
 	m_NPCState			= NPC_STATE_NONE;
 
@@ -963,6 +997,11 @@ void CProtoSniper::Spawn( void )
 	CapabilitiesClear();
 	CapabilitiesAdd( bits_CAP_INNATE_RANGE_ATTACK1 );
 	CapabilitiesAdd( bits_CAP_SIMPLE_RADIUS_DAMAGE );
+
+	//test start (CAP_Weapon)
+	CapabilitiesAdd( bits_CAP_USE_WEAPONS );
+	CapabilitiesAdd( bits_CAP_AIM_GUN );
+	//test end
 
 	m_HackedGunPos = Vector ( 0, 0, 0 );
 
@@ -994,6 +1033,12 @@ void CProtoSniper::Spawn( void )
 
 	// none!
 	GetEnemies()->SetFreeKnowledgeDuration( 0.0 );
+
+	CBaseCombatWeapon *pWeapon = Weapon_Create("weapon_crossbow");
+	Weapon_Equip( pWeapon );
+	SetActiveWeapon( pWeapon );
+
+	SetIdealActivity(ACT_IDLE_ANGRY);
 
 	m_flTimeLastAttackedPlayer = 0.0f;
 	m_bWarnedTargetEntity = false;
@@ -1199,9 +1244,9 @@ Vector CProtoSniper::GetBulletOrigin( void )
 	}
 	else
 	{
-		Vector vecForward;
-		AngleVectors( GetLocalAngles(), &vecForward );
-		return WorldSpaceCenter() + vecForward * 20;
+		Vector vecForward, vecRight, vecUp;
+		AngleVectors( GetLocalAngles(), &vecForward, &vecRight, &vecUp );
+		return WorldSpaceCenter() + vecForward * 25 + (vecUp * 9.5);
 	}
 }
 
@@ -1286,26 +1331,29 @@ int CProtoSniper::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 	if ( info.GetDamageType() == DMG_GENERIC && info.GetInflictor() == this )
 		return CAI_BaseNPC::OnTakeDamage_Alive( newInfo );
 
-	if( !(info.GetDamageType() & (DMG_BLAST|DMG_BURN) ) )
+	if ( m_bIsShotVulnerable == false )
 	{
-		// Only blasts and burning hurt
-		return 0;
-	}
+		if( !(info.GetDamageType() & (DMG_BLAST|DMG_BURN) ) )
+		{
+			// Only blasts and burning hurt
+			return 0;
+		}
 
-	if( (info.GetDamageType() & DMG_BLAST) && info.GetDamage() < m_iHealth )
-	{
-		// Only blasts powerful enough to kill hurt
-		return 0;
-	}
+		if( (info.GetDamageType() & DMG_BLAST) && info.GetDamage() > 10 )
+		{
+			newInfo.SetDamage( m_iHealth );
+			return CAI_BaseNPC::OnTakeDamage_Alive( newInfo );
+		}
 
-	float flDist = GetAbsOrigin().DistTo( info.GetInflictor()->GetAbsOrigin() );
-	if( flDist > SNIPER_MAX_INFLICTOR_DIST )
-	{
-		// Sniper only takes damage from explosives that are nearby. This makes a sniper 
-		// susceptible to a grenade that lands in his nest, but not to a large explosion
-		// that goes off elsewhere and just happens to be able to trace into the sniper's 
-		// nest.
-		return 0;
+		float flDist = GetAbsOrigin().DistTo( info.GetInflictor()->GetAbsOrigin() );
+		if( flDist > SNIPER_MAX_INFLICTOR_DIST )
+		{
+			// Sniper only takes damage from explosives that are nearby. This makes a sniper 
+			// susceptible to a grenade that lands in his nest, but not to a large explosion
+			// that goes off elsewhere and just happens to be able to trace into the sniper's 
+			// nest.
+			return 0;
+		}
 	}
 
 	if( info.GetDamageType() & DMG_BURN )
@@ -1341,7 +1389,7 @@ void CProtoSniper::Event_Killed( const CTakeDamageInfo &info )
 		}
 
 		CBaseEntity *pGib;
-		bool bShouldIgnite = IsOnFire() || hl2_episodic.GetBool();
+		bool bShouldIgnite = IsOnFire();
 		pGib = CreateRagGib( "models/combine_soldier.mdl", GetLocalOrigin(), GetLocalAngles(), (vecForward * flForce) + Vector(0, 0, 600), flFadeTime, bShouldIgnite );
 
 	}
@@ -2321,6 +2369,23 @@ void CProtoSniper::RunTask( const Task_t *pTask )
 }
 
 
+//=========================================================
+// HandleAnimEvent - catches the monster-specific messages
+// that occur when tagged animation frames are played.
+//=========================================================
+void CProtoSniper::HandleAnimEvent( animevent_t *pEvent )
+{
+	if ( pEvent->event == AE_NPC_BODYDROP_HEAVY )
+	{
+		//if ( GetFlags() & FL_ONGROUND )
+		//{
+		//	EmitSound( "AI_BaseNPC.BodyDrop_Heavy" );
+		//}
+		return;
+	}
+	//BaseClass::HandleAnimEvent( pEvent );
+}
+
 //-----------------------------------------------------------------------------
 // The sniper throws away the circular list of old decoys when we restore.
 //-----------------------------------------------------------------------------
@@ -2652,6 +2717,22 @@ void CProtoSniper::InputDisableSniper( inputdata_t &inputdata )
 	m_fEnabled = false;
 }
 
+
+//---------------------------------------------------------
+//---------------------------------------------------------
+void CProtoSniper::InputBecomeShotVulnerable( inputdata_t &inputdata )
+{
+	m_bIsShotVulnerable = true;
+	SetBloodColor( BLOOD_COLOR_RED );
+}
+
+//---------------------------------------------------------
+//---------------------------------------------------------
+void CProtoSniper::InputBecomeShotInvulnerable( inputdata_t &inputdata )
+{
+	m_bIsShotVulnerable = false;
+	SetBloodColor( DONT_BLEED );
+}
 
 //---------------------------------------------------------
 //---------------------------------------------------------

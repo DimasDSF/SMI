@@ -12,7 +12,9 @@
 #include "physics_saverestore.h"
 #include "datacache/imdlcache.h"
 #include "activitylist.h"
-
+#ifndef CLIENT_DLL
+	#include "player.h"
+#endif
 // NVNT start extra includes
 #include "haptics/haptic_utils.h"
 #ifdef CLIENT_DLL
@@ -1524,9 +1526,14 @@ bool CBaseCombatWeapon::Deploy( )
 {
 	MDLCACHE_CRITICAL_SECTION();
 
-	m_bWeaponCanFire = true;
+	CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
+	if ( !pPlayer->m_bHolsteredImpulse )
+	{
+		m_bWeaponCanFire = true;
 
-	return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
+		return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
+	}
+	else return false;
 }
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )
