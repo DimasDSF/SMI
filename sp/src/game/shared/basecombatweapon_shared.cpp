@@ -1491,12 +1491,33 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 	// can still be deployed when they have no ammo.
 	if ( !HasAnyAmmo() && AllowsAutoSwitchFrom() )
 		return false;
- 
+
 	float flSequenceDuration = 0.0f;
 	if(GetOwner())
 	{
 		if ( !GetOwner()->IsAlive() )
 			return false;
+		#ifdef SERVER_DLL
+		if (GetOwner()->IsPlayer())
+		{
+			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(UTIL_GetLocalPlayer());
+
+			if ( pPlayer->m_bHolsteredImpulse )
+			{
+				return false;
+			}
+		}
+		#else
+		if (GetOwner()->IsPlayer())
+		{
+			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
+
+			if ( pPlayer->m_bHolsteredImpulse )
+			{
+				return false;
+			}
+		}
+		#endif
 		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 		if ( pOwner )
 		{
@@ -1516,6 +1537,7 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 	g_EventQueue.CancelEventOn( this, "HideWeapon" );
 #endif
  
+	m_bWeaponCanFire = true;
 	return true;
 }
 
@@ -1526,14 +1548,7 @@ bool CBaseCombatWeapon::Deploy( )
 {
 	MDLCACHE_CRITICAL_SECTION();
 
-	CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
-	if ( !pPlayer->m_bHolsteredImpulse )
-	{
-		m_bWeaponCanFire = true;
-
-		return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
-	}
-	else return false;
+	return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
 }
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )

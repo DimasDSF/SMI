@@ -138,7 +138,7 @@ void CHudSquadStatus::OnThink( void )
 	if ( squadMembers == m_iSquadMembers && following == m_bSquadMembersFollowing )
 		return;
 
-	// update status display
+	/*// update status display
 	if ( squadMembers > 0)
 	{
 		// we have squad members, show the display
@@ -148,6 +148,30 @@ void CHudSquadStatus::OnThink( void )
 	{
 		// no squad members, hide the display
 		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberEmpty" ); 
+	}*/
+
+	if ( squadMembers >= 5 )
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadBiggerFive" );
+	}
+	else
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadLessFive" );
+	}
+
+	if ( squadMembers > 0 && m_iSquadMedics >= 1 )
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberNotEmpty" );
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadHasMedics" ); 
+	}
+	else if ( squadMembers > 0 && m_iSquadMedics == 0 )
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberNotEmpty" );
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadHasNoMedics" ); 
+	}
+	else if ( squadMembers == 0 )
+	{
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence( "SquadMemberEmpty" );
 	}
 
 	if ( squadMembers > m_iSquadMembers )

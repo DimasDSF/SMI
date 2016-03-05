@@ -869,12 +869,15 @@ int CItem_AmmoCrate::OnTakeDamage( const CTakeDamageInfo &info )
 	{
 		CBaseCombatWeapon *weapon = player->GetActiveWeapon();
 
-		if (weapon && !stricmp(weapon->GetName(), "weapon_crowbar"))
+		if ( (player->GetLocalOrigin() - this->GetLocalOrigin()).Length2D() < 64 )
 		{
-			// play the normal use sound
-			player->EmitSound( "HL2Player.Use" );
-			// open the crate
-			Use(info.GetAttacker(), info.GetAttacker(), USE_TOGGLE, 0.0f);
+			if (weapon && !stricmp(weapon->GetName(), "weapon_crowbar"))
+			{
+				// play the normal use sound
+				player->EmitSound( "HL2Player.Use" );
+				// open the crate
+				Use(info.GetAttacker(), info.GetAttacker(), USE_TOGGLE, 0.0f);
+			}
 		}
 	}
 

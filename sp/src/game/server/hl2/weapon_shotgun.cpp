@@ -560,20 +560,23 @@ void CWeaponShotgun::ItemPostFrame( void )
 		return;
 	}
 
+	if( m_bWeaponCanFire == false )
+		return;
+
 	if (m_bInReload)
 	{
 		// If I'm primary firing and have one round stop reloading and fire
 		if ((pOwner->m_nButtons & IN_ATTACK ) && (m_iClip1 >=1))
 		{
 			m_bInReload		= false;
-			m_bNeedPump		= false;
+			m_bNeedPump		= true;
 			m_bDelayedFire1 = true;
 		}
 		// If I'm secondary firing and have one round stop reloading and fire
 		else if ((pOwner->m_nButtons & IN_ATTACK2 ) && (m_iClip1 >=2))
 		{
 			m_bInReload		= false;
-			m_bNeedPump		= false;
+			m_bNeedPump		= true;
 			m_bDelayedFire2 = true;
 		}
 		else if (m_flNextPrimaryAttack <= gpGlobals->curtime)

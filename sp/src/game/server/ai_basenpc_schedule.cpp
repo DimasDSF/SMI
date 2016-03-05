@@ -4430,6 +4430,12 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
+	if ((m_iLastInvestigation + 40 < gpGlobals->curtime))
+	{
+		m_iNumInvestigations = 0;
+		//DevWarning( 2, "%i > %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 30 , gpGlobals->curtime );
+	}
+	
 	if (GetSquad() && (GetSquad()->NumMembers() > 1) && m_bShouldMoveToRVSquadLeader && (GetSquad()->GetLeader() != this) )
 	{
 		if ( !m_bMovedToRVSquadLeader )
@@ -4466,30 +4472,20 @@ if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-
-		if (m_iLastInvestigation == NULL)
-		{
-			m_iLastInvestigation = gpGlobals->curtime;
-		}
-
-		if ((m_iLastInvestigation + 30 < gpGlobals->curtime))
-		{
-			m_iNumInvestigations = 0;
-			//DevWarning( 2, "%i > %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 30 , gpGlobals->curtime );
-		}
-		m_iLastInvestigation = gpGlobals->curtime;
 		if ((random->RandomInt(1,10) > 6) && (m_iLastInvestigation + 5 < gpGlobals->curtime))
 		{
 			if (m_iNumInvestigations < 2)
 			{
-				m_iNumInvestigations = m_iNumInvestigations + 1;
+				m_iNumInvestigations++;
 				//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
+				m_iLastInvestigation = gpGlobals->curtime;
 				return SCHED_INVESTIGATE_SOUND_WALK;
 			}
 			else if (m_iNumInvestigations >= 2)
 			{
-				m_iNumInvestigations = m_iNumInvestigations + 1;
+				m_iNumInvestigations++;
 				//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
+				m_iLastInvestigation = gpGlobals->curtime;
 				return SCHED_INVESTIGATE_SOUND;
 			}
 			else
@@ -4536,11 +4532,6 @@ int CAI_BaseNPC::SelectAlertSchedule()
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
 			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		if (m_iLastInvestigation == NULL)
-		{
-			m_iLastInvestigation = gpGlobals->curtime;
-		}
-
 		if (m_iLastInvestigation + 5 < gpGlobals->curtime)
 		{
 			if (random->RandomInt(1,10) > 3)

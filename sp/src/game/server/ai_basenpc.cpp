@@ -6865,6 +6865,7 @@ void CAI_BaseNPC::NPCInit ( void )
 	SetIdealState( NPC_STATE_IDLE );// Assume npc will be idle, until proven otherwise
 	SetIdealActivity( ACT_IDLE );
 	SetActivity( ACT_IDLE );
+	m_iLastInvestigation = gpGlobals->curtime;
 
 #ifdef HL1_DLL
 	SetDeathPose( ACT_INVALID );

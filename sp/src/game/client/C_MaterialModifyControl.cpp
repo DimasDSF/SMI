@@ -111,6 +111,8 @@ private:
 	bool	m_bNewAnimCommandsSemaphore;
 	bool	m_bOldAnimCommandsSemaphore;
 
+	int intFrame;
+
 	// Float lerp commands from the server
 	float	m_flFloatLerpStartValue;
 	float	m_flFloatLerpEndValue;
@@ -679,11 +681,24 @@ void CMaterialModifyAnimatedProxy::OnBind( void *pEntity )
 		{
 			m_iFrameEnd = pTexture->GetNumAnimationFrames();
 		}
+		if ( m_iFrameStart < m_iFrameEnd )
+		{
+			numFrames = (m_iFrameEnd - m_iFrameStart) + 1;
+			iLastFrame = (m_iFrameEnd - 1);
+		}
+		else if ( m_iFrameStart > m_iFrameEnd )
+		{
+			numFrames = (m_iFrameStart - m_iFrameEnd) + 1;
+			iLastFrame = (m_iFrameEnd);
+		}
+		else
+		{
+			numFrames = 1;
+			iLastFrame = (m_iFrameEnd - 1);
+		}
 
-		numFrames = (m_iFrameEnd - m_iFrameStart) + 1;
 		bWrapAnimation = m_bCustomWrap;
 		flFrameRate = m_flCustomFramerate;
-		iLastFrame = (m_iFrameEnd - 1);
 	}
 	else
 	{
@@ -720,39 +735,77 @@ void CMaterialModifyAnimatedProxy::OnBind( void *pEntity )
 		deltaTime = 0.0f;
 	if (prevTime < 0.0f)
 		prevTime = 0.0f;
-
-	float frame = flFrameRate * deltaTime;	
-	float prevFrame = flFrameRate * prevTime;
-
-	int intFrame = ((int)frame) % numFrames; 
-	int intPrevFrame = ((int)prevFrame) % numFrames;
-
-	if ( m_iFrameStart != MATERIAL_MODIFY_ANIMATION_UNSET )
+//--------------------
+//ReWrite for negative frame direction
+//--------------------
+	if ( m_iFrameStart > m_iFrameEnd )
 	{
-		intFrame += m_iFrameStart;
-		intPrevFrame += m_iFrameStart;
-	}
+		float frame = m_iFrameStart - flFrameRate * deltaTime;	
+		float prevFrame = m_iFrameStart - flFrameRate * prevTime;
 
-	// Report wrap situation...
-	if (intPrevFrame > intFrame)
-	{
-		m_bReachedEnd = true;
+		int intFrame = ((int)frame) % numFrames; 
+		//int intPrevFrame = ((int)prevFrame) % numFrames;
 
-		if (bWrapAnimation)
+		//intFrame += m_iFrameStart;
+		//intPrevFrame += m_iFrameStart;
+
+		// Report wrap situation...
+		if (intFrame < m_iFrameEnd)
 		{
-			AnimationWrapped( pEntity );
-		}
-		else
-		{
-			// Only sent the wrapped message once.
-			// when we're in non-wrapping mode
-			if (prevFrame < numFrames)
+			m_bReachedEnd = true;
+	
+			if (bWrapAnimation)
+			{
 				AnimationWrapped( pEntity );
-			intFrame = numFrames - 1;
+			}
+			else
+			{
+				// Only sent the wrapped message once.
+				// when we're in non-wrapping mode
+				if (prevFrame < m_iFrameEnd)
+					AnimationWrapped( pEntity );
+				intFrame = m_iFrameEnd;
+				//numFrames - 1;
+			}
 		}
+		m_AnimatedTextureFrameNumVar->SetIntValue( intFrame );
+	}
+	else
+	{
+		float frame = flFrameRate * deltaTime;	
+		float prevFrame = flFrameRate * prevTime;
+
+		int intFrame = ((int)frame) % numFrames; 
+		int intPrevFrame = ((int)prevFrame) % numFrames;
+
+		if ( m_iFrameStart != MATERIAL_MODIFY_ANIMATION_UNSET )
+		{
+			intFrame += m_iFrameStart;
+			intPrevFrame += m_iFrameStart;
+		}
+
+		// Report wrap situation...
+		if (intPrevFrame > intFrame)
+		{
+			m_bReachedEnd = true;
+
+			if (bWrapAnimation)
+			{
+				AnimationWrapped( pEntity );
+			}
+			else
+			{
+				// Only sent the wrapped message once.
+				// when we're in non-wrapping mode
+				if (prevFrame < numFrames)
+					AnimationWrapped( pEntity );
+				intFrame = numFrames - 1;
+			}
+		}
+		m_AnimatedTextureFrameNumVar->SetIntValue( intFrame );
 	}
 
-	m_AnimatedTextureFrameNumVar->SetIntValue( intFrame );
+//-------------------
 
 	if ( ToolsEnabled() )
 	{

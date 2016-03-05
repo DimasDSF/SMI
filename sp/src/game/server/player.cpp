@@ -615,6 +615,7 @@ CBasePlayer::CBasePlayer( )
 	m_iReplayEntity = 0;
 
 	m_autoKickDisabled = false;
+	m_bHolsteredImpulse = false;
 
 	m_nNumCrouches = 0;
 	m_bDuckToggled = false;
@@ -5544,7 +5545,10 @@ void CBasePlayer::LeaveVehicle( const Vector &vecExitPoint, const QAngle &vecExi
 	{
 		if ( GetActiveWeapon() && GetActiveWeapon()->IsWeaponVisible() == false )
 		{
-			GetActiveWeapon()->Deploy();
+			if ( !m_bHolsteredImpulse )
+			{
+				GetActiveWeapon()->Deploy();
+			}
 			ShowCrosshair( true );
 		}
 	}
@@ -5889,15 +5893,18 @@ void CBasePlayer::ImpulseCommands( )
 
 			pWeapon = GetActiveWeapon();
 			
-			if( pWeapon->IsEffectActive( EF_NODRAW ) )
+			if ( pWeapon )
 			{
-				m_bHolsteredImpulse = false;
-				pWeapon->Deploy();
-			}
-			else
-			{
-				m_bHolsteredImpulse = true;
-				pWeapon->Holster();
+				if( pWeapon->IsEffectActive( EF_NODRAW ) )
+				{
+					m_bHolsteredImpulse = false;
+					pWeapon->Deploy();
+				}
+				else
+				{
+					m_bHolsteredImpulse = true;
+					pWeapon->Holster();
+				}
 			}
 		break;
 
@@ -7267,30 +7274,33 @@ bool CBasePlayer::Weapon_CanUse( CBaseCombatWeapon *pWeapon )
 //-----------------------------------------------------------------------------
 void CBasePlayer::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector *pvecTarget /* = NULL */, const Vector *pVelocity /* = NULL */ )
 {
-	bool bWasActiveWeapon = false;
-	if ( pWeapon == GetActiveWeapon() )
+	if ( !m_bHolsteredImpulse )
 	{
-		bWasActiveWeapon = true;
-	}
+		bool bWasActiveWeapon = false;
+		if ( pWeapon == GetActiveWeapon() )
+		{
+			bWasActiveWeapon = true;
+		}
 
-	if ( pWeapon )
-	{
+		if ( pWeapon )
+		{
+			if ( bWasActiveWeapon )
+			{
+				pWeapon->SendWeaponAnim( ACT_VM_IDLE );
+			}
+		}
+
+		BaseClass::Weapon_Drop( pWeapon, pvecTarget, pVelocity );
+
 		if ( bWasActiveWeapon )
 		{
-			pWeapon->SendWeaponAnim( ACT_VM_IDLE );
-		}
-	}
-
-	BaseClass::Weapon_Drop( pWeapon, pvecTarget, pVelocity );
-
-	if ( bWasActiveWeapon )
-	{
-		if (!SwitchToNextBestWeapon( NULL ))
-		{
-			CBaseViewModel *vm = GetViewModel();
-			if ( vm )
+			if (!SwitchToNextBestWeapon( NULL ))
 			{
-				vm->AddEffects( EF_NODRAW );
+				CBaseViewModel *vm = GetViewModel();
+				if ( vm )
+				{
+					vm->AddEffects( EF_NODRAW );
+				}
 			}
 		}
 	}

@@ -92,6 +92,7 @@ ConVar player_squad_autosummon_move_tolerance( "player_squad_autosummon_move_tol
 ConVar player_squad_autosummon_player_tolerance( "player_squad_autosummon_player_tolerance", "10" );
 ConVar player_squad_autosummon_time_after_combat( "player_squad_autosummon_time_after_combat", "8" );
 ConVar player_squad_autosummon_debug( "player_squad_autosummon_debug", "0" );
+ConVar player_squad_enable_autosummon( "player_squad_enable_autosummon", "0" );
 
 #define ShouldAutosquad() (npc_citizen_auto_player_squad.GetBool())
 
@@ -2388,7 +2389,7 @@ bool CNPC_Citizen::IsCommandMoving()
 //-----------------------------------------------------------------------------
 bool CNPC_Citizen::ShouldAutoSummon()
 {
-	if ( !AI_IsSinglePlayer() || !IsFollowingCommandPoint() || !IsInPlayerSquad() )
+	if ( !AI_IsSinglePlayer() || !IsFollowingCommandPoint() || !IsInPlayerSquad() || player_squad_enable_autosummon.GetInt() == 0 )
 		return false;
 
 	CHL2_Player *pPlayer = (CHL2_Player *)UTIL_GetLocalPlayer();

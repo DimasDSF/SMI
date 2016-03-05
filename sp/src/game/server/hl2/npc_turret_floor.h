@@ -140,6 +140,8 @@ public:
 	bool			CanBeAnEnemyOf( CBaseEntity *pEnemy );
 	bool			IsBeingCarriedByPlayer( void ) { return m_bCarriedByPlayer; }
 	bool			WasJustDroppedByPlayer( void );
+	void			ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget );
+	void			ResetForcedRelationships( CBaseEntity *CurTarget );
 
 	float	MaxTargetRange( void );
 
@@ -224,6 +226,9 @@ protected:
 	float	m_flPingTime;
 	float	m_flMaxTargetRange;
 	float	m_flTurnSpeed;
+	EHANDLE	m_hForcedTarget;
+	EHANDLE m_hPrevForcedTarget;
+	Disposition_t SavedForcedDisposition;
 	float	m_fForceTargetDelay;
 	float	m_flNextActivateSoundTime;
 	bool	m_bCarriedByPlayer;

@@ -48,7 +48,7 @@ ConVar bulletSpeed( "bulletspeed", "6000" );
 ConVar sniperLines( "showsniperlines", "0" );
 ConVar sniperviewdist("sniperviewdist", "35" );
 ConVar showsniperdist("showsniperdist", "0" );
-ConVar sniperspeak( "sniperspeak", "0" );
+ConVar sniperspeak( "sniperspeak", "1" );
 ConVar sniper_xbox_delay( "sniper_xbox_delay", "1" );
 ConVar sk_sniper_health( "sk_sniper_health", "100" );
 
@@ -302,6 +302,8 @@ private:
 	void InputSetPaintIntervalVariance( inputdata_t &inputdata );
 #endif
 
+	bool CanBeAnEnemyOf( CBaseEntity *pEnemy );
+
 	void LaserOff( void );
 	void LaserOn( const Vector &vecTarget, const Vector &vecDeviance );
 
@@ -335,6 +337,9 @@ private:
 	Vector						m_vecDecoyObjectTarget;
 	Vector						m_vecFrustratedTarget;
 	Vector						m_vecPaintStart; // used to track where a sweep starts for the purpose of interpolating.
+
+	int							m_tLastIdleSoundTime;
+	bool						m_bNotifiedAlert;
 
 	float						m_flFrustration;
 
@@ -932,6 +937,11 @@ void CProtoSniper::Precache( void )
 	UTIL_PrecacheOther( "sniperbullet" );
 	UTIL_PrecacheOther( "weapon_crossbow" );
 
+	PrecacheScriptSound( "NPC_Sniper.Idle" );
+	PrecacheScriptSound( "NPC_Sniper.Alert" );
+	PrecacheScriptSound( "NPC_Sniper.Target1Down" );
+	PrecacheScriptSound( "NPC_Sniper.TargetHidden" );
+	PrecacheScriptSound( "NPC_Sniper.CoverDestroyed" );
 	PrecacheScriptSound( "NPC_Sniper.Die" );
 	PrecacheScriptSound( "NPC_Sniper.TargetDestroyed" );
 	PrecacheScriptSound( "NPC_Sniper.HearDanger");
@@ -1434,7 +1444,7 @@ int CProtoSniper::SelectSchedule ( void )
 {
 	if( HasCondition(COND_ENEMY_DEAD) && sniperspeak.GetBool() )
 	{
-		EmitSound( "NPC_Sniper.TargetDestroyed" );
+		//EmitSound( "NPC_Sniper.TargetDestroyed" );
 	}
 
 	if( !m_fWeaponLoaded )
@@ -1445,6 +1455,10 @@ int CProtoSniper::SelectSchedule ( void )
 
 	if( !AI_GetSinglePlayer()->IsAlive() && m_bKilledPlayer )
 	{
+		if (sniperspeak.GetBool())
+		{
+			EmitSound( "NPC_Sniper.Target1Down" );
+		}
 		if( HasCondition(COND_IN_PVS) )
 		{
 			return SCHED_PSNIPER_PLAYER_DEAD;
@@ -1497,8 +1511,20 @@ int CProtoSniper::SelectSchedule ( void )
 		}
 	}
 
+	if( GetState() >= NPC_STATE_ALERT && m_bNotifiedAlert == false && sniperspeak.GetBool())
+	{
+		m_bNotifiedAlert = true;
+		EmitSound( "NPC_Sniper.Alert" );
+	}
+
 	if( GetEnemy() == NULL || HasCondition( COND_ENEMY_DEAD ) )
 	{
+		if (sniperspeak.GetBool() && gpGlobals->curtime > m_tLastIdleSoundTime + 30)
+		{
+			EmitSound( "NPC_Sniper.Idle" );
+			m_tLastIdleSoundTime = gpGlobals->curtime;
+			m_bNotifiedAlert = false;
+		}
 		// Look for an enemy.
 		SetEnemy( NULL );
 		return SCHED_PSNIPER_SCAN;
@@ -1516,6 +1542,10 @@ int CProtoSniper::SelectSchedule ( void )
 
 	if( HasCondition( COND_SNIPER_NO_SHOT ) )
 	{
+		if (sniperspeak.GetBool())
+		{
+			EmitSound( "NPC_Sniper.TargetHidden" );
+		}
 		return SCHED_PSNIPER_NO_CLEAR_SHOT;
 	}
 
@@ -2404,7 +2434,7 @@ int CProtoSniper::Restore( IRestore &restore )
 //-----------------------------------------------------------------------------
 float CProtoSniper::MaxYawSpeed( void )
 {
-	return 60;
+	return 40 * (1 / m_flPaintTime);
 }
 
 //---------------------------------------------------------
@@ -2802,6 +2832,14 @@ bool CProtoSniper::FindFrustratedShot( float flNoise )
 	return true;
 }
 
+
+bool CProtoSniper::CanBeAnEnemyOf( CBaseEntity *pEnemy )	
+{ 
+	if ( m_bIsShotVulnerable )
+		return true;
+
+	return false; 
+}
 
 //---------------------------------------------------------
 // See all NPC's easily.

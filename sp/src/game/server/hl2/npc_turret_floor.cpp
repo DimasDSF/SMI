@@ -1694,6 +1694,7 @@ void CNPC_FloorTurret::Ping( void )
 //-----------------------------------------------------------------------------
 void CNPC_FloorTurret::InputForceResetTarget( inputdata_t &inputdata )
 {
+	ResetForcedRelationships( m_hForcedTarget );
 	SetEnemy( NULL );
 	ClearEnemyMemory();
 }
@@ -1723,7 +1724,19 @@ void CNPC_FloorTurret::InputForceSetTarget( inputdata_t &inputdata )
 			{
 				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
 			}
-			else SetEnemy( pFTarget );
+			else
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
 		}
 	}
 	else if (forcetargettimefloorturret != 0 && ( forcetargettimefloorturret + m_fForceTargetDelay <= gpGlobals->curtime ))
@@ -1746,7 +1759,19 @@ void CNPC_FloorTurret::InputForceSetTarget( inputdata_t &inputdata )
 			{
 				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
 			}
-			else SetEnemy( pFTarget );
+			else
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
 		}
 	}
 	else if (forcetargettimefloorturret != 0 && ( forcetargettimefloorturret + m_fForceTargetDelay >= gpGlobals->curtime ))
@@ -1756,6 +1781,27 @@ void CNPC_FloorTurret::InputForceSetTarget( inputdata_t &inputdata )
 	else
 	{
 		DevWarning( 2, "Warning refused to change target due to unknown error" );
+	}
+}
+
+void CNPC_FloorTurret::ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( PrevTarget != NULL )
+	{
+		turret->AddEntityRelationship( PrevTarget, SavedForcedDisposition, 0 );
+	}
+	SavedForcedDisposition = turret->IRelationType( CurTarget );
+	turret->AddEntityRelationship( CurTarget, D_HT, 0 );
+	SetEnemy( CurTarget );
+}
+
+void CNPC_FloorTurret::ResetForcedRelationships( CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( SavedForcedDisposition )
+	{
+		turret->AddEntityRelationship( CurTarget, SavedForcedDisposition, 0 );
 	}
 }
 

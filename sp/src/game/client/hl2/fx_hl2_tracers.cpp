@@ -655,7 +655,7 @@ DECLARE_CLIENT_EFFECT( "GunshipMuzzleFlash", GunshipMuzzleFlashCallback );
 
 
 //-----------------------------------------------------------------------------
-// Gunship muzzle flashes
+// Ceiling Turret Muzzle
 //-----------------------------------------------------------------------------
 void MuzzleFlash_CeilingT( ClientEntityHandle_t hEntity, int attachmentIndex )
 {

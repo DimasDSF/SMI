@@ -123,6 +123,9 @@ public:
 	
 	float	MaxYawSpeed( void );
 
+	void	ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget );
+	void	ResetForcedRelationships( CBaseEntity *CurTarget );
+
 	float	MaxTargetRange( void );
 
 	int		OnTakeDamage( const CTakeDamageInfo &inputInfo );
@@ -186,6 +189,9 @@ protected:
 	float	m_flTurnSpeed;
 	float	m_flMaxTargetRange;
 	float	m_fForceTargetDelay;
+	EHANDLE	m_hForcedTarget;
+	EHANDLE m_hPrevForcedTarget;
+	Disposition_t SavedForcedDisposition;
 
 	QAngle	m_vecGoalAngles;
 
@@ -261,6 +267,7 @@ CNPC_CeilingTurret::CNPC_CeilingTurret( void )
 	m_fForceTargetDelay = 5.0;
 	m_bBlinkState		= false;
 	m_bEnabled			= false;
+	m_hForcedTarget		= NULL;
 
 	m_vecGoalAngles.Init();
 }
@@ -1011,6 +1018,7 @@ void CNPC_CeilingTurret::Ping( void )
 //-----------------------------------------------------------------------------
 void CNPC_CeilingTurret::InputForceResetTarget( inputdata_t &inputdata )
 {
+	ResetForcedRelationships( m_hForcedTarget );
 	SetEnemy( NULL );
 	ClearEnemyMemory();
 }
@@ -1040,7 +1048,19 @@ void CNPC_CeilingTurret::InputForceSetTarget( inputdata_t &inputdata )
 			{
 				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
 			}
-			else SetEnemy( pFTarget );
+			else 
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
 		}
 	}
 	else if (forcetargettime != 0 && ( forcetargettime + m_fForceTargetDelay <= gpGlobals->curtime ))
@@ -1063,7 +1083,19 @@ void CNPC_CeilingTurret::InputForceSetTarget( inputdata_t &inputdata )
 			{
 				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
 			}
-			else SetEnemy( pFTarget );
+			else
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
 		}
 	}
 	else if (forcetargettime != 0 && ( forcetargettime + m_fForceTargetDelay >= gpGlobals->curtime ))
@@ -1073,6 +1105,27 @@ void CNPC_CeilingTurret::InputForceSetTarget( inputdata_t &inputdata )
 	else
 	{
 		DevWarning( 2, "Warning refused to change target due to unknown error" );
+	}
+}
+
+void CNPC_CeilingTurret::ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( PrevTarget != NULL )
+	{
+		turret->AddEntityRelationship( PrevTarget, SavedForcedDisposition, 0 );
+	}
+	SavedForcedDisposition = turret->IRelationType( CurTarget );
+	turret->AddEntityRelationship( CurTarget, D_HT, 0 );
+	SetEnemy( CurTarget );
+}
+
+void CNPC_CeilingTurret::ResetForcedRelationships( CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( SavedForcedDisposition )
+	{
+		turret->AddEntityRelationship( CurTarget, SavedForcedDisposition, 0 );
 	}
 }
 
@@ -1286,8 +1339,8 @@ bool CNPC_CeilingTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 	// If we're out of ammo, make friendly companions ignore us
 	if ( m_spawnflags & SF_CEILING_TURRET_OUT_OF_AMMO )
 	{
-		if ( pEnemy->Classify() == CLASS_PLAYER_ALLY_VITAL )
-			return false;
+		//if ( pEnemy->Classify() == CLASS_PLAYER_ALLY_VITAL )
+		return false;
 	} 
 
 	return BaseClass::CanBeAnEnemyOf( pEnemy );
