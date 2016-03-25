@@ -40,6 +40,7 @@ public:
 	// Outputs
 	COutputEvent m_OnTrigger;
 	COutputEvent m_OnSpawn;
+	COutputEvent m_OnDisabledTriggered;
 
 	bool IsDisabled( void ){ return m_bDisabled; }
 	

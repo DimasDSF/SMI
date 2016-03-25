@@ -120,6 +120,7 @@ BEGIN_DATADESC( CNPC_Alyx )
 	DEFINE_INPUTFUNC( FIELD_VOID,		"VehiclePunted",		InputVehiclePunted ),
 	DEFINE_INPUTFUNC( FIELD_VOID,		"OutsideTransition",	InputOutsideTransition ),
 	DEFINE_INPUTFUNC( FIELD_STRING,		"SetModel",				InputSetModel ),
+	DEFINE_INPUTFUNC( FIELD_STRING,		"ZapTarget",			InputZapTarget ),
 
 	DEFINE_OUTPUT( m_OnFinishInteractWithObject, "OnFinishInteractWithObject" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -538,6 +539,21 @@ void CNPC_Alyx::InputGiveEMP( inputdata_t &inputdata )
 		}
 	}
 }
+
+
+//-----------------------------------------------------------------------------
+// Purpose: ZapTarget
+//-----------------------------------------------------------------------------
+
+void CNPC_Alyx::InputZapTarget( inputdata_t &inputdata )
+{
+	CBaseEntity *pTarget = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if (pTarget)
+	{
+		EmpZapTarget( pTarget );
+	}
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose:

@@ -1668,9 +1668,9 @@ void CTempEnts::EjectBrass( const Vector &pos1, const QAngle &angles, const QAng
 
 	pTemp->flags |= ( FTENT_COLLIDEWORLD | FTENT_FADEOUT | FTENT_GRAVITY | FTENT_ROTATE );
 
-	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-1024,1024);
-	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-1024,1024);
-	pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat(-1024,1024);
+	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-256,256);
+	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-256,256);
+	pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat(-256,256);
 
 	//Face forward
 	pTemp->SetAbsAngles( gunAngles );

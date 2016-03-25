@@ -201,6 +201,7 @@ protected:
 	EHANDLE	m_hEnemyTarget;			// Entity we acquired as an enemy.	
 
 	COutputEvent	m_OnPhoto;
+	COutputEvent	m_OnLostTarget;
 
 	float m_flPingTime;
 	float m_flClickTime;			// Time to take next picture while angry.
@@ -253,6 +254,7 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetIdle", InputSetIdle),
 
 	DEFINE_OUTPUT( m_OnPhoto, "OnPhoto"),
+	DEFINE_OUTPUT( m_OnLostTarget, "OnLostTarget"),
 
 END_DATADESC()
 
@@ -643,6 +645,7 @@ void CNPC_CombineCamera::ActiveThink()
 		SetAngry(false);
 		SetThink(&CNPC_CombineCamera::SearchThink);
 		SetNextThink( gpGlobals->curtime );
+		m_OnLostTarget.FireOutput( this, this );
 		return;
 	}
 

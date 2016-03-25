@@ -1442,13 +1442,18 @@ bool CBaseCombatWeapon::IsWeaponVisible( void )
 //-----------------------------------------------------------------------------
 bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 {
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	Assert( pOwner );
+	//CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	//Assert( pOwner );
 
 	m_bFireOnEmpty = false;
 
+	if (GetWeaponFlags() & ITEM_FLAG_EXHAUSTIBLE)
+	{
+		return true;
+	}
+
 	// If we don't have any ammo, switch to the next best weapon
-	if ( !HasAnyAmmo() && m_flNextPrimaryAttack < gpGlobals->curtime && m_flNextSecondaryAttack < gpGlobals->curtime )
+	/*if ( !HasAnyAmmo() && m_flNextPrimaryAttack < gpGlobals->curtime && m_flNextSecondaryAttack < gpGlobals->curtime )
 	{
 		// weapon isn't useable, switch.
 		if ( ( (GetWeaponFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) == false ) && ( g_pGameRules->SwitchToNextBestWeapon( pOwner, this ) ) )
@@ -1470,7 +1475,7 @@ bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 			if ( Reload() )
 				return true;
 		}
-	}
+	}*/
 
 	return false;
 }

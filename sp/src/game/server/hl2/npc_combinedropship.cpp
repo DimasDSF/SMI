@@ -330,6 +330,7 @@ private:
 	string_t	m_iszAPCVehicleName;
 
 	// Templates for soldier's dropped off
+	string_t	m_sStriderName;
 	string_t	m_sNPCTemplate[ DROPSHIP_MAX_SOLDIERS ];
 	string_t	m_sNPCTemplateData[ DROPSHIP_MAX_SOLDIERS ];	
 	string_t	m_sDustoffPoints[ DROPSHIP_MAX_SOLDIERS ];	
@@ -782,6 +783,7 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_FIELD( m_sRollermineTemplateData, FIELD_STRING ),
 
 	DEFINE_ARRAY( m_sNPCTemplateData, FIELD_STRING, DROPSHIP_MAX_SOLDIERS ),
+	DEFINE_KEYFIELD( m_sStriderName, FIELD_STRING, "StriderName" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[0], FIELD_STRING,	"NPCTemplate" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[1], FIELD_STRING,	"NPCTemplate2" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[2], FIELD_STRING,	"NPCTemplate3" ),
@@ -907,6 +909,7 @@ void CNPC_CombineDropship::Spawn( void )
 
 	case CRATE_STRIDER:
 		m_hContainer = (CBaseAnimating*)CreateEntityByName( "npc_strider" );
+		m_hContainer->SetName( m_sStriderName );
 		m_hContainer->SetAbsOrigin( GetAbsOrigin() - Vector( 0, 0 , 100 ) );
 		m_hContainer->SetAbsAngles( GetAbsAngles() );
 		m_hContainer->SetParent(this, 0);

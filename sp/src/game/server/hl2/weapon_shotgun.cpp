@@ -526,7 +526,7 @@ void CWeaponShotgun::SecondaryAttack( void )
 	Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
 
 	// Fire the bullets
-	pPlayer->FireBullets( 12, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
+	pPlayer->FireBullets( sk_plr_num_shotgun_pellets.GetInt() * 2, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
 	pPlayer->ViewPunch( QAngle(random->RandomFloat( -5, 5 ),0,0) );
 
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
@@ -625,14 +625,14 @@ void CWeaponShotgun::ItemPostFrame( void )
 			{
 				PrimaryAttack();
 			}
-			else if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
+			else /*if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))*/
 			{
 				DryFire();
 			}
-			else
-			{
-				StartReload();
-			}
+			//else
+			//{
+			//	StartReload();
+			//}
 		}
 
 		// Fire underwater?
@@ -657,14 +657,14 @@ void CWeaponShotgun::ItemPostFrame( void )
 		m_bDelayedFire1 = false;
 		if ( (m_iClip1 <= 0 && UsesClipsForAmmo1()) || ( !UsesClipsForAmmo1() && !pOwner->GetAmmoCount(m_iPrimaryAmmoType) ) )
 		{
-			if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
-			{
+			//if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
+			//{
 				DryFire();
-			}
-			else
-			{
-				StartReload();
-			}
+			//}
+			//else
+			//{
+			//	StartReload();
+			//}
 		}
 		// Fire underwater?
 		else if (pOwner->GetWaterLevel() == 3 && m_bFiresUnderwater == false)
@@ -709,11 +709,11 @@ void CWeaponShotgun::ItemPostFrame( void )
 			// weapon is useable. Reload if empty and weapon has waited as long as it has to after firing
 			if ( m_iClip1 <= 0 && !(GetWeaponFlags() & ITEM_FLAG_NOAUTORELOAD) && m_flNextPrimaryAttack < gpGlobals->curtime )
 			{
-				if (StartReload())
-				{
+				//if (StartReload())
+				//{
 					// if we've successfully started to reload, we're done
-					return;
-				}
+				//	return;
+				//}
 			}
 		}
 

@@ -46,6 +46,7 @@ BEGIN_DATADESC( CLogicRelay )
 	// Outputs
 	DEFINE_OUTPUT(m_OnTrigger, "OnTrigger"),
 	DEFINE_OUTPUT(m_OnSpawn, "OnSpawn"),
+	DEFINE_OUTPUT(m_OnDisabledTriggered, "OnDisabledTriggered"),
 
 END_DATADESC()
 
@@ -219,6 +220,10 @@ void CLogicRelay::InputTrigger( inputdata_t &inputdata )
 			g_EventQueue.AddEvent(this, "EnableRefire", m_OnTrigger.GetMaxDelay() + 0.001, this, this);
 		}
 	}
+	else if (m_bDisabled)
+	{
+		m_OnDisabledTriggered.FireOutput( inputdata.pActivator, this );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -242,6 +247,10 @@ void CLogicRelay::InputTriggerInstant( inputdata_t &inputdata )
 			m_bWaitForRefire = true;
 			g_EventQueue.AddEvent(this, "EnableRefire", m_OnTrigger.GetMaxDelay() + 0.001, this, this);
 		}
+	}
+	else if (m_bDisabled)
+	{
+		m_OnDisabledTriggered.FireOutput( inputdata.pActivator, this );
 	}
 }
 
