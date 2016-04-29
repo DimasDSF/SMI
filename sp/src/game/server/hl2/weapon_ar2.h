@@ -70,6 +70,9 @@ protected:
 	float					m_flDelayedFire;
 	bool					m_bShotDelayed;
 	int						m_nVentPose;
+	int						m_nLastForcedVentPose;
+	float					m_flForcedVentPose;
+	bool					m_bOverHeat;
 	
 	DECLARE_ACTTABLE();
 	DECLARE_DATADESC();

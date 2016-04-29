@@ -182,6 +182,7 @@ protected:
 	bool	m_bActive;		//Denotes the turret is deployed and looking for targets
 	bool	m_bBlinkState;
 	bool	m_bEnabled;		//Denotes whether the turret is able to deploy or not
+	bool	m_bSendsShotOutput;
 	
 	float	m_flShotTime;
 	float	m_flLastSight;
@@ -217,6 +218,7 @@ BEGIN_DATADESC( CNPC_CeilingTurret )
 	DEFINE_FIELD( m_bActive,		FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bBlinkState,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bEnabled,		FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bSendsShotOutput,	FIELD_BOOLEAN, "SendsShotOutput" ),
 	DEFINE_FIELD( m_flShotTime,		FIELD_TIME ),
 	DEFINE_FIELD( m_flLastSight,	FIELD_TIME ),
 	DEFINE_FIELD( m_flPingTime,		FIELD_TIME ),
@@ -267,6 +269,7 @@ CNPC_CeilingTurret::CNPC_CeilingTurret( void )
 	m_fForceTargetDelay = 5.0;
 	m_bBlinkState		= false;
 	m_bEnabled			= false;
+	m_bSendsShotOutput	= false;
 	m_hForcedTarget		= NULL;
 
 	m_vecGoalAngles.Init();
@@ -904,7 +907,10 @@ void CNPC_CeilingTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnem
 	FireBullets( info );
 	EmitSound( "NPC_CeilingTurret.ShotSounds" );
 	DoMuzzleFlash();
-	m_OnShotFired.FireOutput( NULL, this );
+	if ( m_bSendsShotOutput )
+	{
+		m_OnShotFired.FireOutput( NULL, this );
+	}
 }
 //----------
 // Purpose: Muzzleflash fix

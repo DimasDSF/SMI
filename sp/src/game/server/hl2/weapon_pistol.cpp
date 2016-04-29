@@ -165,6 +165,8 @@ CWeaponPistol::CWeaponPistol( void )
 	m_fMinRange2		= 24;
 	m_fMaxRange2		= 200;
 
+	m_bHasEmptyAnims = true;
+
 	m_bFiresUnderwater	= true;
 }
 

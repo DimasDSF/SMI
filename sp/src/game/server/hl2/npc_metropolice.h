@@ -170,6 +170,7 @@ private:
 	void InputHideWeapon( inputdata_t &inputdata );
 	void InputEnableAutoWeaponHide( inputdata_t &inputdata );
 	void InputDisableAutoWeaponHide( inputdata_t &inputdata );
+	void InputForceManhackThrow( inputdata_t &inputdata );
 
 	void NotifyDeadFriend ( CBaseEntity* pFriend );
 
@@ -399,6 +400,7 @@ private:
 	int				m_iManhacks;		// How many manhacks the cop has
 	bool			m_fWeaponDrawn;		// Is my weapon drawn? (ready to use)
 	bool			m_bSimpleCops;		// The easy version of the cops
+	bool			m_bForceManhackThrow;
 	int				m_LastShootSlot;
 	CRandSimTimer	m_TimeYieldShootSlot;
 	CSimpleSimTimer m_BatonSwingTimer;

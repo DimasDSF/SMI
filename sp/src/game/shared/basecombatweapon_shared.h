@@ -171,6 +171,7 @@ public:
 	virtual bool			IsPredicted( void ) const { return false; }
 
 	bool CanDrop( void ){return m_bCanBeDropped;}
+	bool HasEmptyAnimations( void ){return m_bHasEmptyAnims;}
 
 	void InputAllowPlayerPickup( inputdata_t &inputdata );
 	void InputDisallowPlayerPickup( inputdata_t &inputdata );
@@ -557,6 +558,7 @@ public:
 	bool					m_bFireOnEmpty;			// True when the gun is empty and the player is still holding down the attack key(s)
 	bool					m_bFiringWholeClip;		// Are we in the middle of firing the whole clip;
 	bool					m_bCanBeDropped;
+	bool					m_bHasEmptyAnims;
 	// Weapon art
 	CNetworkVar( int, m_iViewModelIndex );
 	CNetworkVar( int, m_iWorldModelIndex );

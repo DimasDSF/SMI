@@ -216,6 +216,7 @@ protected:
 	bool	m_bActive;		//Denotes the turret is deployed and looking for targets
 	bool	m_bBlinkState;
 	bool	m_bEnabled;		//Denotes whether the turret is able to deploy or not
+	bool	m_bSendsShotOutput;
 	bool	m_bNoAlarmSounds;
 	bool	m_bSelfDestructing;	// Going to blow up
 

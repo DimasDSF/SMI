@@ -232,6 +232,7 @@ BEGIN_DATADESC( CNPC_MetroPolice )
 	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableAutoWeaponHide", InputEnableAutoWeaponHide ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableAutoWeaponHide", InputDisableAutoWeaponHide ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ForceManhackThrow", InputForceManhackThrow ),
 	
 	DEFINE_USEFUNC( PrecriminalUse ),
 
@@ -2450,6 +2451,19 @@ void CNPC_MetroPolice::InputEnableManhackToss( inputdata_t &inputdata )
 	}
 }
 
+void CNPC_MetroPolice::InputForceManhackThrow( inputdata_t &inputdata )
+{
+	if ( HasSpawnFlags( SF_METROPOLICE_NO_MANHACK_DEPLOY ) )
+	{
+		RemoveSpawnFlags( SF_METROPOLICE_NO_MANHACK_DEPLOY );
+	}
+	if ( m_iManhacks <= 0 )
+	{
+		m_iManhacks = m_iManhacks + 1;
+	}
+	m_bForceManhackThrow = true;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : &inputdata - 
@@ -2854,6 +2868,8 @@ void CNPC_MetroPolice::OnAnimEventStartDeployManhack( void )
 
 	pManhack->Spawn();
 
+	m_bForceManhackThrow = false;
+
 	// Make us move with his hand until we're deployed
 	pManhack->SetParent( this, handAttachment );
 
@@ -3222,7 +3238,7 @@ int CNPC_MetroPolice::SelectRangeAttackSchedule()
 	// We're not in a shoot slot... so we've allowed someone else to grab it
 	m_LastShootSlot = SQUAD_SLOT_NONE;
 
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow) )
 	{
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
@@ -3291,9 +3307,12 @@ int CNPC_MetroPolice::SelectScheduleNewEnemy()
 	{
 		m_flNextLedgeCheckTime = gpGlobals->curtime;
 
-		if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+		if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow) )
 			return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
+
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	if ( !m_fWeaponDrawn )
 		return SCHED_METROPOLICE_DRAW_PISTOL;
@@ -3361,7 +3380,7 @@ bool CNPC_MetroPolice::OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, floa
 int CNPC_MetroPolice::SelectScheduleNoDirectEnemy()
 {
 	// If you can't attack, but you can deploy a manhack, do it!
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow))
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	// If you can't attack, but you have a baton & there's a physics object in front of you, swat it
@@ -3390,6 +3409,9 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 	int nResult = SelectScheduleNewEnemy();
 	if ( nResult != SCHED_NONE )
 		return nResult;
+
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	if( !m_fWeaponDrawn )
 	{
@@ -3822,7 +3844,7 @@ int CNPC_MetroPolice::SelectAirboatRangeAttackSchedule()
 		}
 	}
 
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow))
 	{
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
@@ -4107,6 +4129,24 @@ int CNPC_MetroPolice::SelectSchedule( void )
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
+
+	if( m_NPCState == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 30 && m_iManhacks < 2 )
+	{
+		CBaseEntity *m_hPickupManhack = gEntList.FindEntityByClassnameNearest("npc_manhack", GetLocalOrigin(), 250);
+		if( m_hPickupManhack )
+		{
+			CNPC_Manhack *pManhack = dynamic_cast<CNPC_Manhack*>( m_hPickupManhack );
+			if( pManhack && !pManhack->GetEnemy() && GetSquad() == pManhack->GetSquad() )
+			{
+				UTIL_Remove( pManhack );
+				m_iManhacks = m_iManhacks + 1;
+				SetBodygroup( METROPOLICE_BODYGROUP_MANHACK, true );
+			}
+		}
+	}
+
 	if ( HasBaton() )
 	{
 		// See if we're being told to activate our baton
@@ -4363,10 +4403,17 @@ int CNPC_MetroPolice::TranslateSchedule( int scheduleType )
 			{
 				if (  GetEnemy() && GetEnemy()->GetAbsOrigin().DistToSqr( GetAbsOrigin() ) > 300*300 )
 				{
-					if ( OccupyStrategySlot( SQUAD_SLOT_POLICE_CHARGE_ENEMY ) )
+					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_pistol")))))
 					{
-						m_NextChargeTimer.Set( 3, 7 );
-						return SCHED_METROPOLICE_CHARGE;
+						return SCHED_RANGE_ATTACK1;
+					}
+					else
+					{
+						if ( OccupyStrategySlot( SQUAD_SLOT_POLICE_CHARGE_ENEMY ) )
+						{
+							m_NextChargeTimer.Set( 3, 7 );
+							return SCHED_METROPOLICE_CHARGE;
+						}
 					}
 				}
 			}

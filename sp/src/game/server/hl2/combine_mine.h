@@ -128,6 +128,7 @@ private:
 	COutputEvent	m_OnPulledUp;
 	void InputDisarm( inputdata_t &inputdata );
 	void InputArm( inputdata_t &inputdata );
+	void InputLaunch( inputdata_t &inputdata );
 };
 
 

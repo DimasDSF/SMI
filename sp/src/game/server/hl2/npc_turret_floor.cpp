@@ -80,6 +80,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_FIELD( m_bActive,		FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bBlinkState,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bEnabled,		FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bSendsShotOutput,	FIELD_BOOLEAN, "SendsShotOutput" ),
 	DEFINE_FIELD( m_bNoAlarmSounds,	FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_flShotTime,	FIELD_TIME ),
@@ -177,6 +178,7 @@ CNPC_FloorTurret::CNPC_FloorTurret( void ) :
 	m_flThrashTime( 0.0f ),
 	m_pMotionController( NULL ),
 	m_bEnabled( false ),
+	m_bSendsShotOutput( false ),
 	m_bSelfDestructing( false )
 {
 	m_vecGoalAngles.Init();
@@ -1183,7 +1185,10 @@ void CNPC_FloorTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnemy,
 	FireBullets( info );
 	EmitSound( "NPC_FloorTurret.ShotSounds", m_ShotSounds );
 	DoMuzzleFlash();
-	m_OnShotFired.FireOutput( NULL, this );
+	if ( m_bSendsShotOutput )
+	{
+		m_OnShotFired.FireOutput( NULL, this );
+	}
 }
 
 //-----------------------------------------------------------------------------

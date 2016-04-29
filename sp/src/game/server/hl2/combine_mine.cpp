@@ -118,6 +118,7 @@ BEGIN_DATADESC( CBounceBomb )
 	DEFINE_OUTPUT( m_OnPulledUp, "OnPulledUp" ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disarm", InputDisarm ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Arm", InputArm ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "Launch", InputLaunch ),
 
 END_DATADESC()
 
@@ -535,7 +536,7 @@ void CBounceBomb::BounceThink()
 		{
 			Vector vecPredict = m_hNearestNPC->GetSmoothedVelocity();
 
-			pPhysicsObject->ApplyForceCenter( vecPredict * 10 );
+			pPhysicsObject->ApplyForceCenter( vecPredict * (pPhysicsObject->GetMass() * 2.0f));
 		}
 
 		EmitSound( "NPC_CombineMine.Hop" );
@@ -614,9 +615,9 @@ void CBounceBomb::CaptiveThink()
 	SetNextThink( gpGlobals->curtime + 0.05 );
 	StudioFrameAdvance();
 
-	float phase = fabs( sin( gpGlobals->curtime * 4.0f ) );
-	phase *= BOUNCEBOMB_HOOK_RANGE;
-	SetPoseParameter( m_iAllHooks, phase );
+	//float phase = fabs( sin( gpGlobals->curtime * 4.0f ) );
+	//phase *= BOUNCEBOMB_HOOK_RANGE;
+	SetPoseParameter( m_iAllHooks, BOUNCEBOMB_HOOK_RANGE );
 	return;
 }
 
@@ -761,7 +762,7 @@ void CBounceBomb::UpdateLight( bool bTurnOn, unsigned int r, unsigned int g, uns
 			{
 				pSprite->SetParent( this );		
 				pSprite->SetTransparency( kRenderTransAdd, r, g, b, a, kRenderFxNone );
-				pSprite->SetScale( 0.35, 0.0 );
+				pSprite->SetScale( 0.25, 0.0 );
 			}
 		}
 		else
@@ -1255,7 +1256,8 @@ void CBounceBomb::InputDisarm( inputdata_t &inputdata )
 		}
 
 		m_bDisarmed = true;
-		OpenHooks(false);
+
+		OpenHooks();
 
 		SetMineState(MINE_STATE_DORMANT);
 	}
@@ -1263,17 +1265,29 @@ void CBounceBomb::InputDisarm( inputdata_t &inputdata )
 
 void CBounceBomb::InputArm( inputdata_t &inputdata )
 {
-	// Only affect a mine that's armed and not placed by player.
+	// Only affect a mine that's not armed and not placed by player.
 	if( m_iMineState == MINE_STATE_DORMANT )
 	{
-		OpenHooks( true );
 		m_bDisarmed = false;
+		OpenHooks();
+		m_iFlipAttempts = 0;
+		SetTouch( NULL );
+		SetThink( &CBounceBomb::SettleThink );
+		SetNextThink( gpGlobals->curtime + 0.1);
 		Wake( false );
 
 		SetMineState(MINE_STATE_DEPLOY);
 	}
 }
 
+void CBounceBomb::InputLaunch( inputdata_t &inputdata )
+{
+	// Only affect a mine that's not armed and not placed by player.
+	if( m_iMineState == MINE_STATE_ARMED )
+	{
+		SetMineState(MINE_STATE_TRIGGERED);
+	}
+}
 
 //---------------------------------------------------------
 //---------------------------------------------------------

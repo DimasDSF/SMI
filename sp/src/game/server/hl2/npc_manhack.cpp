@@ -1434,7 +1434,14 @@ void CNPC_Manhack::ComputeSliceBounceVelocity( CBaseEntity *pHitEntity, trace_t 
 	// If the manhack isn't bouncing away from whatever he sliced, force it.
 	VectorSubtract( WorldSpaceCenter(), pHitEntity->WorldSpaceCenter(), vecDir );
 	VectorNormalize( vecDir );
-	vecDir *= 200;
+	if( !(pHitEntity->IsNPC() && IRelationType( pHitEntity ) >= D_LI))
+	{
+		vecDir *= 200;
+	}
+	else
+	{
+		vecDir *= 25;
+	}
 	vecDir[2] = 0.0f;
 	
 	// Knock it away from us
@@ -1529,7 +1536,10 @@ void CNPC_Manhack::Slice( CBaseEntity *pHitEntity, float flInterval, trace_t &tr
 		dir = tr.m_pEnt->GetAbsOrigin() - GetAbsOrigin();
 	}
 	CalculateMeleeDamageForce( &info, dir, tr.endpos );
-	pHitEntity->TakeDamage( info );
+	if(!(pHitEntity->IsNPC() && IRelationType( pHitEntity ) >= D_LI))
+	{
+		pHitEntity->TakeDamage( info );
+	}
 
 	// Spawn some extra blood where we hit
 	if ( pHitEntity->BloodColor() == DONT_BLEED )
@@ -1552,12 +1562,25 @@ void CNPC_Manhack::Slice( CBaseEntity *pHitEntity, float flInterval, trace_t &tr
 	}
 	else
 	{
-		SpawnBlood(tr.endpos, g_vecAttackDir, pHitEntity->BloodColor(), 6 );
-		EmitSound( "NPC_Manhack.Slice" );
+		if(!(pHitEntity->IsNPC() && IRelationType( pHitEntity ) >= D_LI))
+		{
+			SpawnBlood(tr.endpos, g_vecAttackDir, pHitEntity->BloodColor(), 6 );
+			EmitSound( "NPC_Manhack.Slice" );
+		}
 	}
 
 	// Pop back a little bit after hitting the player
-	ComputeSliceBounceVelocity( pHitEntity, tr );
+	if(!(pHitEntity->IsNPC() && IRelationType( pHitEntity ) >= D_LI))
+	{
+		ComputeSliceBounceVelocity( pHitEntity, tr );
+	}
+	else
+	{
+		if((tr.startpos - tr.endpos).Length2D() < 30)
+		{
+			ComputeSliceBounceVelocity( pHitEntity, tr );
+		}
+	}
 
 	// Save off when we last hit something
 	m_flLastDamageTime = gpGlobals->curtime;

@@ -217,11 +217,25 @@ void CBaseHLCombatWeapon::WeaponIdle( void )
 		// See if we need to raise immediately
 		if ( m_flRaiseTime < gpGlobals->curtime && GetActivity() == ACT_VM_IDLE_LOWERED ) 
 		{
-			SendWeaponAnim( ACT_VM_IDLE );
+			if ( HasEmptyAnimations() && m_iClip1 == 0 )
+			{
+				SendWeaponAnim( ACT_VM_IDLE_EMPTY );
+			}
+			else
+			{
+				SendWeaponAnim( ACT_VM_IDLE );
+			}
 		}
 		else if ( HasWeaponIdleTimeElapsed() ) 
 		{
-			SendWeaponAnim( ACT_VM_IDLE );
+			if ( HasEmptyAnimations() && m_iClip1 == 0 )
+			{
+				SendWeaponAnim( ACT_VM_IDLE_EMPTY );
+			}
+			else
+			{
+				SendWeaponAnim( ACT_VM_IDLE );
+			}
 		}
 	}
 }

@@ -74,6 +74,7 @@ CBaseCombatWeapon::CBaseCombatWeapon()
 	m_fMaxRange2		= 1024;
 
 	m_bCanBeDropped	= true; //Can be Dropped (All weapons By Default)
+	m_bHasEmptyAnims = false;
 
 	m_bReloadsSingly	= false;
 
@@ -1529,7 +1530,7 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 			pOwner->SetAnimationExtension( szAnimExt );
 		}
 		CBaseCombatWeapon *pActive = GetOwner()->GetActiveWeapon();
-		if ( pActive && pActive->GetActivity() == ACT_VM_HOLSTER )
+		if ( pActive && (pActive->GetActivity() == ACT_VM_HOLSTER || pActive->GetActivity() == ACT_VM_HOLSTEREMPTY) )
 		{
 			flSequenceDuration = pActive->SequenceDuration();
 			pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
@@ -1558,7 +1559,14 @@ bool CBaseCombatWeapon::Deploy( )
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )
 {
-	return ACT_VM_DRAW;
+	if( m_iClip1 == 0 && HasEmptyAnimations() )
+	{
+		return ACT_VM_DRAWEMPTY;
+	}
+	else
+	{
+		return ACT_VM_DRAW;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1577,11 +1585,18 @@ bool CBaseCombatWeapon::Holster( CBaseCombatWeapon *pSwitchingTo )
 	SetThink(NULL);
 
 	// Send holster animation
-	SendWeaponAnim( ACT_VM_HOLSTER );
+	if( m_iClip1 == 0 && HasEmptyAnimations())
+	{
+		SendWeaponAnim( ACT_VM_HOLSTEREMPTY );
+	}
+	else
+	{
+		SendWeaponAnim( ACT_VM_HOLSTER );
+	}
 
 	// Some weapon's don't have holster anims yet, so detect that
 	float flSequenceDuration = 0;
-	if ( GetActivity() == ACT_VM_HOLSTER )
+	if ( GetActivity() == ACT_VM_HOLSTER || GetActivity() == ACT_VM_HOLSTEREMPTY )
 	{
 		flSequenceDuration = SequenceDuration();
 	}
@@ -2165,9 +2180,16 @@ bool CBaseCombatWeapon::Reload( void )
 void CBaseCombatWeapon::WeaponIdle( void )
 {
 	//Idle again if we've finished
-	if ( HasWeaponIdleTimeElapsed() )
+	if ( HasWeaponIdleTimeElapsed())
 	{
-		SendWeaponAnim( ACT_VM_IDLE );
+		if( m_iClip1 == 0 && HasEmptyAnimations())
+		{
+			SendWeaponAnim( ACT_VM_IDLE_EMPTY );
+		}
+		else
+		{
+			SendWeaponAnim( ACT_VM_IDLE );
+		}
 	}
 }
 
