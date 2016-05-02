@@ -52,6 +52,12 @@ public:
 	void SetNearestNPC( CBaseEntity *pNearest ) { m_hNearestNPC.Set( pNearest ); }
 	int OnTakeDamage( const CTakeDamageInfo &info );
 	bool IsFriend( CBaseEntity *pEntity );
+	void SetPlayerRel( bool bMineLikesPlayer ) { m_bMineLikesPlayer = bMineLikesPlayer; };
+	void SetPlayerAllyRel( bool bMineLikesPlayerAlly ) { m_bMineLikesPlayerAllies = bMineLikesPlayerAlly; };
+	void SetCitizenRel( bool bMineLikesCitizens ) { m_bMineLikesCitizens = bMineLikesCitizens; };
+	void SetCombineRel( bool bMineLikesCombine ) { m_bMineLikesCombine = bMineLikesCombine; };
+	void SetZombieRel( bool bMineLikesZombies ) { m_bMineLikesZombies = bMineLikesZombies; };
+	void SetAntlionRel( bool bMineLikesAntlions ) { m_bMineLikesAntlions = bMineLikesAntlions; };
 
 	void UpdateLight( bool bTurnOn, unsigned int r, unsigned int g, unsigned int b, unsigned int a );
 	bool IsLightOn() { return m_hSprite.Get() != NULL; }

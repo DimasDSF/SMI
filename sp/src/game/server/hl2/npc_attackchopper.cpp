@@ -37,6 +37,7 @@
 #include "physics_saverestore.h"
 #include "ai_memory.h"
 #include "npc_attackchopper.h"
+#include "combine_mine.h"
 
 #ifdef HL2_EPISODIC
 #include "physics_bone_follower.h"
@@ -461,6 +462,8 @@ private:
 
 	// Turns off the gun
 	void	InputGunOff( inputdata_t &inputdata );
+	void	InputDropMines( inputdata_t &inputdata );
+	void	InputSetMinesName( inputdata_t &inputdata );
 
 	// Vehicle attack modes
 	void	InputStartBombingVehicle( inputdata_t &inputdata );
@@ -556,6 +559,7 @@ private:
 	// Actually drops the bomb
 	void CreateBomb( bool bCheckForFairness = true, Vector *pVecVelocity = NULL, bool bMegaBomb = false );
 	CGrenadeHelicopter *SpawnBombEntity( const Vector &vecPos, const Vector &vecVelocity ); // Spawns the bomb entity and sets it up
+	CBounceBomb *SpawnMineEntity( const Vector &vecPos, const Vector &vecVelocity ); //Spawns the mine entity and sets it up
 
 	// Deliberately aims as close as possible w/o hitting
 	void AimCloseToTargetButMiss( CBaseEntity *pTarget, float flMinDist, float flMaxDist, const Vector &shootOrigin, Vector *pResult );
@@ -756,6 +760,14 @@ private:
 
 	// Special attacks
 	bool		m_bIsCarpetBombing;
+	bool		m_bIsDroppingMines;
+	string_t	m_iszMinesName;
+	bool		m_bMineLikesPlayer;
+	bool		m_bMineLikesPlayerAllies;
+	bool		m_bMineLikesCitizens;
+	bool		m_bMineLikesCombine;
+	bool		m_bMineLikesZombies;
+	bool		m_bMineLikesAntlions;
 
 	// Fun damage effects
 	float		m_flGoalRollDmg;
@@ -839,6 +851,14 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 
 	DEFINE_KEYFIELD( m_bAlwaysTransition, FIELD_BOOLEAN, "AlwaysTransition" ),
 	DEFINE_KEYFIELD( m_iszTransitionTarget, FIELD_STRING, "TransitionTarget" ),
+	DEFINE_KEYFIELD( m_bIsDroppingMines, FIELD_BOOLEAN, "IsDroppingMines" ),
+	DEFINE_KEYFIELD( m_iszMinesName, FIELD_STRING, "MinesName" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayer, FIELD_BOOLEAN, "MineLikesPlayer" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayerAllies, FIELD_BOOLEAN, "MineLikesPlayerAllies" ),
+	DEFINE_KEYFIELD( m_bMineLikesCitizens, FIELD_BOOLEAN, "MineLikesCitizens" ),
+	DEFINE_KEYFIELD( m_bMineLikesCombine, FIELD_BOOLEAN, "MineLikesCombine" ),
+	DEFINE_KEYFIELD( m_bMineLikesZombies, FIELD_BOOLEAN, "MineLikesZombies" ),
+	DEFINE_KEYFIELD( m_bMineLikesAntlions, FIELD_BOOLEAN, "MineLikesAntlions" ),
 	DEFINE_FIELD( m_bIsCarpetBombing, FIELD_BOOLEAN ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableAlwaysTransition", InputEnableAlwaysTransition ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableAlwaysTransition", InputDisableAlwaysTransition ),
@@ -880,6 +900,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopBombExplodeOnContact", InputStopBombExplodeOnContact ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpotlight", InputForceEnableSpotlight ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSpotlight", InputForceDisableSpotlight ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "DropMines", InputDropMines ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetMineName", InputSetMinesName ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePathVisibilityTests", InputDisablePathVisibilityTests ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePathVisibilityTests", InputEnablePathVisibilityTests ),
@@ -1109,6 +1131,8 @@ void CNPC_AttackHelicopter::Spawn( void )
 	SetActivity( ACT_IDLE );
 	m_bSpotlightForcedOn = false;
 	m_bSpotlightOn = false;
+	m_bIsDroppingMines = false;
+	m_bMineLikesCombine = true;
 
 	int nBombAttachment = LookupAttachment("bomb");
 	m_hSensor = static_cast<CBombDropSensor*>(CreateEntityByName( "npc_helicoptersensor" ));
@@ -2851,6 +2875,37 @@ CGrenadeHelicopter *CNPC_AttackHelicopter::SpawnBombEntity( const Vector &vecPos
 	return pGrenade;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Create the mine entity and set it up
+// Input  : &vecPos - Position to spawn at
+//			&vecVelocity - velocity to spawn with
+//-----------------------------------------------------------------------------
+CBounceBomb *CNPC_AttackHelicopter::SpawnMineEntity( const Vector &vecPos, const Vector &vecVelocity )
+{
+	// Create the grenade and set it up
+	CBounceBomb *pGrenade = static_cast<CBounceBomb*>(CreateEntityByName( "combine_mine" ));
+	pGrenade->SetAbsOrigin( vecPos );
+	pGrenade->SetOwnerEntity( this );
+	if(m_iszMinesName != NULL_STRING )
+	{
+		pGrenade->KeyValue( "targetname", STRING(m_iszMinesName) );
+	}
+	pGrenade->SetAbsVelocity( vecVelocity );
+	DispatchSpawn( pGrenade );
+
+#ifdef HL2_EPISODIC
+	// Disable collisions with the owner's bone followers while we drop
+	physfollower_t *pFollower = m_BoneFollowerManager.GetBoneFollower( 0 );
+	if ( pFollower )
+	{
+		CBaseEntity *pBoneFollower = pFollower->hFollower;
+		PhysDisableEntityCollisions( pBoneFollower, pGrenade );
+	}
+#endif // HL2_EPISODIC
+
+	return pGrenade;
+}
+
 //------------------------------------------------------------------------------
 // Actually drops the bomb
 //------------------------------------------------------------------------------
@@ -2899,10 +2954,23 @@ void CNPC_AttackHelicopter::CreateBomb( bool bCheckForFairness, Vector *pVecVelo
 	EmitSound( "NPC_AttackHelicopter.DropMine" );
 
 	// Make the bomb and send it off
-	CGrenadeHelicopter *pGrenade = SpawnBombEntity( vTipPos, vecActualVelocity );
-	if ( pGrenade && bMegaBomb )
+	if (m_bIsDroppingMines)
 	{
-		pGrenade->AddSpawnFlags( SF_GRENADE_HELICOPTER_MEGABOMB );
+		CBounceBomb *pGrenade = SpawnMineEntity( vTipPos, vecActualVelocity );
+		pGrenade->SetPlayerRel( m_bMineLikesPlayer );
+		pGrenade->SetPlayerAllyRel( m_bMineLikesPlayerAllies );
+		pGrenade->SetCitizenRel(m_bMineLikesCitizens );
+		pGrenade->SetCombineRel( m_bMineLikesCombine );
+		pGrenade->SetZombieRel( m_bMineLikesZombies );
+		pGrenade->SetAntlionRel( m_bMineLikesAntlions );
+	}
+	else
+	{
+		CGrenadeHelicopter *pGrenade = SpawnBombEntity( vTipPos, vecActualVelocity );
+		if ( pGrenade && bMegaBomb )
+		{
+			pGrenade->AddSpawnFlags( SF_GRENADE_HELICOPTER_MEGABOMB );
+		}
 	}
 }
 
@@ -2927,6 +2995,35 @@ void CNPC_AttackHelicopter::InputDropBomb( inputdata_t &inputdata )
 	}
 }
 
+//------------------------------------------------------------------------------
+//Enable/Disable Dropping Mines
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputDropMines( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() == 1 )
+	{
+		m_bIsDroppingMines = true;
+	}
+	else
+	{
+		m_bIsDroppingMines = false;
+	}
+}
+
+//------------------------------------------------------------------------------
+//Set Dropped Mines Name
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputSetMinesName( inputdata_t &inputdata )
+{
+	if( MAKE_STRING(inputdata.value.String()) != NULL_STRING)
+	{
+		m_iszMinesName = MAKE_STRING(inputdata.value.String());
+	}
+	else
+	{
+		m_iszMinesName = NULL_STRING;
+	}
+}
 //------------------------------------------------------------------------------
 // Enable Spotlight
 //------------------------------------------------------------------------------
@@ -2966,7 +3063,14 @@ void CNPC_AttackHelicopter::InputDropBombStraightDown( inputdata_t &inputdata )
 	GetAttachment( m_nBombAttachment, vTipPos );
 
 	// Make the bomb drop straight down
-	SpawnBombEntity( vTipPos, vec3_origin );
+	if( m_bIsDroppingMines )
+	{
+		SpawnMineEntity( vTipPos, vec3_origin );
+	}
+	else
+	{
+		SpawnBombEntity( vTipPos, vec3_origin );
+	}
 
 	// If we're in the middle of a bomb dropping schedule, wait to drop another bomb.
 	if ( ShouldDropBombs() )
@@ -3022,7 +3126,14 @@ void CNPC_AttackHelicopter::InputDropBombAtTargetInternal( inputdata_t &inputdat
 	}
 
 	// Make the bomb and send it off
-	SpawnBombEntity( vTipPos, vecVelocity );
+	if( m_bIsDroppingMines )
+	{
+		SpawnMineEntity( vTipPos, vecVelocity );
+	}
+	else
+	{
+		SpawnBombEntity( vTipPos, vecVelocity );
+	}
 
 	// If we're in the middle of a bomb dropping schedule, wait to drop another bomb.
 	if ( ShouldDropBombs() )

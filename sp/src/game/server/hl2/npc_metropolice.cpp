@@ -5067,6 +5067,11 @@ void CNPC_MetroPolice::BuildScheduleTestBits( void )
 //-----------------------------------------------------------------------------
 WeaponProficiency_t CNPC_MetroPolice::CalcWeaponProficiency( CBaseCombatWeapon *pWeapon )
 {
+	if( IsCurSchedule( SCHED_METROPOLICE_WARN_AND_ARREST_ENEMY ))
+	{
+		return WEAPON_PROFICIENCY_PERFECT;
+	}
+
 	if( FClassnameIs( pWeapon, "weapon_pistol" ) )
 	{
 		return WEAPON_PROFICIENCY_VERY_GOOD;

@@ -2105,7 +2105,7 @@ bool CNPC_Citizen::IsManhackMeleeCombatant()
 {
 	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
 	CBaseEntity *pEnemy = GetEnemy();
-	return ( pEnemy && pWeapon && pEnemy->Classify() == CLASS_MANHACK && pWeapon->ClassMatches( "weapon_crowbar" ) );
+	return ( pEnemy && pWeapon && pEnemy->Classify() == CLASS_MANHACK && (pWeapon->ClassMatches( "weapon_crowbar" ) || pWeapon->ClassMatches( "weapon_stunstick" )) );
 }
 
 //-----------------------------------------------------------------------------
@@ -2209,15 +2209,49 @@ bool CNPC_Citizen::ShouldLookForBetterWeapon()
 
 			if( FClassnameIs( pWeapon, "weapon_ar2" ) )
 			{
+				if( NumWeaponsInSquad("weapon_ar2") > 2)
+				{
+					bDefer = false;
+				}
+				else
+				{
+					if( random->RandomInt( 0, 1 ) == 0 )
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME;
+					}
+					else
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME + 10.0f;
+					}
+
+					bDefer = true;
+				}
 				// Content to keep this weapon forever
-				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
-				bDefer = true;
+				//m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				//bDefer = true;
 			}
 			else if( FClassnameIs( pWeapon, "weapon_rpg" ) )
 			{
 				// Content to keep this weapon forever
-				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
-				bDefer = true;
+				if( NumWeaponsInSquad("weapon_rpg") > 1)
+				{
+					bDefer = false;
+				}
+				else
+				{
+					if( random->RandomInt( 0, 1 ) == 0 )
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME;
+					}
+					else
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME + 10.0f;
+					}
+
+					bDefer = true;
+				}
+				//m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				//bDefer = true;
 			}
 			else if( FClassnameIs( pWeapon, "weapon_shotgun" ) )
 			{
@@ -2227,7 +2261,7 @@ bool CNPC_Citizen::ShouldLookForBetterWeapon()
 				if( NumWeaponsInSquad("weapon_shotgun") > 1 )
 				{
 					// Check for another weapon now. If I don't find one, this code will
-					// retry in 2 seconds or so.
+					// retry in 2 seconds or so
 					bDefer = false;
 				}
 				else
