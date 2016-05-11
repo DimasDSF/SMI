@@ -358,7 +358,14 @@ void CAI_Motor::MoveJumpStart( const Vector &velocity )
 	SetGravity( GetOuter()->GetJumpGravity() );
 	SetGroundEntity( NULL );
 
-	SetActivity( ACT_JUMP );
+	if( FClassnameIs( GetOuter(), "npc_zombine") || FClassnameIs( GetOuter(), "npc_poisonzombie"))
+	{
+		SetActivity( ACT_IDLE );
+	}
+	else
+	{
+		SetActivity( ACT_JUMP );
+	}
 
 	SetIdealYawAndUpdate( velocity );
 }

@@ -328,6 +328,11 @@ int CNPC_Zombine::SelectSchedule( void )
 	if ( GetHealth() <= 0 )
 		return BaseClass::SelectSchedule();
 
+	if( m_NPCState == NPC_STATE_IDLE && !IsCurSchedule( SCHED_ZOMBIE_WANDER_MEDIUM ) && !m_hCine)
+	{
+		return SCHED_ZOMBIE_WANDER_MEDIUM;
+	}
+
 	if ( HasCondition( COND_ZOMBINE_GRENADE ) )
 	{
 		ClearCondition( COND_ZOMBINE_GRENADE );

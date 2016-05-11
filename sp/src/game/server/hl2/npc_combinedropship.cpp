@@ -312,6 +312,8 @@ private:
 	float	m_flLandingSpeed;
 	float	m_flGunRange;
 	bool	m_bInvulnerable;
+	bool	m_bSetOpenSeq;
+	bool	m_bSetCloseSeq;
 
 	QAngle	m_vecAngAcceleration;
 	
@@ -462,7 +464,6 @@ void CCombineDropshipContainer::Spawn()
 
 	m_iHealth = m_iMaxHealth = sk_dropship_container_health.GetFloat();
 }
-
 
 //-----------------------------------------------------------------------------
 // Allows us to use vphysics
@@ -864,6 +865,8 @@ void CNPC_CombineDropship::Spawn( void )
 	m_iContainerMoveType = MOVETYPE_NONE;
 	m_iCurrentTroopExiting = 0;
 	m_bHasDroppedOff = false;
+	m_bSetOpenSeq = false;
+	m_bSetCloseSeq = false;
 	m_iMuzzleAttachment = -1;
 	m_iMachineGunBaseAttachment = -1;
 	m_iMachineGunRefAttachment = -1;
@@ -1896,6 +1899,29 @@ void CNPC_CombineDropship::SetLandingState( LandingState_t landingState )
 	if ( landingState == m_iLandState )
 		return;
 
+	if( landingState == LANDING_HOVER_TOUCHDOWN || landingState == LANDING_TOUCHDOWN)
+	{
+		if( m_hContainer )
+			{
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
+			}
+	}
+	else if( landingState == LANDING_LIFTOFF )
+	{
+		if( m_hContainer && !m_bSetCloseSeq)
+			{
+				m_bSetCloseSeq = true;
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("close") );
+			}
+	}
+	else if( landingState == LANDING_NO )
+	{
+		if( m_hContainer )
+		{
+			m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
+		}
+	}
+
 	if ( m_pDescendingWarningSound )
 	{
 		CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
@@ -1998,10 +2024,12 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 
 				if( IsHovering() )
 				{
+					m_bSetCloseSeq = false;
 					SetLandingState( LANDING_HOVER_DESCEND );
 				}
 				else
 				{
+					m_bSetCloseSeq = false;
 					SetLandingState( LANDING_DESCEND );
 				}
 
@@ -2177,7 +2205,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				m_flNextTroopSpawnAttempt = 0;
 
 				// Open our container
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
+				//m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
 
 				// Start unloading troops
 				m_iCurrentTroopExiting = 0;
@@ -2278,11 +2306,6 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				m_hLandTarget = NULL;
 				m_bHasDroppedOff = true;
 				m_OnTakeoff.FireOutput( this, this );
-			}
-
-			if ( m_hContainer )
-			{
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
 			}
 		}
 		break;

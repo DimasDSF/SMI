@@ -57,6 +57,7 @@ struct TaskTimings
 
 TaskTimings g_AITaskTimings[MAX_TASKS_RUN];
 int			g_nAITasksRun;
+int			m_SIILast;
 
 void CAI_BaseNPC::DumpTaskTimings()
 {
@@ -4403,6 +4404,19 @@ bool CAI_BaseNPC::IsInterruptable()
 		}
 	}
 	
+	if ((IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) || IsCurSchedule(SCHED_INVESTIGATE_SOUND)) && (!HasCondition(COND_NEW_ENEMY) && !HasCondition(COND_SEE_FEAR) && !HasCondition(COND_SEE_ENEMY) && !HasCondition(COND_LIGHT_DAMAGE) && !HasCondition(COND_HEAVY_DAMAGE)))
+	{
+		if( m_SIILast + 10 < gpGlobals->curtime )
+		{
+			m_SIILast = gpGlobals->curtime;
+			return IsAlive();
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	return IsAlive();
 }
 
@@ -4430,10 +4444,10 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
-	if ((m_iLastInvestigation + 40 < gpGlobals->curtime))
+	if ((m_iLastInvestigation + 80 < gpGlobals->curtime) && m_iNumInvestigations != 0)
 	{
 		m_iNumInvestigations = 0;
-		//DevWarning( 2, "%i > %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 30 , gpGlobals->curtime );
+		//DevWarning( 2, "%i < %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 80 , gpGlobals->curtime );
 	}
 	
 	if (GetSquad() && (GetSquad()->NumMembers() > 1) && m_bShouldMoveToRVSquadLeader && (GetSquad()->GetLeader() != this) )
@@ -4465,7 +4479,7 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
-if ( (m_NPCState != NPC_STATE_COMBAT) &&
+if ( (m_NPCState != NPC_STATE_COMBAT) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND) &&
 			 ( HasCondition ( COND_HEAR_DANGER ) ||
 			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly() ) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
@@ -4478,15 +4492,35 @@ if ( (m_NPCState != NPC_STATE_COMBAT) &&
 			{
 				m_iNumInvestigations++;
 				//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
-				m_iLastInvestigation = gpGlobals->curtime;
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
 				return SCHED_INVESTIGATE_SOUND_WALK;
 			}
 			else if (m_iNumInvestigations >= 2)
 			{
 				m_iNumInvestigations++;
 				//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
-				m_iLastInvestigation = gpGlobals->curtime;
-				return SCHED_INVESTIGATE_SOUND;
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
+					return SCHED_INVESTIGATE_SOUND;
 			}
 			else
 			{
@@ -4525,7 +4559,7 @@ int CAI_BaseNPC::SelectAlertSchedule()
 		return SCHED_ALERT_REACT_TO_COMBAT_SOUND;
 	}
 
-	if ( (m_NPCState != NPC_STATE_COMBAT) &&
+	if ( (m_NPCState != NPC_STATE_COMBAT) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND) &&
 			 ( HasCondition ( COND_HEAR_DANGER ) ||
 			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly()) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
@@ -4536,12 +4570,32 @@ int CAI_BaseNPC::SelectAlertSchedule()
 		{
 			if (random->RandomInt(1,10) > 3)
 			{
-				m_iLastInvestigation = gpGlobals->curtime;
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
 				return SCHED_INVESTIGATE_SOUND;
 			}
 			else
 			{
-				m_iLastInvestigation = gpGlobals->curtime;
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
 				return SCHED_ALERT_FACE_BESTSOUND;
 			}
 		}

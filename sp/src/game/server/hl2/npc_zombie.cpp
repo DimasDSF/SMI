@@ -319,6 +319,10 @@ void CZombie::PrescheduleThink( void )
 //-----------------------------------------------------------------------------
 int CZombie::SelectSchedule ( void )
 {
+	if( m_NPCState == NPC_STATE_IDLE && !IsCurSchedule( SCHED_ZOMBIE_WANDER_ANGRILY ) && !m_hCine)
+	{
+		return SCHED_ZOMBIE_WANDER_ANGRILY;
+	}
 	if( HasCondition( COND_PHYSICS_DAMAGE ) && !m_ActBusyBehavior.IsActive() )
 	{
 		return SCHED_FLINCH_PHYSICS;

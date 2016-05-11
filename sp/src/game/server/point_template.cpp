@@ -55,13 +55,15 @@ BEGIN_DATADESC( CPointTemplate )
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[14], FIELD_STRING, "Template15"),
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[15], FIELD_STRING, "Template16"),
 	DEFINE_UTLVECTOR( m_hTemplateEntities, FIELD_CLASSPTR ),
-	DEFINE_KEYFIELD( m_iszSpawnTarget, FIELD_EHANDLE, "SpawnPoint"),
+	DEFINE_KEYFIELD( m_iszSpawnTargetName, FIELD_STRING, "SpawnPoint"),
+	DEFINE_KEYFIELD( m_iSpawnTargetOffsetZ, FIELD_INTEGER, "SpawnPointOffsetZ"),
 
 	DEFINE_UTLVECTOR( m_hTemplates, FIELD_EMBEDDED ),
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "ForceSpawn", InputForceSpawn ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetSpawnPoint", InputSetSpawnPoint ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetSpawnPointOffsetZ", InputSetSpawnPointOffsetZ ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ResetSpawnPoint", InputResetSpawnPoint ),
 
 	// Outputs
@@ -375,22 +377,38 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 		vecNewOrigin = matStoredLocalToWorld.GetTranslation();
 		MatrixToAngles( matStoredLocalToWorld, vecNewAngles );
 
+		if( m_iszSpawnTargetName != NULL_STRING )
+		{
+			m_iszSpawnTarget = gEntList.FindEntityByName( NULL, m_iszSpawnTargetName, NULL, this, this );
+			m_iszSpawnTargetName = NULL_STRING;
+		}
+
 		if ( m_iszSpawnTarget != NULL )
 		{
 			CBaseEntity *pSTarget = m_iszSpawnTarget;
 			Vector vecSPOrigin;
-			vecSPOrigin = pSTarget->GetAbsOrigin();
+			QAngle vecSPAngles;
+			if( m_iSpawnTargetOffsetZ )
+			{
+				vecSPOrigin = pSTarget->GetAbsOrigin() + Vector( 0, 0, m_iSpawnTargetOffsetZ);
+			}
+			else
+			{
+				vecSPOrigin = pSTarget->GetAbsOrigin();
+			}
+			vecSPAngles = pSTarget->GetAbsAngles();
 			pEntity->SetAbsOrigin( vecSPOrigin );
+			pEntity->SetAbsAngles( vecSPAngles );
 			m_pOutputEntSpawned.FireOutput( this, pEntity );
 		}
 		else
 		{
 		// Set its origin
 			pEntity->SetAbsOrigin( vecNewOrigin );
+		//& angles
+			pEntity->SetAbsAngles( vecNewAngles );
 			m_pOutputEntSpawned.FireOutput( this, pEntity );
 		}
-		//& angles
-		pEntity->SetAbsAngles( vecNewAngles );
 
 		pSpawnList[i].m_pEntity = pEntity;
 		pSpawnList[i].m_nDepth = 0;
@@ -426,6 +444,15 @@ void CPointTemplate::InputSetSpawnPoint( inputdata_t &inputdata )
 
 	m_iszSpawnTarget = pSITarget;
 
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set Spawnpoint offset
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputSetSpawnPointOffsetZ( inputdata_t &inputdata )
+{
+	m_iSpawnTargetOffsetZ = inputdata.value.Int();
 }
 
 //-----------------------------------------------------------------------------

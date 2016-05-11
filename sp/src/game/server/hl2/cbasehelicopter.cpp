@@ -392,14 +392,14 @@ void CBaseHelicopter::RotorWashThink( void )
 //-----------------------------------------------------------------------------
 void CBaseHelicopter::DrawRotorWash( float flAltitude, const Vector &vecRotorOrigin )
 {
+	if ( m_spawnflags & SF_NOROTORWASH )
+		return;
+
 	// Shake any ropes nearby
 	if ( random->RandomInt( 0, 2 ) == 0 )
 	{
 		CRopeKeyframe::ShakeRopes( GetAbsOrigin(), flAltitude, 128 );
 	}
-
-	if ( m_spawnflags & SF_NOROTORWASH )
-		return;
 
 	DoRotorPhysicsPush( vecRotorOrigin, flAltitude );
 

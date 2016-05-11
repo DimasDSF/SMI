@@ -118,7 +118,7 @@ BEGIN_DATADESC( CBounceBomb )
 	DEFINE_OUTPUT( m_OnPulledUp, "OnPulledUp" ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disarm", InputDisarm ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Arm", InputArm ),
-	DEFINE_INPUTFUNC( FIELD_VOID, "Launch", InputLaunch ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "Trigger", InputLaunch ),
 
 END_DATADESC()
 

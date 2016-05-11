@@ -933,6 +933,11 @@ int CNPC_PoisonZombie::SelectSchedule( void )
 {
 	int nSchedule = BaseClass::SelectSchedule();
 
+	if( m_NPCState == NPC_STATE_IDLE && !IsCurSchedule( SCHED_ZOMBIE_WANDER_MEDIUM ) && !m_hCine)
+	{
+		return SCHED_ZOMBIE_WANDER_MEDIUM;
+	}
+
 	if ( nSchedule == SCHED_SMALL_FLINCH )
 	{
 		 m_flNextFlinchTime = gpGlobals->curtime + random->RandomFloat( 1, 3 );

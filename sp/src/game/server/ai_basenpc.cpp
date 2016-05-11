@@ -4743,11 +4743,15 @@ void CAI_BaseNPC::GatherConditions( void )
 
 		if ( m_NPCState == NPC_STATE_IDLE && m_iTimeLostEnemy + 20 < gpGlobals->curtime )
 		{
-			if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion"))
+			if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion") || FClassnameIs( this, "npc_antlionguard") || FClassnameIs( this, "npc_clawscanner") || FClassnameIs( this, "npc_cscanner"))
 			{
 				if (GetSquad() && (GetSquad()->NumMembers() > 1))
 				{
 					m_bShouldMoveToRVSquadLeader = true;
+					if (!IsMoving() && (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250)
+					{
+						m_bMovedToRVSquadLeader = false;
+					}
 				}
 			}
 		}

@@ -202,6 +202,7 @@ protected:
 
 	COutputEvent	m_OnPhoto;
 	COutputEvent	m_OnLostTarget;
+	COutputEvent	m_OnLastPhoto;
 
 	float m_flPingTime;
 	float m_flClickTime;			// Time to take next picture while angry.
@@ -255,6 +256,7 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 
 	DEFINE_OUTPUT( m_OnPhoto, "OnPhoto"),
 	DEFINE_OUTPUT( m_OnLostTarget, "OnLostTarget"),
+	DEFINE_OUTPUT( m_OnLastPhoto, "OnLastPhoto"),
 
 END_DATADESC()
 
@@ -769,6 +771,10 @@ void CNPC_CombineCamera::MaintainEye()
 		{
 			m_flTurnOffEyeFlashTime = 0;
 			m_pEyeFlash->SetBrightness( 0, 0.25f );
+			if (m_nClickCount >= m_nRandomClickCount)
+			{
+				m_OnLastPhoto.FireOutput( m_hEnemyTarget, this, 0);
+			}
 			m_nClickCount++;
 		}
 	}

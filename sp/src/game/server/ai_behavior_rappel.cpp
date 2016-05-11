@@ -16,6 +16,7 @@
 
 BEGIN_DATADESC( CAI_RappelBehavior )
 	DEFINE_FIELD( m_bWaitingToRappel, FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bDrawLine, FIELD_BOOLEAN, "drawline" ),
 	DEFINE_FIELD( m_bOnGround, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hLine, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_vecRopeAnchor, FIELD_POSITION_VECTOR ),
@@ -117,6 +118,12 @@ bool CAI_RappelBehavior::KeyValue( const char *szKeyName, const char *szValue )
 	{
 		m_bWaitingToRappel = ( atoi(szValue) != 0);
 		m_bOnGround = !m_bWaitingToRappel;
+		return true;
+	}
+
+	if( FStrEq( szKeyName, "drawline" ) )
+	{
+		m_bDrawLine = ( atoi(szValue) != 0);
 		return true;
 	}
 
@@ -372,10 +379,13 @@ void CAI_RappelBehavior::CutZipline()
 		UTIL_Remove( m_hLine );
 	}
 
-	CBaseEntity *pAnchor = CreateEntityByName( "rope_anchor" );
-	pAnchor->SetOwnerEntity( GetOuter() ); // Boy, this is a hack!!
-	pAnchor->SetAbsOrigin( m_vecRopeAnchor );
-	pAnchor->Spawn();
+	if( m_bDrawLine )
+	{
+		CBaseEntity *pAnchor = CreateEntityByName( "rope_anchor" );
+		pAnchor->SetOwnerEntity( GetOuter() ); // Boy, this is a hack!!
+		pAnchor->SetAbsOrigin( m_vecRopeAnchor );
+		pAnchor->Spawn();
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -383,7 +393,7 @@ void CAI_RappelBehavior::CutZipline()
 void CAI_RappelBehavior::CreateZipline()
 {
 #if 1
-	if( !m_hLine )
+	if( !m_hLine && m_bDrawLine )
 	{
 		int attachment = GetOuter()->LookupAttachment( "zipline" );
 

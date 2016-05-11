@@ -1934,7 +1934,7 @@ int CNPC_Combine::SelectSchedule( void )
 				{
 					if( m_pSquad && m_pSquad->GetSquadMemberNearestTo( pSound->GetSoundReactOrigin() ) == this && OccupyStrategySlot( SQUAD_SLOT_INVESTIGATE_SOUND ) )
 					{
-						return SCHED_INVESTIGATE_SOUND;
+						//return SCHED_INVESTIGATE_SOUND;
 					}
 				}
 			}
@@ -3042,7 +3042,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 	if ( m_hForcedGrenadeTarget && ( !m_hForcedGrenadeTarget->IsNPC() || !m_hForcedGrenadeTarget->IsPlayer() || !( m_hForcedGrenadeTarget->Classify() == CLASS_BULLSEYE ) ) )
 		return false;
 
-	if ( !m_hForcedGrenadeTarget && ( !pEnemy->IsNPC() || !pEnemy->IsPlayer() || !(pEnemy->Classify() == CLASS_BULLSEYE) ) )
+	if ( !m_hForcedGrenadeTarget && ( !pEnemy->IsPlayer() && (!(pEnemy->Classify() == CLASS_BULLSEYE) || !pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) ) )
 		return false;
 
 	Vector vecTarget;
@@ -4075,7 +4075,7 @@ DEFINE_SCHEDULE
 
  "	Tasks"
  "		TASK_STOP_MOVING				0"
- "		TASK_GET_PATH_TO_RANDOM_NODE	500" 
+ "		TASK_GET_PATH_TO_RANDOM_NODE	800" 
  "		TASK_WALK_PATH					0"
  "		TASK_WAIT_FOR_MOVEMENT			0"
  "		TASK_STOP_MOVING				0"
