@@ -72,6 +72,7 @@ private:
 
 	COutputEvent					m_pOutputOnSpawned;
 	COutputEvent					m_pOutputEntSpawned;
+	COutputEvent					m_pOutputOnSetSpawn;
 };
 
 #endif // POINT_TEMPLATE_H

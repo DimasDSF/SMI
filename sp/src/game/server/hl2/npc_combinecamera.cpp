@@ -133,6 +133,10 @@ public:
 	void InputSetAngry(inputdata_t &inputdata);
 	void InputSetIdle(inputdata_t &inputdata);
 	void InputShotTarget(inputdata_t &inputdata);
+	void InputSetTurnSpeed(inputdata_t &inputdata);
+	void InputSetIdleTurnSpeed(inputdata_t &inputdata);
+	void InputSetInnerRadius(inputdata_t &inputdata);
+	void InputSetOuterRadius(inputdata_t &inputdata);
 
 	void DrawDebugGeometryOverlays(void);
 	
@@ -208,6 +212,8 @@ protected:
 	float m_flClickTime;			// Time to take next picture while angry.
 	int m_nClickCount;				// Counts pictures taken since we last became angry.
 	float m_flMoveSoundTime;
+	float m_flIdleTurnSpeed;
+	float m_flTurnSpeed;
 	float m_flTurnOffEyeFlashTime;
 	float m_flEyeHappyTime;
 
@@ -231,6 +237,8 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_FIELD(m_bBlinkState, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_bEnabled, FIELD_BOOLEAN),
 	DEFINE_KEYFIELD(m_sDefaultTarget, FIELD_STRING, "defaulttarget"),
+	DEFINE_KEYFIELD(m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed"),
+	DEFINE_KEYFIELD(m_flIdleTurnSpeed, FIELD_FLOAT, "IdleTurnSpeed"),
 	DEFINE_FIELD(m_hEnemyTarget, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flPingTime, FIELD_TIME),
 	DEFINE_FIELD(m_flClickTime, FIELD_TIME),
@@ -253,6 +261,10 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_INPUTFUNC(FIELD_VOID, "Disable", InputDisable),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetAngry", InputSetAngry),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetIdle", InputSetIdle),
+	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
+	DEFINE_INPUTFUNC(FIELD_INTEGER, "SetInnerRadius", InputSetInnerRadius),
+	DEFINE_INPUTFUNC(FIELD_INTEGER, "SetOuterRadius", InputSetOuterRadius),
+	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetIdleTurnSpeed", InputSetIdleTurnSpeed),
 
 	DEFINE_OUTPUT( m_OnPhoto, "OnPhoto"),
 	DEFINE_OUTPUT( m_OnLostTarget, "OnLostTarget"),
@@ -477,9 +489,23 @@ void CNPC_CombineCamera::Deploy()
 float CNPC_CombineCamera::MaxYawSpeed()
 {
 	if (m_hEnemyTarget)
-		return 180.0f;
+		if ( m_flTurnSpeed )
+		{
+			return m_flTurnSpeed;
+		}
+		else
+		{
+			return 180.0f;
+		}
 
-	return 60.0f;
+	if ( m_flIdleTurnSpeed )
+	{
+		return m_flIdleTurnSpeed;
+	}
+	else
+	{
+		return 60.0f;
+	}
 }
 
 
@@ -1006,6 +1032,69 @@ void CNPC_CombineCamera::Disable()
 	SetNextThink( gpGlobals->curtime + 0.1f );
 }
 
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetTurnSpeed;
+	m_flTempSetTurnSpeed = inputdata.value.Float();
+//	m_flTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetTurnSpeed <= 0.0 )
+	{
+		m_flTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetTurnSpeed > 360.0 )
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flTurnSpeed = m_flTempSetTurnSpeed;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetIdleTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetIdleTurnSpeed;
+	m_flTempSetIdleTurnSpeed = inputdata.value.Float();
+//	m_flIdleTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetIdleTurnSpeed <= 0.0 )
+	{
+		m_flIdleTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetIdleTurnSpeed > 360.0 )
+	{
+		m_flIdleTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flIdleTurnSpeed = m_flTempSetIdleTurnSpeed;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the Camera's Inner/Outer Radiuses
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetInnerRadius( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() > 0 )
+	{
+		m_nInnerRadius = inputdata.value.Int();
+	}
+}
+
+void CNPC_CombineCamera::InputSetOuterRadius( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() > 0 )
+	{
+		m_nOuterRadius = inputdata.value.Int();
+	}
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Toggle the camera's state via input function

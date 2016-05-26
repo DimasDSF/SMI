@@ -1900,6 +1900,7 @@ public:
 	COutputEvent		m_OnHearPlayer;
 	COutputEvent		m_OnHearCombat;
 	COutputEvent		m_OnKilledByPlayer;
+	COutputEvent		m_OnKilledPlayerAssist;
 	COutputEvent		m_OnDamagedByPlayer;
 	COutputEvent		m_OnDamagedByPlayerSquad;
 	COutputEvent		m_OnDenyCommanderUse;
@@ -1930,6 +1931,7 @@ private:
 	void				TryRestoreHull( void );
 	bool				m_fIsUsingSmallHull;
 	bool				m_bCheckContacts;
+	int					m_iPlayerDamage;
 
 private:
 	// Task implementation helpers

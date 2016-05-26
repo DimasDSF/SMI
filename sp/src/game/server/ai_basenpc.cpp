@@ -741,6 +741,17 @@ int CAI_BaseNPC::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 		}
 	}
 
+	if( info.GetAttacker()->IsPlayer() )
+	{
+		m_iPlayerDamage = m_iPlayerDamage + info.GetDamage();
+	}
+
+	if( m_iHealth <= 0 && m_iPlayerDamage >= GetMaxHealth()/5 )
+	{
+		m_iPlayerDamage = 0;
+		m_OnKilledPlayerAssist.FireOutput( info.GetAttacker(), this );
+	}
+
 	if( m_iHealth <= 0 && info.GetAttacker()->IsPlayer() )
 	{
 		m_OnKilledByPlayer.FireOutput( info.GetAttacker(), this );
@@ -10779,6 +10790,7 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_OUTPUT( m_OnHearPlayer,				"OnHearPlayer" ),
 	DEFINE_OUTPUT( m_OnHearCombat,				"OnHearCombat" ),
 	DEFINE_OUTPUT( m_OnKilledByPlayer,			"OnKilledByPlayer" ),
+	DEFINE_OUTPUT( m_OnKilledPlayerAssist,		"OnKilledNPCPlayerAssist"),
 	DEFINE_OUTPUT( m_OnDamagedByPlayer,		"OnDamagedByPlayer" ),
 	DEFINE_OUTPUT( m_OnDamagedByPlayerSquad,	"OnDamagedByPlayerSquad" ),
 	DEFINE_OUTPUT( m_OnDenyCommanderUse,		"OnDenyCommanderUse" ),

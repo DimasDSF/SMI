@@ -69,6 +69,7 @@ BEGIN_DATADESC( CPointTemplate )
 	// Outputs
 	DEFINE_OUTPUT( m_pOutputOnSpawned, "OnEntitySpawned" ),
 	DEFINE_OUTPUT( m_pOutputEntSpawned, "OnSingleEntSpawned" ),
+	DEFINE_OUTPUT( m_pOutputOnSetSpawn, "OnSetSpawn" ),
 
 END_DATADESC()
 
@@ -442,6 +443,10 @@ void CPointTemplate::InputSetSpawnPoint( inputdata_t &inputdata )
 		return;
 	}
 
+	if ( pSITarget )
+	{
+		m_pOutputOnSetSpawn.FireOutput(this, pSITarget);
+	}
 	m_iszSpawnTarget = pSITarget;
 
 }

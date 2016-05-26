@@ -954,11 +954,11 @@ void CBaseHelicopter::FireRocket( void )
 
 	if ( !m_bRAttachment )
 	{
-		m_flRocketVecY = -1.0;
+		m_flRocketVecY = -5.0;
 	}
 	else
 	{
-		m_flRocketVecY = 1.0;
+		m_flRocketVecY = 5.0;
 	}
 
 	Vector VecRocketY, VecRocketZ;
@@ -970,9 +970,17 @@ void CBaseHelicopter::FireRocket( void )
 
 	Vector vecDir, vecForwardMult, vecAngleForward;
 	AngleVectors( angles, &vecAngleForward );
-	VectorMultiply(vecAngleForward, m_flForwardMult, vecForwardMult );
+	VectorScale(vecAngleForward, m_flForwardMult, vecForwardMult );
+	//VectorMultiply(vecAngleForward, m_flForwardMult, vecForwardMult );
 	CrossProduct( vecLaunchDir, vecForwardMult, vecDir );
-	vecDir.z = m_flRocketVecZ;
+	if( m_bRocketDownward )
+	{
+		vecDir.z = m_flRocketVecZ;
+	}
+	else
+	{
+		vecDir.z = vecAngleForward.z;
+	}
 	vecDir.x = vecAngleForward.x;
 	vecDir.y = vecAngleForward.y;
 	VectorNormalize( vecDir );
