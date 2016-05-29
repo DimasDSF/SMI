@@ -175,6 +175,7 @@ public:
 
 	void InputAllowPlayerPickup( inputdata_t &inputdata );
 	void InputDisallowPlayerPickup( inputdata_t &inputdata );
+	void InputEnableMotion( inputdata_t &inputdata );
 
 	virtual void			Spawn( void );
 	virtual void			Precache( void );

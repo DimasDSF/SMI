@@ -55,7 +55,7 @@ enum
 
 #define GRENADE_PULL_MAX_DISTANCE 256.0f
 
-#define ZOMBINE_MAX_GRENADES 1
+#define ZOMBINE_MAX_GRENADES 3
 
 int ACT_ZOMBINE_GRENADE_PULL;
 int ACT_ZOMBINE_GRENADE_WALK;
@@ -129,6 +129,9 @@ public:
 	void Sprint( bool bMadSprint = false );
 	void StopSprint( void );
 
+	void SpawnMartyrdom( void );
+	bool CalculateMartyrdom( void );
+
 	void DropGrenade( Vector vDir );
 
 	bool IsSprinting( void ) { return m_flSprintTime > gpGlobals->curtime;	}
@@ -171,6 +174,12 @@ private:
 	
 	int		m_iGrenadeCount;
 	int		m_iGrenadeAlwd;
+	int		m_iMartyrdomChance;
+	bool	m_bMartyrdomAllowed;
+	int		m_iMinMartyGrenade;
+	int		m_iMaxMartyGrenade;
+	float	m_flMinMartyGrenTimer;
+	float	m_flMaxMartyGrenTimer;
 
 	EHANDLE	m_hGrenade;
 
@@ -188,6 +197,12 @@ BEGIN_DATADESC( CNPC_Zombine )
 	DEFINE_FIELD( m_hGrenade, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_flGrenadePullTime, FIELD_TIME ),
 	DEFINE_FIELD( m_iGrenadeCount, FIELD_INTEGER ),
+	DEFINE_KEYFIELD( m_iMartyrdomChance, FIELD_INTEGER, "MartyrdomChance" ),
+	DEFINE_KEYFIELD( m_bMartyrdomAllowed, FIELD_BOOLEAN, "MartyrdomEnabled" ),
+	DEFINE_KEYFIELD( m_iMinMartyGrenade, FIELD_INTEGER, "MinMartyrdomGrenades" ),
+	DEFINE_KEYFIELD( m_iMaxMartyGrenade, FIELD_INTEGER, "MaxMartyrdomGrenades" ),
+	DEFINE_KEYFIELD( m_flMinMartyGrenTimer, FIELD_FLOAT, "MinMartyrdomGrenadeTimer" ),
+	DEFINE_KEYFIELD( m_flMaxMartyGrenTimer, FIELD_FLOAT, "MaxMartyrdomGrenadeTimer" ),
 	DEFINE_KEYFIELD( m_iGrenadeAlwd, FIELD_INTEGER, "Gallow" ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"StartSprint", InputStartSprint ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"PullGrenade",  InputPullGrenade ),
@@ -234,6 +249,13 @@ void CNPC_Zombine::Spawn( void )
 
 	m_iGrenadeCount = ZOMBINE_MAX_GRENADES;
 	m_iGrenadeAlwd = 1;
+
+//	m_iMartyrdomChance = 0;
+//	m_bMartyrdomAllowed = false;
+//	m_iMinMartyGrenade = 1;
+//	m_iMaxMartyGrenade = 2;
+//	m_flMinMartyGrenTimer = 0.0;
+//	m_flMaxMartyGrenTimer = 1.0;
 }
 
 void CNPC_Zombine::Precache( void )
@@ -425,17 +447,19 @@ void CNPC_Zombine::GatherGrenadeConditions( void )
 
 	CBasePlayer *pPlayer = AI_GetSinglePlayer();
 
-	if ( pPlayer && pPlayer->FVisible( this ) )
+	if( GetEnemy())
 	{
-		float flLengthToPlayer = (pPlayer->GetAbsOrigin() - GetAbsOrigin()).Length();
-		float flLengthToEnemy = flLengthToPlayer;
-
-		if ( pPlayer != GetEnemy() )
+		float flLengthToEnemy;
+		if(GetEnemy()->IsPlayer())
 		{
-			flLengthToEnemy = ( GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length();
+			flLengthToEnemy = (pPlayer->GetAbsOrigin() - GetAbsOrigin()).Length();
+		}
+		else
+		{
+			flLengthToEnemy = (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length();
 		}
 
-		if ( flLengthToPlayer <= GRENADE_PULL_MAX_DISTANCE && flLengthToEnemy <= GRENADE_PULL_MAX_DISTANCE )
+		if( flLengthToEnemy <= GRENADE_PULL_MAX_DISTANCE && GetEnemy()->FVisible(this) )
 		{
 			float flPullChance = 1.0f - ( flLengthToEnemy / GRENADE_PULL_MAX_DISTANCE );
 			m_flGrenadePullTime = gpGlobals->curtime + 0.5f;
@@ -447,11 +471,82 @@ void CNPC_Zombine::GatherGrenadeConditions( void )
 			}
 		}
 	}
+
+//	if ( pPlayer && pPlayer->FVisible( this ) )
+//	{
+//		float flLengthToPlayer = (pPlayer->GetAbsOrigin() - GetAbsOrigin()).Length();
+//		float flLengthToEnemy = flLengthToPlayer;
+//
+//		if ( pPlayer != GetEnemy() )
+//		{
+//			flLengthToEnemy = ( GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length();
+//		}
+//
+//		if ( flLengthToPlayer <= GRENADE_PULL_MAX_DISTANCE && flLengthToEnemy <= GRENADE_PULL_MAX_DISTANCE )
+//		{
+//			float flPullChance = 1.0f - ( flLengthToEnemy / GRENADE_PULL_MAX_DISTANCE );
+//			m_flGrenadePullTime = gpGlobals->curtime + 0.5f;
+//
+//			if ( flPullChance >= random->RandomFloat( 0.0f, 1.0f ) && m_iGrenadeAlwd == 1 )
+//			{
+//				g_flZombineGrenadeTimes = gpGlobals->curtime + 10.0f;
+//				SetCondition( COND_ZOMBINE_GRENADE );
+//			}
+//		}
+//	}
 }
 
 int CNPC_Zombine::TranslateSchedule( int scheduleType ) 
 {
 	return BaseClass::TranslateSchedule( scheduleType );
+}
+
+bool CNPC_Zombine::CalculateMartyrdom( void )
+{
+	if( m_iMartyrdomChance > 100 )
+	{
+		m_iMartyrdomChance = 100;
+	}
+	if( m_iMartyrdomChance < 0 )
+	{
+		m_iMartyrdomChance = 0;
+	}
+
+	if( m_iMartyrdomChance >= random->RandomInt(0,100))
+	{
+		return true;
+	}
+	return false;
+}
+
+void CNPC_Zombine::SpawnMartyrdom( void )
+{
+	Vector vecStart;
+	QAngle angles;
+	int m_numMartyGrenades = random->RandomInt(m_iMinMartyGrenade , m_iMaxMartyGrenade);
+	float m_defMartyTimer = random->RandomFloat( m_flMinMartyGrenTimer, m_flMaxMartyGrenTimer );
+	for ( int mn = 0; mn < m_numMartyGrenades; mn++ )
+	{
+		vecStart = GetAbsOrigin() + Vector( 0, 0, 25 );
+		Fraggrenade_Create( vecStart, vec3_angle, vec3_origin, AngularImpulse( 0, 0, 0 ), this, m_defMartyTimer + random->RandomFloat( 0.0, 2.0 ), true );
+		// Tell player allies nearby to regard me!
+		CAI_BaseNPC **ppAIs = g_AI_Manager.AccessAIs();
+		CAI_BaseNPC *pNPC;
+		for ( int i = 0; i < g_AI_Manager.NumAIs(); i++ )
+		{
+			pNPC = ppAIs[i];
+			if( pNPC->Classify() == CLASS_PLAYER_ALLY || ( pNPC->Classify() == CLASS_PLAYER_ALLY_VITAL && pNPC->FVisible(this) ) )
+			{
+				int priority;
+				Disposition_t disposition;
+
+				priority = pNPC->IRelationPriority(this);
+				disposition = pNPC->IRelationType(this);
+
+				pNPC->AddEntityRelationship( this, disposition, priority + 1 );
+			}
+		}
+	}
 }
 
 void CNPC_Zombine::DropGrenade( Vector vDir )
@@ -492,6 +587,11 @@ void CNPC_Zombine::DropGrenade( Vector vDir )
 void CNPC_Zombine::Event_Killed( const CTakeDamageInfo &info )
 {
 	BaseClass::Event_Killed( info );
+
+	if( CalculateMartyrdom() && GetEnemy() && !(info.GetDamageType() == DMG_BLAST && FClassnameIs( info.GetInflictor(), "npc_grenade_frag" )))
+	{
+		SpawnMartyrdom();
+	}
 
 	if ( HasGrenade() )
 	{
@@ -636,6 +736,11 @@ bool CNPC_Zombine::AllowedToSprint( void )
 		{
 			iChance *= 2;
 		}
+	}
+
+	if( GetEnemies()->NumEnemies() >= 4 )
+	{
+		iChance *= (GetEnemies()->NumEnemies() / 2);
 	}
 
 	if ( HasGrenade() ) 

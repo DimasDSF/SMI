@@ -1660,6 +1660,18 @@ void CBaseCombatWeapon::InputHideWeapon( inputdata_t &inputdata )
 }
 #endif
 
+void CBaseCombatWeapon::InputEnableMotion( inputdata_t &inputdata )
+{
+#if !defined( CLIENT_DLL )
+	if ( m_pConstraint != NULL )
+	{
+		RemoveSpawnFlags( SF_WEAPON_START_CONSTRAINED );
+		physenv->DestroyConstraint( m_pConstraint );
+		m_pConstraint = NULL;
+	}
+#endif
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -2790,6 +2802,7 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "AllowPlayerPickup", InputAllowPlayerPickup ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisallowPlayerPickup", InputDisallowPlayerPickup ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableMotion", InputEnableMotion ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse"),

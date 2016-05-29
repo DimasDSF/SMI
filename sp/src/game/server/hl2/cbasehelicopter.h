@@ -153,6 +153,7 @@ public:
 	virtual void	Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner ) { return; }
 	int		m_nRocketAttachment1;
 	int		m_nRocketAttachment2;
+	bool	m_bFiresSalvo;
 
 protected:
 	void			HelicopterMove( );

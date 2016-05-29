@@ -820,6 +820,13 @@ void CBaseHelicopter::FireWeapons()
 	if (m_fHelicopterFlags & BITS_HELICOPTER_MISSILE_ON)
 	{
 		AimRocketGun();
+		if(m_bFiresSalvo)
+		{
+			if (m_flGoalSpeed > 150 )
+			{
+				m_flGoalSpeed = 150;
+			}
+		}
 	}
 }
 
@@ -886,18 +893,20 @@ void CBaseHelicopter::AimRocketGunAtTarget( CBaseEntity *pTarget )
 
 void CBaseHelicopter::FireRocket( void )
 {
-	if ( m_flRocketTime > gpGlobals->curtime )
+	if ( m_flRocketTime > gpGlobals->curtime && !m_hSpecificRocketTarget)
 		return;
 
 	// If we're still firing the salvo, fire quickly
 	m_iRocketSalvoLeft--;
-	if ( m_iRocketSalvoLeft > 0 )
+	if ( m_iRocketSalvoLeft > 0 || m_hSpecificRocketTarget )
 	{
+		m_bFiresSalvo = true;
 		m_flRocketTime = gpGlobals->curtime + m_flRocketDelay;
 	}
 	else
 	{
 		// Reload the salvo
+		m_bFiresSalvo = false;
 		m_iRocketSalvoLeft = m_iSalvoSize;
 		EmitSound( "NPC_AttackHelicopter.RocketsReloading" );
 		float m_flReloadTime;
@@ -941,7 +950,12 @@ void CBaseHelicopter::FireRocket( void )
 	float m_flRocketVecY;
 	float m_flForwardMult;
 
-	if ( m_bRocketDownward )
+	trace_t tr;
+
+	// Trace to ground to see if its intelligent to fire downward
+	UTIL_TraceLine( vecRocketOrigin, vecRocketOrigin+Vector(0,0,-1024), (MASK_SOLID_BRUSHONLY|CONTENTS_WATER), NULL, COLLISION_GROUP_NONE, &tr );
+	
+	if ( m_bRocketDownward && (tr.startpos - tr.endpos).Length() > 180)
 		{
 			m_flRocketVecZ = -1.0;
 			m_flForwardMult = 2.0;
@@ -1643,6 +1657,7 @@ void CBaseHelicopter::InputMissileOn( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CBaseHelicopter::InputMissileOff( inputdata_t &inputdata )
 {
+	m_bFiresSalvo = false;
 	m_fHelicopterFlags &= ~BITS_HELICOPTER_MISSILE_ON;
 }
 
@@ -1658,9 +1673,9 @@ void CBaseHelicopter::InputFireMissileAt( inputdata_t &inputdata )
 		DevWarning( "%s: Could not find target '%s'!\n", GetClassname(), STRING( strMissileTarget ) );
 		return;
 	}
-
+	EmitSound( "PropAPC.FireRocket" );
+	AimRocketGunAtTarget( pTarget );
 	m_hSpecificRocketTarget = pTarget;
-	FireRocket();
 }
 
 void CBaseHelicopter::InputSetMissileDelay( inputdata_t &inputdata )
