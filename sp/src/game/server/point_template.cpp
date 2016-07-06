@@ -57,6 +57,7 @@ BEGIN_DATADESC( CPointTemplate )
 	DEFINE_UTLVECTOR( m_hTemplateEntities, FIELD_CLASSPTR ),
 	DEFINE_KEYFIELD( m_iszSpawnTargetName, FIELD_STRING, "SpawnPoint"),
 	DEFINE_KEYFIELD( m_iSpawnTargetOffsetZ, FIELD_INTEGER, "SpawnPointOffsetZ"),
+	DEFINE_KEYFIELD( m_bDoAngleSetup, FIELD_BOOLEAN, "DoAngleSetupWithSpawnPoint"),
 
 	DEFINE_UTLVECTOR( m_hTemplates, FIELD_EMBEDDED ),
 
@@ -397,9 +398,16 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 			{
 				vecSPOrigin = pSTarget->GetAbsOrigin();
 			}
-			vecSPAngles = pSTarget->GetAbsAngles();
 			pEntity->SetAbsOrigin( vecSPOrigin );
-			pEntity->SetAbsAngles( vecSPAngles );
+			if( m_bDoAngleSetup )
+			{
+				vecSPAngles = pSTarget->GetAbsAngles();
+				pEntity->SetAbsAngles( vecSPAngles );
+			}
+			else
+			{
+				pEntity->SetAbsAngles( vecNewAngles );
+			}
 			m_pOutputEntSpawned.FireOutput( this, pEntity );
 		}
 		else

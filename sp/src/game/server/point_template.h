@@ -62,6 +62,7 @@ private:
 	EHANDLE							m_iszSpawnTarget;
 	string_t						m_iszSpawnTargetName;
 	int								m_iSpawnTargetOffsetZ;
+	bool							m_bDoAngleSetup;
 	// List of map entities this template targets. Built inside our Spawn().
 	// It's only valid between Spawn() & Activate(), because the map entity parsing
 	// code removes all the entities in it once it finishes turning them into templates.
