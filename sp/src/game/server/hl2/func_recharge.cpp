@@ -341,6 +341,7 @@ public:
 	int DrawDebugTextOverlays(void);
 	void Off(void);
 	void Recharge(void);
+	void RechargePercent( int iPerc );
 	bool KeyValue( const char *szKeyName, const char *szValue );
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	virtual int	ObjectCaps( void ) { return (BaseClass::ObjectCaps() | m_iCaps ); }
@@ -350,6 +351,7 @@ public:
 private:
 	void InputRecharge( inputdata_t &inputdata );
 	void InputSetCharge( inputdata_t &inputdata );
+	void InputRechargePerc( inputdata_t &inputdata );
 	float MaxJuice() const;
 	void UpdateJuice( int newJuice );
 	void Precache( void );
@@ -400,6 +402,7 @@ BEGIN_DATADESC( CNewRecharge )
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Recharge", InputRecharge ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetCharge", InputSetCharge ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "RechargePercent", InputRechargePerc ),
 	
 END_DATADESC()
 
@@ -577,6 +580,14 @@ void CNewRecharge::InputRecharge( inputdata_t &inputdata )
 	Recharge();
 }
 
+void CNewRecharge::InputRechargePerc( inputdata_t &inputdata )
+{
+	if ( inputdata.value.Int() > 0 )
+	{
+		RechargePercent( inputdata.value.Int() );
+	}
+}
+
 void CNewRecharge::InputSetCharge( inputdata_t &inputdata )
 {
 	ResetSequence( LookupSequence( "idle" ) );
@@ -734,6 +745,42 @@ void CNewRecharge::Recharge(void)
 	m_flJuice = m_iJuice;
 	m_iReactivate = 0;
 	StudioFrameAdvance();
+
+	SetThink( &CNewRecharge::SUB_DoNothing );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNewRecharge::RechargePercent(int iPerc)
+{
+	EmitSound( "SuitRecharge.Start" );
+	if ( m_flJuice + (iPerc * (MaxJuice() / 100)) >= MaxJuice())
+	{
+		m_flJuice = MaxJuice();
+	}
+	else
+	{
+		m_flJuice = m_flJuice + (iPerc * (MaxJuice() / 100));
+	}
+	if ( m_flJuice > 0.0 )
+	{
+		m_nState = 0;
+	}
+
+	UpdateJuice( m_flJuice );
+
+	if ( m_flJuice >= MaxJuice())
+	{
+		m_OnFull.FireOutput( this, this );
+	}
+
+	m_iJuice = m_flJuice;
+
+	ResetSequence( LookupSequence( "idle" ) );
+	StudioFrameAdvance();
+
+	m_iReactivate = 0;
 
 	SetThink( &CNewRecharge::SUB_DoNothing );
 }

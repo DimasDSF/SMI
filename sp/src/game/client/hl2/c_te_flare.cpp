@@ -56,7 +56,7 @@ private:
 
 	int		m_iAttachment;
 	
-	SimpleParticle	*m_pParticle[2];
+	SimpleParticle	*m_pParticle[3];
 };
 
 IMPLEMENT_CLIENTCLASS_DT( C_Flare, DT_Flare, CFlare )
@@ -78,6 +78,7 @@ C_Flare::C_Flare() : CSimpleEmitter( "C_Flare" )
 {
 	m_pParticle[0]	= NULL;
 	m_pParticle[1]	= NULL;
+	m_pParticle[2]  = NULL;
 	m_flTimeBurnOut	= 0.0f;
 
 	m_bLight		= true;
@@ -169,6 +170,24 @@ void C_Flare::RestoreResources( void )
 			Assert(0);
 		}
 	}
+
+	if ( m_pParticle[2] == NULL )
+	{
+		m_pParticle[2] = (SimpleParticle *) AddParticle( sizeof( SimpleParticle ), GetPMaterial( "effects/redflare1" ), GetAbsOrigin() );
+		
+		if ( m_pParticle[2] != NULL )
+		{
+			m_pParticle[2]->m_uchColor[0] = m_pParticle[2]->m_uchColor[1] = m_pParticle[2]->m_uchColor[2] = 0;
+			m_pParticle[2]->m_flRoll		= random->RandomInt( 0, 360 );
+			m_pParticle[2]->m_flRollDelta	= random->RandomFloat( 1.0f, 4.0f );
+			m_pParticle[2]->m_flLifetime	= 0.0f;
+			m_pParticle[2]->m_flDieTime		= 10.0f;
+		}
+		else
+		{
+			Assert(0);
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -185,6 +204,11 @@ void C_Flare::NotifyDestroyParticle( Particle* pParticle )
 	if ( pParticle == m_pParticle[1] )
 	{
 		m_pParticle[1] = NULL;
+	}
+
+	if ( pParticle == m_pParticle[2] )
+	{
+		m_pParticle[2] = NULL;
 	}
 
 	CSimpleEmitter::NotifyDestroyParticle( pParticle );
@@ -250,6 +274,15 @@ void C_Flare::Update( float timeDelta )
 			m_pParticle[1]->m_uchColor[0]	= 0;
 			m_pParticle[1]->m_uchColor[1]	= 0;
 			m_pParticle[1]->m_uchColor[2]	= 0;
+		}
+
+		if ( m_pParticle[2] != NULL )
+		{	
+			m_pParticle[2]->m_flDieTime		= gpGlobals->curtime;
+			m_pParticle[2]->m_uchStartSize	= m_pParticle[2]->m_uchEndSize = 0;
+			m_pParticle[2]->m_uchColor[0]	= 0;
+			m_pParticle[2]->m_uchColor[1]	= 0;
+			m_pParticle[2]->m_uchColor[2]	= 0;
 		}
 	}
 
@@ -367,7 +400,14 @@ void C_Flare::Update( float timeDelta )
 
 			sParticle->m_uchStartAlpha	= random->RandomInt( 64, 90 );
 			sParticle->m_uchEndAlpha	= 0;
-			sParticle->m_uchStartSize	= random->RandomInt( 2, 4 );
+			if ( m_bIsALightCharge )
+			{
+				sParticle->m_uchStartSize	= random->RandomInt( 4, 8 );
+			}
+			else
+			{
+				sParticle->m_uchStartSize	= random->RandomInt( 2, 4 );
+			}
 			sParticle->m_uchEndSize		= sParticle->m_uchStartSize * 8.0f;
 			sParticle->m_flRoll			= random->RandomInt( 0, 2*M_PI );
 			sParticle->m_flRollDelta	= random->RandomFloat( -(M_PI/6.0f), M_PI/6.0f );
@@ -416,6 +456,40 @@ void C_Flare::Update( float timeDelta )
 		if ( random->RandomInt( 0, 4 ) == 3 )
 		{
 			m_pParticle[0]->m_flRoll	+= random->RandomInt( 2, 8 );
+		}
+	}
+
+	//---------Light------------
+
+	if ( m_pParticle[2] != NULL )
+	{
+		m_pParticle[2]->m_Pos			= offset;
+		m_pParticle[2]->m_flLifetime	= 0.0f;
+		m_pParticle[2]->m_flDieTime		= 2.0f;
+		
+		m_pParticle[2]->m_vecVelocity.Init();
+
+		fColor = random->RandomInt( 100.0f, 128.0f ) * visible;
+
+		m_pParticle[2]->m_uchColor[0]	= fColor;
+		m_pParticle[2]->m_uchColor[1]	= fColor;
+		m_pParticle[2]->m_uchColor[2]	= fColor;
+		m_pParticle[2]->m_uchStartAlpha	= fColor;
+		m_pParticle[2]->m_uchEndAlpha	= fColor;
+		if (!m_bIsALightCharge)
+		{
+			m_pParticle[2]->m_uchStartSize	= baseScale * (float) random->RandomInt( 32, 48 );
+		}
+		else
+		{
+			m_pParticle[2]->m_uchStartSize	= baseScale * (float) random->RandomInt( 96, 118 );
+		}
+		m_pParticle[2]->m_uchEndSize	= m_pParticle[2]->m_uchStartSize;
+		m_pParticle[2]->m_flRollDelta	= 0.0f;
+		
+		if ( random->RandomInt( 0, 4 ) == 3 )
+		{
+			m_pParticle[2]->m_flRoll	+= random->RandomInt( 2, 8 );
 		}
 	}
 

@@ -130,7 +130,7 @@ void CNPC_GroundTurret::Spawn( void )
 	if( !GetParent() )
 	{
 		DevMsg("ERROR! npc_ground_turret with no parent!\n");
-		UTIL_Remove(this);
+		//UTIL_Remove(this);
 		return;
 	}
 
@@ -523,7 +523,7 @@ void CNPC_GroundTurret::Shoot()
 	{
 		info.m_vecSrc = vecSrc;
 		
-		if( i > 0 || !GetEnemy()->IsPlayer() )
+		if( i > 0 /*|| !GetEnemy()->IsPlayer()*/ )
 		{
 			// Subsequent shots or shots at non-players random
 			GetVectors( &info.m_vecDirShooting, NULL, NULL );
@@ -599,13 +599,13 @@ void CNPC_GroundTurret::Scan()
 		return;
 	}
 
-	if( IsOpeningOrClosing() )
+	if( IsOpeningOrClosing())
 	{
 		// Moving.
 		return;
 	}
 
-	if( !IsOpen() )
+	if( !IsOpen())
 	{
 		// Closed
 		return;
@@ -630,12 +630,12 @@ void CNPC_GroundTurret::Scan()
 	scanAngle = GetAbsAngles();
 	scanAngle.y += (GROUNDTURRET_VIEWCONE / 2.0f);
 	AngleVectors( scanAngle, &forward, NULL, NULL );
-	ProjectBeam( vecEye, forward, 1, 30, 0.1 );
+	ProjectBeam( vecEye, forward, 2, 30, 0.1 );
 
 	scanAngle = GetAbsAngles();
 	scanAngle.y -= (GROUNDTURRET_VIEWCONE / 2.0f);
 	AngleVectors( scanAngle, &forward, NULL, NULL );
-	ProjectBeam( vecEye, forward, 1, 30, 0.1 );
+	ProjectBeam( vecEye, forward, 2, 30, 0.1 );
 
 	// Draw a sweeping beam
 	scanAngle = GetAbsAngles();

@@ -47,7 +47,7 @@
 
 // Special actions
 #define DROPSHIP_DEFAULT_SOLDIERS		4
-#define DROPSHIP_MAX_SOLDIERS			6
+#define DROPSHIP_MAX_SOLDIERS			12
 
 // Movement
 #define DROPSHIP_BUFF_TIME				0.3f
@@ -791,6 +791,12 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_KEYFIELD( m_sNPCTemplate[3], FIELD_STRING,	"NPCTemplate4" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[4], FIELD_STRING,	"NPCTemplate5" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[5], FIELD_STRING,	"NPCTemplate6" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[0], FIELD_STRING,	"NPCTemplate7" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[1], FIELD_STRING,	"NPCTemplate8" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[2], FIELD_STRING,	"NPCTemplate9" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[3], FIELD_STRING,	"NPCTemplate10" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[4], FIELD_STRING,	"NPCTemplate11" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[5], FIELD_STRING,	"NPCTemplate12" ),
 	// Here to shut classcheck up
 	//DEFINE_ARRAY( m_sNPCTemplate, FIELD_STRING,  DROPSHIP_MAX_SOLDIERS  ),
 	//DEFINE_ARRAY( m_sDustoffPoints, FIELD_STRING,  DROPSHIP_MAX_SOLDIERS  ),
@@ -800,6 +806,12 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_KEYFIELD( m_sDustoffPoints[3], FIELD_STRING,	"Dustoff4" ),
 	DEFINE_KEYFIELD( m_sDustoffPoints[4], FIELD_STRING,	"Dustoff5" ),
 	DEFINE_KEYFIELD( m_sDustoffPoints[5], FIELD_STRING,	"Dustoff6" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[0], FIELD_STRING,	"Dustoff7" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[1], FIELD_STRING,	"Dustoff8" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[2], FIELD_STRING,	"Dustoff9" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[3], FIELD_STRING,	"Dustoff10" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[4], FIELD_STRING,	"Dustoff11" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[5], FIELD_STRING,	"Dustoff12" ),
 	DEFINE_FIELD( m_iCurrentTroopExiting, FIELD_INTEGER ),
 	DEFINE_FIELD( m_hLastTroopToLeave, FIELD_EHANDLE ),
 
@@ -2887,7 +2899,6 @@ void CNPC_CombineDropship::UpdateContainerGunFacing( Vector &vecMuzzle, Vector &
 
 		float flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.x, m_hContainer->GetPoseParameter(m_poseWeapon_Pitch), DROPSHIP_GUN_SPEED));
 		m_hContainer->SetPoseParameter( m_poseWeapon_Pitch, flNewAngle );
-
 		flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.y, m_hContainer->GetPoseParameter(m_poseWeapon_Yaw), DROPSHIP_GUN_SPEED));
 		m_hContainer->SetPoseParameter( m_poseWeapon_Yaw, flNewAngle );
 		m_hContainer->StudioFrameAdvance();

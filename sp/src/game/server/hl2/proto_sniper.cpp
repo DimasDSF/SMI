@@ -296,6 +296,8 @@ private:
 	void InputProtectTarget( inputdata_t &inputdata );
 	void InputBecomeShotVulnerable( inputdata_t &inputdata );
 	void InputBecomeShotInvulnerable( inputdata_t &inputdata );
+	void InputEnableSpeaking( inputdata_t &inputdata );
+	void InputDisableSpeaking( inputdata_t &inputdata );
 
 #if HL2_EPISODIC
 	void InputSetPaintInterval( inputdata_t &inputdata );
@@ -330,6 +332,7 @@ private:
 	bool						m_fEnabled;
 	bool						m_bIsShotVulnerable;
 	bool						m_fIsPatient;
+	bool						m_bSniperSpeaks;
 	float						m_flPatience;
 	int							m_iMisses;
 	EHANDLE						m_hDecoyObject;
@@ -433,6 +436,7 @@ BEGIN_DATADESC( CProtoSniper )
 	DEFINE_FIELD( m_iNumGroupTargets, FIELD_INTEGER ),
 	DEFINE_ARRAY( m_pGroupTarget, FIELD_CLASSPTR, SNIPER_MAX_GROUP_TARGETS  ),
 	DEFINE_KEYFIELD( m_iBeamBrightness, FIELD_INTEGER, "beambrightness" ),
+	DEFINE_KEYFIELD( m_bSniperSpeaks, FIELD_BOOLEAN, "sniperspeaks" ),
 
 
 	DEFINE_KEYFIELD(m_flShieldDist, FIELD_FLOAT, "shielddistance" ),
@@ -463,6 +467,8 @@ BEGIN_DATADESC( CProtoSniper )
 	DEFINE_INPUTFUNC( FIELD_STRING, "ProtectTarget", InputProtectTarget ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeShotVulnerable", InputBecomeShotVulnerable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeShotInvulnerable", InputBecomeShotInvulnerable ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpeaking", InputEnableSpeaking ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSpeaking", InputDisableSpeaking ),
 
 #if HL2_EPISODIC
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetPaintInterval", InputSetPaintInterval ),
@@ -980,6 +986,11 @@ void CProtoSniper::Spawn( void )
 		m_bIsShotVulnerable = false;
 	}
 
+	if ( m_bSniperSpeaks == NULL )
+	{
+		m_bSniperSpeaks = false;
+	}
+
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags( FSOLID_NOT_STANDABLE );
 	SetMoveType( MOVETYPE_FLY );
@@ -1442,7 +1453,7 @@ void CProtoSniper::UpdateOnRemove( void )
 //---------------------------------------------------------
 int CProtoSniper::SelectSchedule ( void )
 {
-	if( HasCondition(COND_ENEMY_DEAD) && sniperspeak.GetBool() )
+	if( HasCondition(COND_ENEMY_DEAD) && m_bSniperSpeaks )
 	{
 		//EmitSound( "NPC_Sniper.TargetDestroyed" );
 	}
@@ -1455,7 +1466,7 @@ int CProtoSniper::SelectSchedule ( void )
 
 	if( !AI_GetSinglePlayer()->IsAlive() && m_bKilledPlayer )
 	{
-		if (sniperspeak.GetBool())
+		if (m_bSniperSpeaks)
 		{
 			EmitSound( "NPC_Sniper.Target1Down" );
 		}
@@ -1511,7 +1522,7 @@ int CProtoSniper::SelectSchedule ( void )
 		}
 	}
 
-	if( GetState() >= NPC_STATE_ALERT && m_bNotifiedAlert == false && sniperspeak.GetBool())
+	if( GetState() >= NPC_STATE_ALERT && m_bNotifiedAlert == false && m_bSniperSpeaks)
 	{
 		m_bNotifiedAlert = true;
 		EmitSound( "NPC_Sniper.Alert" );
@@ -1519,7 +1530,7 @@ int CProtoSniper::SelectSchedule ( void )
 
 	if( GetEnemy() == NULL || HasCondition( COND_ENEMY_DEAD ) )
 	{
-		if (sniperspeak.GetBool() && gpGlobals->curtime > m_tLastIdleSoundTime + 30)
+		if (m_bSniperSpeaks && gpGlobals->curtime > m_tLastIdleSoundTime + 30)
 		{
 			EmitSound( "NPC_Sniper.Idle" );
 			m_tLastIdleSoundTime = gpGlobals->curtime;
@@ -1542,7 +1553,7 @@ int CProtoSniper::SelectSchedule ( void )
 
 	if( HasCondition( COND_SNIPER_NO_SHOT ) )
 	{
-		if (sniperspeak.GetBool())
+		if (m_bSniperSpeaks)
 		{
 			EmitSound( "NPC_Sniper.TargetHidden" );
 		}
@@ -2747,6 +2758,16 @@ void CProtoSniper::InputDisableSniper( inputdata_t &inputdata )
 	m_fEnabled = false;
 }
 
+
+void CProtoSniper::InputEnableSpeaking( inputdata_t &inputdata )
+{
+	m_bSniperSpeaks = true;
+}
+
+void CProtoSniper::InputDisableSpeaking( inputdata_t &inputdata )
+{
+	m_bSniperSpeaks = false;
+}
 
 //---------------------------------------------------------
 //---------------------------------------------------------
