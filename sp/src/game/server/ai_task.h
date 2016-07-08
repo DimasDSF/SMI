@@ -226,6 +226,9 @@ enum sharedtasks_e
 		// Path to source of the strongest scend that I care about
 		TASK_GET_PATH_TO_BESTSCENT,
 
+		// Get path to squad leader
+		TASK_GET_PATH_TO_SQUADLEADER,
+
 		// Run the current path
 		TASK_RUN_PATH,	
 
@@ -252,6 +255,9 @@ enum sharedtasks_e
 
 		// Run the current path until you are x units from the goal.
 		TASK_RUN_PATH_WITHIN_DIST,
+
+		//Run the current path until we get a LoS with the goal.
+		TASK_GET_PATH_TO_BESTSOUND_LOS,
 
 		// Walk the current path sideways (must be supported by animation)
 		TASK_STRAFE_PATH,
@@ -285,6 +291,9 @@ enum sharedtasks_e
 
 		// Turn to face nodes[ m_pHintNode ]
 		TASK_FACE_HINTNODE,
+
+		// Turn to face random direcion
+		TASK_FACE_RANDOM,
 
 		// Play activity associate with the current hint
 		TASK_PLAY_HINT_ACTIVITY,

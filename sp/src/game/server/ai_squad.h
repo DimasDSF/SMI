@@ -22,7 +22,7 @@ typedef CHandle<CAI_BaseNPC> AIHANDLE;
 DECLARE_POINTER_HANDLE(AISquadsIter_t);
 DECLARE_POINTER_HANDLE(AISquadIter_t);
 
-#define	MAX_SQUAD_MEMBERS	16
+#define	MAX_SQUAD_MEMBERS	32
 #define MAX_SQUAD_DATA_SLOTS 4
 
 //-----------------------------------------------------------------------------
@@ -120,6 +120,7 @@ public:
 	float					GetSquadSoundWaitTime() const		{ return m_flSquadSoundWaitTime; }
 	void					SetSquadSoundWaitTime( float time ) { m_flSquadSoundWaitTime = time; }
 	void					SquadRemember( int iMemory );
+	CUtlVectorFixed<AIHANDLE, MAX_SQUAD_MEMBERS>	m_SquadMembers;
 
 	void					SetSquadInflictor( CBaseEntity *pInflictor );
 	bool					IsSquadInflictor( CBaseEntity *pInflictor );
@@ -167,7 +168,6 @@ private:
 	CAI_Squad *										m_pNextSquad;								// The next squad is list of all squads
 
 	string_t										m_Name;
-	CUtlVectorFixed<AIHANDLE, MAX_SQUAD_MEMBERS>	m_SquadMembers;
 
 	float											m_flSquadSoundWaitTime;			// Time when I'm allowed to make another sound
 	int												m_nSquadSoundPriority;			// if we're still waiting, this is the priority of the current sound

@@ -153,8 +153,33 @@ void CWeaponAR2::ItemPostFrame( void )
 				m_nVentPose = pVM->LookupPoseParameter( "VentPoses" );
 			}
 			
-			float flVentPose = RemapValClamped( m_nShotsFired, 0, 5, 0.0f, 1.0f );
+			float flVentPose;
+
+			if ( m_flForcedVentPose != 0.0)
+			{
+				flVentPose = m_flForcedVentPose;
+				if( m_nShotsFired == 0 && m_bOverHeat == true)
+				{
+					WeaponSound( SPECIAL2 );
+					m_bOverHeat = false;
+				}
+				if (m_nLastForcedVentPose == 0)
+				{
+					m_nLastForcedVentPose = gpGlobals->curtime;
+				}
+			}
+			else
+			{
+				flVentPose = RemapValClamped( m_nShotsFired, 0, 5, 0.0f, 1.0f );
+			}
 			pVM->SetPoseParameter( m_nVentPose, flVentPose );
+
+			if (m_nLastForcedVentPose + 3 < gpGlobals->curtime && m_flForcedVentPose != 0.0)
+			{
+				WeaponSound( SPECIAL3 );
+				m_flForcedVentPose = 0.0;
+				m_nLastForcedVentPose = 0;
+			}
 		}
 	}
 
@@ -175,6 +200,12 @@ Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 	
 	if ( m_nShotsFired < 4 )
 		return ACT_VM_RECOIL2;
+
+	if ( m_nShotsFired > 10 )
+	{
+		m_flForcedVentPose = 1.0;
+		m_bOverHeat = true;
+	}
 
 	return ACT_VM_RECOIL3;
 }
@@ -217,6 +248,8 @@ void CWeaponAR2::DelayedAttack( void )
 	pOwner->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
 	
 	WeaponSound( WPN_DOUBLE );
+
+	m_flForcedVentPose = 1.0;
 
 	pOwner->RumbleEffect(RUMBLE_SHOTGUN_DOUBLE, 0, RUMBLE_FLAG_RESTART );
 

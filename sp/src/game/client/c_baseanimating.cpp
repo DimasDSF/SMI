@@ -3309,27 +3309,28 @@ void C_BaseAnimating::ProcessMuzzleFlashEvent()
 		//FIXME: We should really use a named attachment for this
 		if ( m_Attachments.Count() > 0 )
 		{
-			Vector vAttachment;
-			QAngle dummyAngles;
-			GetAttachment( 1, vAttachment, dummyAngles );
+			Vector vAttachment, vAng;
+			QAngle angles;
+			GetAttachment( 1, vAttachment, angles );
+			AngleVectors( angles, &vAng );
+			vAttachment += vAng * 2;
+ 
+			dlight_t *dl = effects->CL_AllocDlight ( index );
+			dl->origin = vAttachment;
+			dl->color.r = 231;
+			dl->color.g = 219;
+			dl->color.b = 14;
+			dl->die = gpGlobals->curtime + 0.05f;
+			dl->radius = random->RandomFloat( 245.0f, 256.0f );
+			dl->decay = 512.0f;
 
-			// Make an elight
-			dlight_t *dl = effects->CL_AllocDlight ( index ); 
-			dl->origin = vAttachment + Vector( 0, 0, 4 ); 
-			dl->color.r = 231; 
-			dl->color.g = 219; 
-			dl->color.b = 14; 
-			dl->decay = dl->radius / 0.5f; 
-			dl->die = gpGlobals->curtime + 0.05f; 
-			dl->radius = random->RandomFloat( 245.0f, 245.0f ); 
-   
 			dlight_t *el= effects->CL_AllocElight( index ); 
 			el->origin = vAttachment; 
 			el->color.r = 231; 
 			el->color.g = 219; 
 			el->color.b = 14; 
-			el->radius = random->RandomFloat( 260.0f, 260.0f ); 
-			el->decay = el->radius / 0.5f; 
+			el->radius = random->RandomFloat( 245.0f, 256.0f ); 
+			el->decay = 512.0f; 
 			el->die = gpGlobals->curtime + 0.05f;
 		}
 	}

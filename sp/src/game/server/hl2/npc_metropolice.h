@@ -167,6 +167,10 @@ private:
 	void InputSetPoliceGoal( inputdata_t &inputdata );
 	void InputClearPoliceGoal( inputdata_t &inputdata );
 	void InputActivateBaton( inputdata_t &inputdata );
+	void InputHideWeapon( inputdata_t &inputdata );
+	void InputEnableAutoWeaponHide( inputdata_t &inputdata );
+	void InputDisableAutoWeaponHide( inputdata_t &inputdata );
+	void InputForceManhackThrow( inputdata_t &inputdata );
 
 	void NotifyDeadFriend ( CBaseEntity* pFriend );
 
@@ -396,10 +400,13 @@ private:
 	int				m_iManhacks;		// How many manhacks the cop has
 	bool			m_fWeaponDrawn;		// Is my weapon drawn? (ready to use)
 	bool			m_bSimpleCops;		// The easy version of the cops
+	bool			m_bForceManhackThrow;
 	int				m_LastShootSlot;
 	CRandSimTimer	m_TimeYieldShootSlot;
 	CSimpleSimTimer m_BatonSwingTimer;
 	CSimpleSimTimer m_NextChargeTimer;
+	int m_iLostEnemyTime;
+	bool m_bAllowAutoWeaponHide;
 
 	// All related to burst firing
 	Vector			m_vecBurstTargetPos;

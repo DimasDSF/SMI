@@ -32,6 +32,7 @@
 #define SF_METROPOLICE_NO_MANHACK_DEPLOY	0x00800000
 #define SF_METROPOLICE_ALLOWED_TO_RESPOND	0x01000000
 #define SF_METROPOLICE_MID_RANGE_ATTACK		0x02000000
+#define SF_METROPOLICE_DISALLOW_WEAPON_HIDE	0x04000000
 
 #define METROPOLICE_MID_RANGE_ATTACK_RANGE	3500.0f
 
@@ -228,6 +229,10 @@ BEGIN_DATADESC( CNPC_MetroPolice )
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetPoliceGoal", InputSetPoliceGoal ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "ClearPoliceGoal", InputClearPoliceGoal ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "ActivateBaton", InputActivateBaton ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableAutoWeaponHide", InputEnableAutoWeaponHide ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableAutoWeaponHide", InputDisableAutoWeaponHide ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ForceManhackThrow", InputForceManhackThrow ),
 	
 	DEFINE_USEFUNC( PrecriminalUse ),
 
@@ -633,6 +638,7 @@ void CNPC_MetroPolice::Spawn( void )
 	SetBloodColor( BLOOD_COLOR_RED );
 	m_nIdleChatterType = METROPOLICE_CHATTER_ASK_QUESTION; 
 	m_bSimpleCops = HasSpawnFlags( SF_METROPOLICE_SIMPLE_VERSION );
+	m_bAllowAutoWeaponHide = !HasSpawnFlags( SF_METROPOLICE_DISALLOW_WEAPON_HIDE );
 	if ( HasSpawnFlags( SF_METROPOLICE_NOCHATTER ) )
 	{
 		AddSpawnFlags( SF_NPC_GAG );
@@ -2445,6 +2451,19 @@ void CNPC_MetroPolice::InputEnableManhackToss( inputdata_t &inputdata )
 	}
 }
 
+void CNPC_MetroPolice::InputForceManhackThrow( inputdata_t &inputdata )
+{
+	if ( HasSpawnFlags( SF_METROPOLICE_NO_MANHACK_DEPLOY ) )
+	{
+		RemoveSpawnFlags( SF_METROPOLICE_NO_MANHACK_DEPLOY );
+	}
+	if ( m_iManhacks <= 0 )
+	{
+		m_iManhacks = m_iManhacks + 1;
+	}
+	m_bForceManhackThrow = true;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : &inputdata - 
@@ -2491,6 +2510,41 @@ void CNPC_MetroPolice::InputActivateBaton( inputdata_t &inputdata )
 
 
 //-----------------------------------------------------------------------------
+// Purpose: Input to hide cops weapon
+// Input	: void
+//-----------------------------------------------------------------------------
+void CNPC_MetroPolice::InputHideWeapon( inputdata_t &inputdata )
+{
+	if ( GetActiveWeapon() )
+	{
+		CBaseCombatWeapon *pWeapon;
+
+		pWeapon = GetActiveWeapon();
+
+		if( FClassnameIs( pWeapon, "weapon_pistol" ) )
+		{
+			m_fWeaponDrawn = false;
+			pWeapon->AddEffects( EF_NODRAW );
+		}
+	}
+}
+
+void CNPC_MetroPolice::InputEnableAutoWeaponHide( inputdata_t &inputdata )
+{
+	if ( m_bAllowAutoWeaponHide == false )
+	{
+		m_bAllowAutoWeaponHide = true;
+	}
+}
+
+void CNPC_MetroPolice::InputDisableAutoWeaponHide( inputdata_t &inputdata )
+{
+	if ( m_bAllowAutoWeaponHide == true )
+	{
+		m_bAllowAutoWeaponHide = false;
+	}
+}
+//-----------------------------------------------------------------------------
 // Purpose: 
 //
 //-----------------------------------------------------------------------------
@@ -2521,6 +2575,7 @@ void CNPC_MetroPolice::DeathSound( const CTakeDamageInfo &info )
 //-----------------------------------------------------------------------------
 void CNPC_MetroPolice::LostEnemySound( void)
 {
+	m_iLostEnemyTime = gpGlobals->curtime;
 	// Don't announce enemies when the player isn't a criminal
 	if ( !PlayerIsCriminal() )
 		return;
@@ -2813,6 +2868,8 @@ void CNPC_MetroPolice::OnAnimEventStartDeployManhack( void )
 
 	pManhack->Spawn();
 
+	m_bForceManhackThrow = false;
+
 	// Make us move with his hand until we're deployed
 	pManhack->SetParent( this, handAttachment );
 
@@ -3057,6 +3114,21 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 		newActivity = ACT_IDLE_ANGRY;
 	}
 
+	if ( !m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	{
+		newActivity = ACT_WALK_PASSIVE;
+	}
+
+	if ( !m_fWeaponDrawn && newActivity == ACT_RUN && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	{
+		newActivity = ACT_RUN_PASSIVE;
+	}
+
+	if ( m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
+	{
+		newActivity = ACT_WALK;
+	}
+
 	return newActivity;
 }
 
@@ -3166,7 +3238,7 @@ int CNPC_MetroPolice::SelectRangeAttackSchedule()
 	// We're not in a shoot slot... so we've allowed someone else to grab it
 	m_LastShootSlot = SQUAD_SLOT_NONE;
 
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow) )
 	{
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
@@ -3235,9 +3307,12 @@ int CNPC_MetroPolice::SelectScheduleNewEnemy()
 	{
 		m_flNextLedgeCheckTime = gpGlobals->curtime;
 
-		if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+		if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow) )
 			return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
+
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	if ( !m_fWeaponDrawn )
 		return SCHED_METROPOLICE_DRAW_PISTOL;
@@ -3262,9 +3337,9 @@ int CNPC_MetroPolice::SelectScheduleInvestigateSound()
 {
 	// SEE_ENEMY is set if LOS is available *and* we're looking the right way
 	// Don't investigate if the player's not a criminal.
-	if ( PlayerIsCriminal() && !HasCondition( COND_SEE_ENEMY ) )
+	if ( !HasCondition( COND_SEE_ENEMY ) )
 	{
-		if ( HasCondition( COND_HEAR_COMBAT ) || HasCondition( COND_HEAR_PLAYER ) )
+		if ( (m_NPCState != NPC_STATE_COMBAT) && ( HasCondition( COND_HEAR_COMBAT ) || (PlayerIsCriminal() && HasCondition( COND_HEAR_PLAYER )) || HasCondition( COND_HEAR_DANGER ) || HasCondition( COND_HEAR_BULLET_IMPACT ) || HasCondition( COND_HEAR_WORLD ) || HasCondition( COND_HEAR_PHYSICS_DANGER ) ) )
 		{
 			if ( m_pSquad && OccupyStrategySlot( SQUAD_SLOT_INVESTIGATE_SOUND ) )
 			{
@@ -3305,7 +3380,7 @@ bool CNPC_MetroPolice::OnObstructionPreSteer( AILocalMoveGoal_t *pMoveGoal, floa
 int CNPC_MetroPolice::SelectScheduleNoDirectEnemy()
 {
 	// If you can't attack, but you can deploy a manhack, do it!
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow))
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	// If you can't attack, but you have a baton & there's a physics object in front of you, swat it
@@ -3334,6 +3409,9 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 	int nResult = SelectScheduleNewEnemy();
 	if ( nResult != SCHED_NONE )
 		return nResult;
+
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
 	if( !m_fWeaponDrawn )
 	{
@@ -3766,7 +3844,7 @@ int CNPC_MetroPolice::SelectAirboatRangeAttackSchedule()
 		}
 	}
 
-	if( CanDeployManhack() && OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) )
+	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow))
 	{
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
@@ -4051,6 +4129,24 @@ int CNPC_MetroPolice::SelectSchedule( void )
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
+	if( CanDeployManhack() && m_bForceManhackThrow )
+		return SCHED_METROPOLICE_DEPLOY_MANHACK;
+
+	if( m_NPCState == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 30 && m_iManhacks < 2 )
+	{
+		CBaseEntity *m_hPickupManhack = gEntList.FindEntityByClassnameNearest("npc_manhack", GetLocalOrigin(), 250);
+		if( m_hPickupManhack )
+		{
+			CNPC_Manhack *pManhack = dynamic_cast<CNPC_Manhack*>( m_hPickupManhack );
+			if( pManhack && !pManhack->GetEnemy() && GetSquad() == pManhack->GetSquad() )
+			{
+				UTIL_Remove( pManhack );
+				m_iManhacks = m_iManhacks + 1;
+				SetBodygroup( METROPOLICE_BODYGROUP_MANHACK, true );
+			}
+		}
+	}
+
 	if ( HasBaton() )
 	{
 		// See if we're being told to activate our baton
@@ -4307,10 +4403,17 @@ int CNPC_MetroPolice::TranslateSchedule( int scheduleType )
 			{
 				if (  GetEnemy() && GetEnemy()->GetAbsOrigin().DistToSqr( GetAbsOrigin() ) > 300*300 )
 				{
-					if ( OccupyStrategySlot( SQUAD_SLOT_POLICE_CHARGE_ENEMY ) )
+					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_pistol")))))
 					{
-						m_NextChargeTimer.Set( 3, 7 );
-						return SCHED_METROPOLICE_CHARGE;
+						return SCHED_RANGE_ATTACK1;
+					}
+					else
+					{
+						if ( OccupyStrategySlot( SQUAD_SLOT_POLICE_CHARGE_ENEMY ) )
+						{
+							m_NextChargeTimer.Set( 3, 7 );
+							return SCHED_METROPOLICE_CHARGE;
+						}
 					}
 				}
 			}
@@ -4964,9 +5067,14 @@ void CNPC_MetroPolice::BuildScheduleTestBits( void )
 //-----------------------------------------------------------------------------
 WeaponProficiency_t CNPC_MetroPolice::CalcWeaponProficiency( CBaseCombatWeapon *pWeapon )
 {
+	if( IsCurSchedule( SCHED_METROPOLICE_WARN_AND_ARREST_ENEMY ))
+	{
+		return WEAPON_PROFICIENCY_PERFECT;
+	}
+
 	if( FClassnameIs( pWeapon, "weapon_pistol" ) )
 	{
-		return WEAPON_PROFICIENCY_POOR;
+		return WEAPON_PROFICIENCY_VERY_GOOD;
 	}
 
 	if( FClassnameIs( pWeapon, "weapon_smg1" ) )
@@ -4987,6 +5095,22 @@ void CNPC_MetroPolice::GatherConditions( void )
 	if ( m_bPlayerTooClose == false )
 	{
 		ClearCondition( COND_METROPOLICE_PLAYER_TOO_CLOSE );
+	}
+
+	if ( GetState() == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 15 && m_bAllowAutoWeaponHide )
+	{
+			if ( GetActiveWeapon() )
+			{
+				CBaseCombatWeapon *pWeapon;
+
+				pWeapon = GetActiveWeapon();
+
+				if( FClassnameIs( pWeapon, "weapon_pistol" ) )
+				{
+					m_fWeaponDrawn = false;
+					pWeapon->AddEffects( EF_NODRAW );
+				}
+			}
 	}
 
 	CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 );
@@ -5100,7 +5224,7 @@ bool CNPC_MetroPolice::QueryHearSound( CSound *pSound )
 	if ( PlayerIsCriminal() == false )
 	{
 		// If the person making the sound was a friend, don't respond
-		if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) == D_NU )
+		if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
 			return false;
 	}
 
@@ -5273,8 +5397,9 @@ DEFINE_SCHEDULE
 	"		TASK_STORE_LASTPOSITION			0"
 	"		TASK_METROPOLICE_GET_PATH_TO_BESTSOUND_LOS		0"
 	"		TASK_FACE_IDEAL					0"
-//	"		TASK_SET_TOLERANCE_DISTANCE		32"
-	"		TASK_RUN_PATH					0"
+//	"		TASK_SET_TOLERANCE_DISTANCE		16"
+	"		TASK_RUN_PATH_WITHIN_DIST		10"
+	"		TASK_FACE_RANDOM				0"
 	"		TASK_WAIT_FOR_MOVEMENT			0"
 	"		TASK_STOP_MOVING				0"
 	"		TASK_WAIT						10"
@@ -5292,6 +5417,7 @@ DEFINE_SCHEDULE
 	"		COND_LIGHT_DAMAGE"
 	"		COND_HEAVY_DAMAGE"
 	"		COND_HEAR_DANGER"
+	"		COND_IDLE_INTERRUPT"
 );
 
 
@@ -5329,7 +5455,6 @@ DEFINE_SCHEDULE
 	"	Interrupts"
 	"	"
 );
-
 
 //=========================================================
 // > ChaseEnemy

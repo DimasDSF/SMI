@@ -11,6 +11,8 @@
 #include "ammodef.h"
 #include "eventlist.h"
 #include "npcevent.h"
+#include "npc_combine.h"
+#include "item_ammo.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -593,69 +595,13 @@ LINK_ENTITY_TO_CLASS( item_ammo_ar2_altfire, CItem_AR2AltFireRound );
 // Ammo crate which will supply infinite ammo of the specified type
 // ==================================================================
 
-// Ammo types
-enum
-{
-	AMMOCRATE_SMALL_ROUNDS,
-	AMMOCRATE_MEDIUM_ROUNDS,
-	AMMOCRATE_LARGE_ROUNDS,
-	AMMOCRATE_RPG_ROUNDS,
-	AMMOCRATE_BUCKSHOT,
-	AMMOCRATE_GRENADES,
-	AMMOCRATE_357,
-	AMMOCRATE_CROSSBOW,
-	AMMOCRATE_AR2_ALTFIRE,
-	AMMOCRATE_SMG_ALTFIRE,
-	NUM_AMMO_CRATE_TYPES,
-};
-
-// Ammo crate
-
-class CItem_AmmoCrate : public CBaseAnimating
-{
-public:
-	DECLARE_CLASS( CItem_AmmoCrate, CBaseAnimating );
-
-	void	Spawn( void );
-	void	Precache( void );
-	bool	CreateVPhysics( void );
-
-	virtual void HandleAnimEvent( animevent_t *pEvent );
-
-	void	SetupCrate( void );
-	void	OnRestore( void );
-
-	//FIXME: May not want to have this used in a radius
-	int		ObjectCaps( void ) { return (BaseClass::ObjectCaps() | (FCAP_IMPULSE_USE|FCAP_USE_IN_RADIUS)); };
-	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
-
-	void	InputKill( inputdata_t &data );
-	void	CrateThink( void );
-	
-	virtual int OnTakeDamage( const CTakeDamageInfo &info );
-
-protected:
-
-	int		m_nAmmoType;
-	int		m_nAmmoIndex;
-
-	static const char *m_lpzModelNames[NUM_AMMO_CRATE_TYPES];
-	static const char *m_lpzAmmoNames[NUM_AMMO_CRATE_TYPES];
-	static int m_nAmmoAmounts[NUM_AMMO_CRATE_TYPES];
-	static const char *m_pGiveWeapon[NUM_AMMO_CRATE_TYPES];
-
-	float	m_flCloseTime;
-	COutputEvent	m_OnUsed;
-	CHandle< CBasePlayer > m_hActivator;
-
-	DECLARE_DATADESC();
-};
-
 LINK_ENTITY_TO_CLASS( item_ammo_crate, CItem_AmmoCrate );
 
 BEGIN_DATADESC( CItem_AmmoCrate )
 
-	DEFINE_KEYFIELD( m_nAmmoType,	FIELD_INTEGER, "AmmoType" ),	
+	DEFINE_KEYFIELD( m_nAmmoType,	FIELD_INTEGER, "AmmoType" ),
+	DEFINE_KEYFIELD( m_flAmmoMult,	FIELD_FLOAT, "AmmoMult" ),
+	DEFINE_KEYFIELD( m_nUseTimesRemaining, FIELD_INTEGER, "RemainingUses" ),
 
 	DEFINE_FIELD( m_flCloseTime, FIELD_FLOAT ),
 	DEFINE_FIELD( m_hActivator, FIELD_EHANDLE ),
@@ -669,6 +615,9 @@ BEGIN_DATADESC( CItem_AmmoCrate )
 	DEFINE_OUTPUT( m_OnUsed, "OnUsed" ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Kill", InputKill ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetRemainingUses", InputSetRemaining ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "AddToRemainingUses", InputAddToRemaining ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetAmmoMult", InputSetAmmoMult ),
 
 	DEFINE_THINKFUNC( CrateThink ),
 
@@ -710,19 +659,34 @@ const char *CItem_AmmoCrate::m_lpzAmmoNames[NUM_AMMO_CRATE_TYPES] =
 	"SMG1_Grenade",
 };
 
+/*// Ammo amount given per +use
+int CItem_AmmoCrate::m_nAmmoAmounts[NUM_AMMO_CRATE_TYPES] =
+{
+	(cvar->FindVar("sk_max_pistol")->GetInt()),	// Pistol
+	(cvar->FindVar("sk_max_smg1")->GetInt()),	// SMG1
+	(cvar->FindVar("sk_max_ar2")->GetInt()),	// AR2
+	(cvar->FindVar("sk_max_rpg_round")->GetInt()),		// RPG rounds
+	(cvar->FindVar("sk_max_buckshot")->GetInt()),	// Buckshot
+	(cvar->FindVar("sk_max_grenade")->GetInt()),		// Grenades
+	(cvar->FindVar("sk_max_357")->GetInt()),		// 357
+	(cvar->FindVar("sk_max_crossbow")->GetInt()),		// Crossbow
+	(cvar->FindVar("sk_max_ar2_altfire")->GetInt()),		// AR2 alt-fire
+	(cvar->FindVar("sk_max_smg1_grenade")->GetInt()),		//Smg1 grenades
+};*/
+
 // Ammo amount given per +use
 int CItem_AmmoCrate::m_nAmmoAmounts[NUM_AMMO_CRATE_TYPES] =
 {
-	300,	// Pistol
-	300,	// SMG1
-	300,	// AR2
+	60,	// Pistol
+	135,	// SMG1
+	90,	// AR2
 	3,		// RPG rounds
-	120,	// Buckshot
-	5,		// Grenades
-	50,		// 357
-	50,		// Crossbow
-	3,		// AR2 alt-fire
-	5,
+	18,	// Buckshot
+	1,		// Grenades
+	16,		// 357
+	5,		// Crossbow
+	1,		// AR2 alt-fire
+	1,		//Smg1 grenade
 };
 
 const char *CItem_AmmoCrate::m_pGiveWeapon[NUM_AMMO_CRATE_TYPES] =
@@ -755,8 +719,25 @@ void CItem_AmmoCrate::Spawn( void )
 	SetSolid( SOLID_VPHYSICS );
 	CreateVPhysics();
 
+	if (!HasSpawnFlags(SF_NOT_AN_INFINITE_AMMO_CRATE))
+	{
+		m_nUseTimesRemaining = -1;
+	}
+
 	ResetSequence( LookupSequence( "Idle" ) );
-	SetBodygroup( 1, true );
+	if ( m_nUseTimesRemaining != 0 || m_nUseTimesRemaining == -1 )
+	{
+		SetBodygroup( 1, true );
+	}
+	else
+	{
+		SetBodygroup( 1, false );
+	}
+
+	if (m_flAmmoMult == 0)
+	{
+		m_flAmmoMult = 1;
+	}
 
 	m_flCloseTime = gpGlobals->curtime;
 	m_flAnimTime = gpGlobals->curtime;
@@ -818,9 +799,20 @@ void CItem_AmmoCrate::OnRestore( void )
 void CItem_AmmoCrate::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
 	CBasePlayer *pPlayer = ToBasePlayer( pActivator );
+	m_bCombineSUser = false;
 
-	if ( pPlayer == NULL )
-		return;
+	if ( pPlayer == NULL)
+	{
+		CNPC_Combine *pPlayer = dynamic_cast<CNPC_Combine*>(pActivator);
+		if ( pPlayer == NULL )
+		{
+			return;
+		}
+		else
+		{
+			m_bCombineSUser = true;
+		}
+	}
 
 	m_OnUsed.FireOutput( pActivator, this );
 
@@ -844,8 +836,11 @@ void CItem_AmmoCrate::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TY
 
 		if ( tr.startsolid || tr.allsolid )
 			 return;
-			
-		m_hActivator = pPlayer;
+		
+		if (!m_bCombineSUser)
+		{
+			m_hActivator = pPlayer;
+		}
 
 		// Animate!
 		ResetSequence( iSequence );
@@ -874,12 +869,15 @@ int CItem_AmmoCrate::OnTakeDamage( const CTakeDamageInfo &info )
 	{
 		CBaseCombatWeapon *weapon = player->GetActiveWeapon();
 
-		if (weapon && !stricmp(weapon->GetName(), "weapon_crowbar"))
+		if ( (player->GetLocalOrigin() - this->GetLocalOrigin()).Length2D() < 64 )
 		{
-			// play the normal use sound
-			player->EmitSound( "HL2Player.Use" );
-			// open the crate
-			Use(info.GetAttacker(), info.GetAttacker(), USE_TOGGLE, 0.0f);
+			if (weapon && !stricmp(weapon->GetName(), "weapon_crowbar"))
+			{
+				// play the normal use sound
+				player->EmitSound( "HL2Player.Use" );
+				// open the crate
+				Use(info.GetAttacker(), info.GetAttacker(), USE_TOGGLE, 0.0f);
+			}
 		}
 	}
 
@@ -897,9 +895,10 @@ void CItem_AmmoCrate::HandleAnimEvent( animevent_t *pEvent )
 {
 	if ( pEvent->event == AE_AMMOCRATE_PICKUP_AMMO )
 	{
+		//DevWarning(2, "Remaining Uses: %i, AmmoMult: %f\n", m_nUseTimesRemaining, m_flAmmoMult  );
 		if ( m_hActivator )
 		{
-			if ( m_pGiveWeapon[m_nAmmoType] && !m_hActivator->Weapon_OwnsThisType( m_pGiveWeapon[m_nAmmoType] ) )
+			if ( m_pGiveWeapon[m_nAmmoType] && !m_hActivator->Weapon_OwnsThisType( m_pGiveWeapon[m_nAmmoType] ) && m_nUseTimesRemaining != 0 )
 			{
 				CBaseEntity *pEntity = CreateEntityByName( m_pGiveWeapon[m_nAmmoType] );
 				CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon*>(pEntity);
@@ -909,6 +908,25 @@ void CItem_AmmoCrate::HandleAnimEvent( animevent_t *pEvent )
 					pWeapon->m_iPrimaryAmmoType = 0;
 					pWeapon->m_iSecondaryAmmoType = 0;
 					pWeapon->Spawn();
+					if ( m_nUseTimesRemaining != -1 )
+					{
+						//DevWarning(2, "Remaining Uses: %i, AmmoMult: %f\n", m_nUseTimesRemaining, m_flAmmoMult  );
+						m_nUseTimesRemainingTemp = m_nUseTimesRemaining - 1;
+						if (m_nUseTimesRemainingTemp == -1 && m_nUseTimesRemaining != -1)
+						{
+							m_nUseTimesRemaining = 0;
+						}
+						else
+						{
+							m_nUseTimesRemaining = m_nUseTimesRemainingTemp;
+						}
+
+						if (m_nUseTimesRemaining < -1)
+						{
+							m_nUseTimesRemaining = -1;
+						}
+					}
+	
 					if ( !m_hActivator->BumpWeapon( pWeapon ) )
 					{
 						UTIL_Remove( pEntity );
@@ -919,12 +937,27 @@ void CItem_AmmoCrate::HandleAnimEvent( animevent_t *pEvent )
 					}
 				}
 			}
-
-			if ( m_hActivator->GiveAmmo( m_nAmmoAmounts[m_nAmmoType], m_nAmmoIndex ) != 0 )
+			if ( m_nUseTimesRemaining != 0 )
 			{
+				if ( m_hActivator->GiveAmmo( m_nAmmoAmounts[m_nAmmoType] * m_flAmmoMult, m_nAmmoIndex ) != 0 )
+				{
+					if ( m_nUseTimesRemaining != -1 )
+						{
+							//DevWarning( 2, "Remaining Uses: %i, AmmoMult: %f\n", m_nUseTimesRemaining, m_flAmmoMult  );
+							m_nUseTimesRemainingTemp = m_nUseTimesRemaining - 1;
+							if (m_nUseTimesRemainingTemp == -1 && m_nUseTimesRemaining != -1)
+							{
+								m_nUseTimesRemaining = 0;
+							}
+							else
+							{
+								m_nUseTimesRemaining = m_nUseTimesRemainingTemp;
+							}
+					}
 				SetBodygroup( 1, false );
 			}
 			m_hActivator = NULL;
+		}
 		}
 		return;
 	}
@@ -968,7 +1001,10 @@ void CItem_AmmoCrate::CrateThink( void )
 			// but setting Think to NULL will cause this to never have
 			// StudioFrameAdvance called. What are the consequences of that?
 			ResetSequence( LookupSequence( "Idle" ) );
-			SetBodygroup( 1, true );
+			if ( m_nUseTimesRemaining && (m_nUseTimesRemaining >= 1 || m_nUseTimesRemaining == -1))
+			{
+				SetBodygroup( 1, true );
+			}
 		}
 	}
 }
@@ -981,4 +1017,75 @@ void CItem_AmmoCrate::InputKill( inputdata_t &data )
 {
 	UTIL_Remove( this );
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &data - 
+//-----------------------------------------------------------------------------
+void CItem_AmmoCrate::InputSetAmmoMult( inputdata_t &inputdata )
+{
+	float m_flTempAmmoMult = inputdata.value.Float();
+	if ( m_flTempAmmoMult > 0.0 && m_flTempAmmoMult <= 50.0 )
+	{
+		m_flAmmoMult = m_flTempAmmoMult;
+	}
+	else
+	{
+		m_flAmmoMult = 1.0;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &data - 
+//-----------------------------------------------------------------------------
+void CItem_AmmoCrate::InputSetRemaining( inputdata_t &inputdata )
+{
+	int m_nTempRemaining = inputdata.value.Int();
+	if ( m_nTempRemaining >= -1 && m_nTempRemaining <= 2 )
+	{
+		m_nUseTimesRemaining = m_nTempRemaining;
+		if ( m_nUseTimesRemaining != 0 )
+		{
+			SetBodygroup( 1, true );
+		}
+		else
+		{
+			SetBodygroup( 1, false );
+		}
+	}
+	else
+	{
+		m_nUseTimesRemaining = -1;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : &data - 
+//-----------------------------------------------------------------------------
+void CItem_AmmoCrate::InputAddToRemaining( inputdata_t &inputdata )
+{
+	int m_nTempRemaining = inputdata.value.Int();
+	if ( m_nTempRemaining != 0 )
+	{
+		if ( m_nUseTimesRemaining + m_nTempRemaining < 0 )
+		{
+			m_nUseTimesRemaining = 0;
+		}
+		else
+		{
+			m_nUseTimesRemaining = m_nUseTimesRemaining + m_nTempRemaining;
+		}
+		if ( m_nUseTimesRemaining != 0 )
+		{
+			SetBodygroup( 1, true );
+		}
+		else
+		{
+			SetBodygroup( 1, false );
+		}
+	}
+}
+
 

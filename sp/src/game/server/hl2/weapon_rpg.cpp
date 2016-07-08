@@ -1041,6 +1041,16 @@ void CAPCMissile::IgniteDelay( void )
 	AddSolidFlags( FSOLID_NOT_SOLID );
 }
 
+void CAPCMissile::IgniteDelayTime( float flIDelay )
+{
+	m_flIgnitionTime = gpGlobals->curtime + flIDelay;
+
+	SetThink( &CAPCMissile::BeginSeekThink );
+	SetNextThink( m_flIgnitionTime );
+	Init();
+	AddSolidFlags( FSOLID_NOT_SOLID );
+}
+
 void CAPCMissile::AugerDelay( float flDelay )
 {
 	m_flIgnitionTime = gpGlobals->curtime;
@@ -1420,6 +1430,7 @@ CWeaponRPG::CWeaponRPG()
 	m_bInitialStateUpdate= false;
 	m_bHideGuiding = false;
 	m_bGuiding = false;
+	m_bCanBeDropped = false;
 
 	m_fMinRange1 = m_fMinRange2 = 40*12;
 	m_fMaxRange1 = m_fMaxRange2 = 500*12;
@@ -1688,7 +1699,7 @@ void CWeaponRPG::SuppressGuiding( bool state )
 
 	if ( m_hLaserDot == NULL )
 	{
-		StartGuiding();
+		//StartGuiding();
 
 		//STILL!?
 		if ( m_hLaserDot == NULL )
@@ -1711,7 +1722,7 @@ void CWeaponRPG::SuppressGuiding( bool state )
 //-----------------------------------------------------------------------------
 bool CWeaponRPG::Lower( void )
 {
-	if ( m_hMissile != NULL )
+	if ( m_hMissile != NULL && IsGuiding() )
 		return false;
 
 	return BaseClass::Lower();
@@ -1748,13 +1759,13 @@ void CWeaponRPG::ItemPostFrame( void )
 
 	//Player has toggled guidance state
 	//Adrian: Players are not allowed to remove the laser guide in single player anymore, bye!
-	if ( g_pGameRules->IsMultiplayer() == true )
-	{
+//	if ( g_pGameRules->IsMultiplayer() == true )
+//	{
 		if ( pPlayer->m_afButtonPressed & IN_ATTACK2 )
 		{
 			ToggleGuiding();
 		}
-	}
+//	}
 
 	//Move the laser
 	UpdateLaserPosition();
@@ -1840,7 +1851,7 @@ bool CWeaponRPG::Deploy( void )
 bool CWeaponRPG::Holster( CBaseCombatWeapon *pSwitchingTo )
 {
 	//Can't have an active missile out
-	if ( m_hMissile != NULL )
+	if ( m_hMissile != NULL && IsGuiding() )
 		return false;
 
 	StopGuiding();
@@ -2011,6 +2022,9 @@ bool CWeaponRPG::Reload( void )
 
 	if ( pOwner->GetAmmoCount(m_iPrimaryAmmoType) <= 0 )
 		return false;
+
+	if ( pOwner->GetActiveWeapon() != this )
+	return false;
 
 	WeaponSound( RELOAD );
 	

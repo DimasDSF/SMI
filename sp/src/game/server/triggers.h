@@ -33,7 +33,8 @@ enum
 	SF_TRIG_TOUCH_DEBRIS 					= 0x400,	// Will touch physics debris objects
 	SF_TRIGGER_ONLY_NPCS_IN_VEHICLES		= 0X800,	// *if* NPCs can fire this trigger, only NPCs in vehicles do so (respects player ally flag too)
 	SF_TRIGGER_DISALLOW_BOTS                = 0x1000,   // Bots are not allowed to fire this trigger
-	SF_TRIGGER_ALLOW_PICKUPS                = 0x4000,
+	SF_TRIGGER_ALLOW_PICKUPS                = 0x4000,	// Weapons and items are allowed to fire this trigger
+	SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES	= 0x8000,	// Only Npcs out of vehicles are allowed to fire this trigger
 };
 
 // DVS TODO: get rid of CBaseToggle

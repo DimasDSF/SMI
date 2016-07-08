@@ -119,6 +119,8 @@ BEGIN_DATADESC( CNPC_Alyx )
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN,	"GiveEMP",				InputGiveEMP ),
 	DEFINE_INPUTFUNC( FIELD_VOID,		"VehiclePunted",		InputVehiclePunted ),
 	DEFINE_INPUTFUNC( FIELD_VOID,		"OutsideTransition",	InputOutsideTransition ),
+	DEFINE_INPUTFUNC( FIELD_STRING,		"SetModel",				InputSetModel ),
+	DEFINE_INPUTFUNC( FIELD_STRING,		"ZapTarget",			InputZapTarget ),
 
 	DEFINE_OUTPUT( m_OnFinishInteractWithObject, "OnFinishInteractWithObject" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -453,6 +455,23 @@ void CNPC_Alyx::SelectModel()
 	}
 }
 
+void CNPC_Alyx::InputSetModel(inputdata_t &inputdata)
+{
+	const char *s_sAlyxModel = inputdata.value.String();
+	SetModelName( AllocPooledString( s_sAlyxModel ) );
+	PrecacheModel( STRING( GetModelName() ) );
+	UTIL_SetModel( this, STRING(GetModelName()) );
+	if (!GetMoveParent())
+	{
+		SetupAlyxWithoutParent();
+		SetupVPhysicsHull();
+	}
+	SetHullType(HULL_HUMAN);
+	SetHullSizeNormal();
+	UTIL_SetSize(this, NAI_Hull::Mins(HULL_HUMAN), NAI_Hull::Maxs(HULL_HUMAN));
+	//SetModel( STRING( GetModelName() ) );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -520,6 +539,21 @@ void CNPC_Alyx::InputGiveEMP( inputdata_t &inputdata )
 		}
 	}
 }
+
+
+//-----------------------------------------------------------------------------
+// Purpose: ZapTarget
+//-----------------------------------------------------------------------------
+
+void CNPC_Alyx::InputZapTarget( inputdata_t &inputdata )
+{
+	CBaseEntity *pTarget = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if (pTarget)
+	{
+		EmpZapTarget( pTarget );
+	}
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose:

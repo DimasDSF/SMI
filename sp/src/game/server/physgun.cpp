@@ -18,6 +18,7 @@
 #include "engine/IEngineSound.h"
 #include "ndebugoverlay.h"
 #include "physics_saverestore.h"
+#include "physics_prop_ragdoll.h"
 #include "player_pickup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 
@@ -46,7 +47,7 @@ public:
 	~CGravityPellet();
 	void Precache()
 	{
-		SetModelName( MAKE_STRING( "models/weapons/glueblob.mdl" ) );
+		SetModelName( MAKE_STRING( "models/weapons/w_grenade.mdl" ) );
 		PrecacheModel( STRING( GetModelName() ) );
 		BaseClass::Precache();
 	}
@@ -369,7 +370,7 @@ IMotionEvent::simresult_e CGravControllerPoint::Simulate( IPhysicsMotionControll
 				float angleDiff = angleDest - angleSrc;
 				angleDiff = RAD2DEG(angleDiff);
 				axis += m_targetAlignNormal * angleDiff;
-				//world = m_targetPosition;// + rotDest * (1-ratio);
+				world = m_targetPosition;// + rotDest * (1-ratio);
 //				NDebugOverlay::Line( worldRotCenter, worldRotCenter-m_targetAlignNormal*50, 255, 0, 0, false, 0.1 );
 //				NDebugOverlay::Line( worldRotCenter, worldRotCenter+tangent*50, 0, 255, 0, false, 0.1 );
 //				NDebugOverlay::Line( worldRotCenter, worldRotCenter+binormal*50, 0, 0, 255, false, 0.1 );
@@ -640,7 +641,7 @@ CWeaponGravityGun::CWeaponGravityGun()
 void CWeaponGravityGun::Spawn( )
 {
 	BaseClass::Spawn();
-//	SetModel( GetWorldModel() );
+	SetModel( GetWorldModel() );
 
 	FallInit();
 }
@@ -774,7 +775,7 @@ void CWeaponGravityGun::EffectUpdate( void )
 
 		// Send the object a physics damage message (0 damage). Some objects interpret this 
 		// as something else being in control of their physics temporarily.
-		pObject->TakeDamage( CTakeDamageInfo( this, pOwner, 0, DMG_PHYSGUN ) );
+		//pObject->TakeDamage( CTakeDamageInfo( this, pOwner, 0, DMG_PHYSGUN ) );
 
 		Vector newPosition = start + forward * m_distance;
 		// 24 is a little larger than 16 * sqrt(2) (extent of player bbox)
@@ -841,6 +842,7 @@ void CWeaponGravityGun::EffectUpdate( void )
 	{
 		m_gravCallback.ClearAutoAlign();
 	}
+	    NetworkStateChanged();
 }
 
 void CWeaponGravityGun::SoundCreate( void )
@@ -1421,103 +1423,3 @@ bool CWeaponGravityGun::Reload( void )
 
 	return false;
 }
-
-#define NUM_COLLISION_TESTS 2500
-void CC_CollisionTest( const CCommand &args )
-{
-	if ( !physenv )
-		return;
-
-	Msg( "Testing collision system\n" );
-	int i;
-	CBaseEntity *pSpot = gEntList.FindEntityByClassname( NULL, "info_player_start");
-	Vector start = pSpot->GetAbsOrigin();
-	static Vector *targets = NULL;
-	static bool first = true;
-	static float test[2] = {1,1};
-	if ( first )
-	{
-		targets = new Vector[NUM_COLLISION_TESTS];
-		float radius = 0;
-		float theta = 0;
-		float phi = 0;
-		for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
-		{
-			radius += NUM_COLLISION_TESTS * 123.123;
-			radius = fabs(fmod(radius, 128));
-			theta += NUM_COLLISION_TESTS * 76.76;
-			theta = fabs(fmod(theta, DEG2RAD(360)));
-			phi += NUM_COLLISION_TESTS * 1997.99;
-			phi = fabs(fmod(phi, DEG2RAD(180)));
-			
-			float st, ct, sp, cp;
-			SinCos( theta, &st, &ct );
-			SinCos( phi, &sp, &cp );
-
-			targets[i].x = radius * ct * sp;
-			targets[i].y = radius * st * sp;
-			targets[i].z = radius * cp;
-			
-			// make the trace 1024 units long
-			Vector dir = targets[i] - start;
-			VectorNormalize(dir);
-			targets[i] = start + dir * 1024;
-		}
-		first = false;
-	}
-
-	//Vector results[NUM_COLLISION_TESTS];
-
-	int testType = 0;
-	if ( args.ArgC() >= 2 )
-	{
-		testType = atoi( args[1] );
-	}
-	float duration = 0;
-	Vector size[2];
-	size[0].Init(0,0,0);
-	size[1].Init(16,16,16);
-	unsigned int dots = 0;
-
-	for ( int j = 0; j < 2; j++ )
-	{
-		float startTime = engine->Time();
-		if ( testType == 1 )
-		{
-			const CPhysCollide *pCollide = g_PhysWorldObject->GetCollide();
-			trace_t tr;
-
-			for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
-			{
-				physcollision->TraceBox( start, targets[i], -size[j], size[j], pCollide, vec3_origin, vec3_angle, &tr );
-				dots += physcollision->ReadStat(0);
-				//results[i] = tr.endpos;
-			}
-		}
-		else
-		{
-			testType = 0;
-			CBaseEntity *pWorld = GetContainingEntity( INDEXENT(0) );
-			trace_t tr;
-
-			for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
-			{
-				UTIL_TraceModel( start, targets[i], -size[j], size[j], pWorld, COLLISION_GROUP_NONE, &tr );
-				//results[i] = tr.endpos;
-			}
-		}
-
-		duration += engine->Time() - startTime;
-	}
-	test[testType] = duration;
-	Msg("%d collisions in %.2f ms (%u dots)\n", NUM_COLLISION_TESTS, duration*1000, dots );
-	Msg("Current speed ratio: %.2fX BSP:JGJK\n", test[1] / test[0] );
-#if 0
-	int red = 255, green = 0, blue = 0;
-	for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
-	{
-		NDebugOverlay::Line( start, results[i], red, green, blue, false, 2 );
-	}
-#endif
-}
-static ConCommand collision_test("collision_test", CC_CollisionTest, "Tests collision system", FCVAR_CHEAT );

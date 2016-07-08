@@ -96,12 +96,14 @@ public:
 	void StartScript( void );
 	void FireScriptEvent( int nEvent );
 	void OnBeginSequence( void );
+	void OnInPosition( void );
 
 	void SetTarget( CBaseEntity *pTarget ) { m_hTargetEnt = pTarget; };
 	CBaseEntity *GetTarget( void ) { return m_hTargetEnt; };
 
 	// Input handlers
 	void InputBeginSequence( inputdata_t &inputdata );
+	void InputSetActor( inputdata_t &inputdata );
 	void InputCancelSequence( inputdata_t &inputdata );
 	void InputMoveToPosition( inputdata_t &inputdata );
 
@@ -156,19 +158,23 @@ private:
 	string_t m_iszPostIdle;		// String index for idle animation to play before playing the action anim
 	string_t m_iszCustomMove;	// String index for custom movement animation
 	string_t m_iszNextScript;	// Name of the script to run immediately after this one.
-	string_t m_iszEntity;		// Entity that is wanted for this script
+	string_t m_iszEntity;		// Entity that is wanted for this script (string_t)
 
 	int m_fMoveTo;
 	bool m_bIsPlayingEntry;
+	bool m_bIsPreIdle;
+	bool m_bIsPlaying;
 	bool m_bLoopActionSequence;
 	bool m_bSynchPostIdles;
 	bool m_bIgnoreGravity;
 	bool m_bDisableNPCCollisions;	// Used when characters must interpenetrate while riding on elevators, trains, etc.
 
 	float m_flRadius;			// Range to search for an NPC to possess.
-	float m_flRepeat;			// Repeat rate
+	float m_flRepeat;			// Repeat rate 
 
 	int m_iDelay;					// A counter indicating how many scripts are NOT ready to start.
+
+	bool m_bProtectActor;
 
 	bool m_bDelayed;				// This moderately hacky hack ensures that we don't calls to DelayStart(true) or DelayStart(false)
 									// twice in succession. This is necessary because we didn't want to remove the call to DelayStart(true)
@@ -206,6 +212,7 @@ private:
 	bool	m_bTargetWasAsleep;
 
 	COutputEvent m_OnBeginSequence;
+	COutputEvent m_OnInPosition;
 	COutputEvent m_OnEndSequence;
 	COutputEvent m_OnPostIdleEndSequence;
 	COutputEvent m_OnCancelSequence;

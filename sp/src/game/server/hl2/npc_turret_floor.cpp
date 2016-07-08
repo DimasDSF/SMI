@@ -80,6 +80,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_FIELD( m_bActive,		FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bBlinkState,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bEnabled,		FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bSendsShotOutput,	FIELD_BOOLEAN, "SendsShotOutput" ),
 	DEFINE_FIELD( m_bNoAlarmSounds,	FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_flShotTime,	FIELD_TIME ),
@@ -111,6 +112,9 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_FIELD( m_bHackedByAlyx, FIELD_BOOLEAN ),
 
 	DEFINE_KEYFIELD( m_iKeySkin, FIELD_INTEGER, "SkinNumber" ),
+	DEFINE_KEYFIELD( m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed" ),
+	DEFINE_KEYFIELD( m_fForceTargetDelay, FIELD_FLOAT, "DelayOfForceTarget" ),
+	DEFINE_KEYFIELD( m_flMaxTargetRange, FIELD_FLOAT, "TurretMaxRange" ),
 	
 	DEFINE_THINKFUNC( Retire ),
 	DEFINE_THINKFUNC( Deploy ),
@@ -133,12 +137,16 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_INPUTFUNC( FIELD_VOID, "DepleteAmmo", InputDepleteAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "RestoreAmmo", InputRestoreAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "SelfDestruct", InputSelfDestruct ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "ForceSetTarget", InputForceSetTarget),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ForceResetTarget", InputForceResetTarget),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
 
 	DEFINE_OUTPUT( m_OnDeploy, "OnDeploy" ),
 	DEFINE_OUTPUT( m_OnRetire, "OnRetire" ),
 	DEFINE_OUTPUT( m_OnTipped, "OnTipped" ),
 	DEFINE_OUTPUT( m_OnPhysGunPickup, "OnPhysGunPickup" ),
 	DEFINE_OUTPUT( m_OnPhysGunDrop, "OnPhysGunDrop" ),
+	DEFINE_OUTPUT( m_OnShotFired, "OnShotFired" ),
 
 	DEFINE_BASENPCINTERACTABLE_DATADESC(),
 
@@ -148,6 +156,7 @@ END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( npc_turret_floor, CNPC_FloorTurret );
 
+int forcetargettimefloorturret;
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
@@ -164,10 +173,12 @@ CNPC_FloorTurret::CNPC_FloorTurret( void ) :
 	m_flPlayerDropTime( 0.0f ),
 	m_flShotTime( 0.0f ),
 	m_flLastSight( 0.0f ),
+	m_flTurnSpeed( 360.0f ),
 	m_bBlinkState( false ),
 	m_flThrashTime( 0.0f ),
 	m_pMotionController( NULL ),
 	m_bEnabled( false ),
+	m_bSendsShotOutput( false ),
 	m_bSelfDestructing( false )
 {
 	m_vecGoalAngles.Init();
@@ -621,8 +632,11 @@ bool CNPC_FloorTurret::HandleInteraction(int interactionType, void *data, CBaseC
 //-----------------------------------------------------------------------------
 float CNPC_FloorTurret::MaxYawSpeed( void )
 {
-	//TODO: Scale by difficulty?
-	return 360.0f;
+	if ( m_flTurnSpeed <= 0.0 || m_flTurnSpeed > 360.0)
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	return m_flTurnSpeed;
 }
 
 //-----------------------------------------------------------------------------
@@ -635,6 +649,15 @@ bool CNPC_FloorTurret::WasJustDroppedByPlayer( void )
 		return true;
 
 	return false;
+}
+
+float CNPC_FloorTurret::MaxTargetRange( void )
+{
+	if ( m_flMaxTargetRange <= 0.0 || m_flMaxTargetRange > 3000.0)
+	{
+		m_flMaxTargetRange = 1500.0;
+	}
+	return m_flMaxTargetRange;
 }
 
 //-----------------------------------------------------------------------------
@@ -912,7 +935,7 @@ void CNPC_FloorTurret::ActiveThink( void )
 	}
 
 	//Current enemy is not visible
-	if ( ( bEnemyVisible == false ) || ( flDistToEnemy > FLOOR_TURRET_RANGE ))
+	if ( ( bEnemyVisible == false ) || ( flDistToEnemy > MaxTargetRange() ))
 	{
 		m_flLastSight = gpGlobals->curtime + 2.0f;
 
@@ -1162,6 +1185,10 @@ void CNPC_FloorTurret::Shoot( const Vector &vecSrc, const Vector &vecDirToEnemy,
 	FireBullets( info );
 	EmitSound( "NPC_FloorTurret.ShotSounds", m_ShotSounds );
 	DoMuzzleFlash();
+	if ( m_bSendsShotOutput )
+	{
+		m_OnShotFired.FireOutput( NULL, this );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1421,7 +1448,7 @@ void CNPC_FloorTurret::HackFindEnemy( void )
 	// dead enemies are cleared out before new ones are added.
 	GetEnemies()->RefreshMemories();
 
-	GetSenses()->Look( FLOOR_TURRET_RANGE );
+	GetSenses()->Look( MaxTargetRange() );
 	SetEnemy( BestEnemy() );
 }
 
@@ -1668,6 +1695,143 @@ void CNPC_FloorTurret::Ping( void )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Forcing turret to reset its attack target
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputForceResetTarget( inputdata_t &inputdata )
+{
+	ResetForcedRelationships( m_hForcedTarget );
+	SetEnemy( NULL );
+	ClearEnemyMemory();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Forcing turret to attack a specific target
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputForceSetTarget( inputdata_t &inputdata )
+{
+	if ( forcetargettimefloorturret == 0 )
+	{
+		forcetargettimefloorturret = gpGlobals->curtime;
+		CBaseEntity *pFTarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+		if ( pFTarget == NULL )
+		{
+			CBaseEntity *pFTarget = gEntList.FindEntityByClassname( NULL, inputdata.value.String() );
+			if ( pFTarget == NULL )
+			{
+				DevMsg( 2,  "Unable to set target to this'\n", inputdata.value.String());
+			}
+		}
+		if ( pFTarget )
+		{
+			Vector vecDelta = pFTarget->GetAbsOrigin() - GetAbsOrigin();
+			float flDist = vecDelta.Length();
+			if ( (flDist > m_flMaxTargetRange) || !FInViewCone(pFTarget) )
+			{
+				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
+			}
+			else
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
+		}
+	}
+	else if (forcetargettimefloorturret != 0 && ( forcetargettimefloorturret + m_fForceTargetDelay <= gpGlobals->curtime ))
+	{
+		forcetargettimefloorturret = gpGlobals->curtime;
+		CBaseEntity *pFTarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+		if ( pFTarget == NULL )
+		{
+			CBaseEntity *pFTarget = gEntList.FindEntityByClassname( NULL, inputdata.value.String() );
+			if ( pFTarget == NULL )
+			{
+				DevMsg( 2,  "Unable to set target to this'\n", inputdata.value.String());
+			}
+		}
+		if ( pFTarget )
+		{
+			Vector vecDelta = pFTarget->GetAbsOrigin() - GetAbsOrigin();
+			float flDist = vecDelta.Length();
+			if ( (flDist > m_flMaxTargetRange) || !FInViewCone(pFTarget) )
+			{
+				DevMsg( 2,  "This target is Out Of Range'\n", inputdata.value.String());
+			}
+			else
+			{
+				if ( m_hForcedTarget )
+				{
+					m_hPrevForcedTarget = m_hForcedTarget;
+				}
+				else
+				{
+					m_hPrevForcedTarget = NULL;
+				}
+				m_hForcedTarget = pFTarget;
+				ApplyForcedRelationships( m_hPrevForcedTarget, m_hForcedTarget );
+			}
+		}
+	}
+	else if (forcetargettimefloorturret != 0 && ( forcetargettimefloorturret + m_fForceTargetDelay >= gpGlobals->curtime ))
+	{
+		DevWarning( 2, "Turret refused changing target because it already is forced to a target less then a specified delay before\n" );
+	}
+	else
+	{
+		DevWarning( 2, "Warning refused to change target due to unknown error" );
+	}
+}
+
+void CNPC_FloorTurret::ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( PrevTarget != NULL )
+	{
+		turret->AddEntityRelationship( PrevTarget, SavedForcedDisposition, 0 );
+	}
+	SavedForcedDisposition = turret->IRelationType( CurTarget );
+	turret->AddEntityRelationship( CurTarget, D_HT, 0 );
+	SetEnemy( CurTarget );
+}
+
+void CNPC_FloorTurret::ResetForcedRelationships( CBaseEntity *CurTarget )
+{
+	CAI_BaseNPC *turret = this;
+	if ( SavedForcedDisposition )
+	{
+		turret->AddEntityRelationship( CurTarget, SavedForcedDisposition, 0 );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Attack Range
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputSetMaxRange( inputdata_t &inputdata )
+{
+	float m_flTempMaxRange;
+	m_flTempMaxRange = inputdata.value.Float();
+	if ( m_flTempMaxRange <= 0.0 )
+	{
+		m_flMaxTargetRange = 500.0;
+	}
+	else if ( m_flTempMaxRange > 3000.0 )
+	{
+		m_flMaxTargetRange = 3000.0;
+	}
+	else
+	{
+		m_flMaxTargetRange = m_flTempMaxRange;
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Toggle the turret's state
 //-----------------------------------------------------------------------------
 void CNPC_FloorTurret::Toggle( void )
@@ -1733,6 +1897,28 @@ void CNPC_FloorTurret::Disable( void )
 	}
 	else
 		SetThink( &CNPC_FloorTurret::DisabledThink );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_FloorTurret::InputSetTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetTurnSpeed;
+	m_flTempSetTurnSpeed = inputdata.value.Float();
+//	m_flTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetTurnSpeed <= 0.0 )
+	{
+		m_flTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetTurnSpeed > 360.0 )
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flTurnSpeed = m_flTempSetTurnSpeed;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1939,7 +2125,7 @@ float CNPC_FloorTurret::GetAttackDamageScale( CBaseEntity *pVictim )
 //-----------------------------------------------------------------------------
 Vector CNPC_FloorTurret::GetAttackSpread( CBaseCombatWeapon *pWeapon, CBaseEntity *pTarget ) 
 {
-	WeaponProficiency_t weaponProficiency = WEAPON_PROFICIENCY_AVERAGE;
+	WeaponProficiency_t weaponProficiency = WEAPON_PROFICIENCY_GOOD;
 
 	// Switch our weapon proficiency based upon our target
 	if ( pTarget )

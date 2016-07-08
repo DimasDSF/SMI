@@ -137,7 +137,7 @@ public:
 
 	void			NotifyDeadFriend( CBaseEntity* pFriend );
 
-	virtual float	HearingSensitivity( void ) { return 1.0; };
+	virtual float	HearingSensitivity( void ) { return 3.0; };
 	int				GetSoundInterests( void );
 	virtual bool	QueryHearSound( CSound *pSound );
 
@@ -181,6 +181,8 @@ private:
 		SCHED_COMBINE_TAKECOVER_FAILED,
 		SCHED_COMBINE_GRENADE_AND_RELOAD,
 		SCHED_COMBINE_PATROL,
+		SCHED_COMBINE_MOVETO_PICKUP_GRENADES,
+		SCHED_COMBINE_PICKUP_GRENADES,
 		SCHED_COMBINE_BUGBAIT_DISTRACTION,
 		SCHED_COMBINE_CHARGE_TURRET,
 		SCHED_COMBINE_DROP_GRENADE,
@@ -204,6 +206,7 @@ private:
 		TASK_COMBINE_IGNORE_ATTACKS,
 		TASK_COMBINE_SIGNAL_BEST_SOUND,
 		TASK_COMBINE_DEFER_SQUAD_GRENADES,
+		TASK_COMBINE_MOVETO_PICKUP_GRENADES,
 		TASK_COMBINE_CHASE_ENEMY_CONTINUOUSLY,
 		TASK_COMBINE_DIE_INSTANTLY,
 		TASK_COMBINE_PLAY_SEQUENCE_FACE_ALTFIRE_TARGET,
@@ -258,9 +261,9 @@ private:
 private:
 	int				m_nKickDamage;
 	Vector			m_vecTossVelocity;
-	EHANDLE			m_hForcedGrenadeTarget;
 	bool			m_bShouldPatrol;
 	bool			m_bFirstEncounter;// only put on the handsign show in the squad's first encounter.
+	float			m_flAlertRelease;
 
 	// Time Variables
 	float			m_flNextPainSoundTime;
@@ -288,6 +291,8 @@ public:
 	int				m_iLastAnimEventHandled;
 	bool			m_fIsElite;
 	Vector			m_vecAltFireTarget;
+	EHANDLE			m_hForcedGrenadeTarget;
+	EHANDLE			m_hAmmoCrate;
 
 	int				m_iTacticalVariant;
 	int				m_iPathfindingVariant;

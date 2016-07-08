@@ -12,7 +12,9 @@
 #include "physics_saverestore.h"
 #include "datacache/imdlcache.h"
 #include "activitylist.h"
-
+#ifndef CLIENT_DLL
+	#include "player.h"
+#endif
 // NVNT start extra includes
 #include "haptics/haptic_utils.h"
 #ifdef CLIENT_DLL
@@ -71,12 +73,17 @@ CBaseCombatWeapon::CBaseCombatWeapon()
 	m_fMaxRange1		= 1024;
 	m_fMaxRange2		= 1024;
 
+	m_bCanBeDropped	= true; //Can be Dropped (All weapons By Default)
+	m_bHasEmptyAnims = false;
+
 	m_bReloadsSingly	= false;
 
 	// Defaults to zero
 	m_nViewModelIndex	= 0;
 
 	m_bFlipViewModel	= false;
+
+	m_bWeaponCanFire = true;
 
 #if defined( CLIENT_DLL )
 	m_iState = m_iOldState = WEAPON_NOT_CARRIED;
@@ -299,6 +306,86 @@ void CBaseCombatWeapon::Precache( void )
 	//	Remove( );	//don't remove, this gets released soon!
 	}
 }
+
+#ifdef CLIENT_DLL
+#define CShowWeapon C_ShowWeapon
+#endif
+class CShowWeapon : public CAutoGameSystemPerFrame
+{
+public:
+	bool Init()
+	{
+		ClearShowWeapon();
+		return true;
+	}
+	void FrameUpdatePreEntityThink()
+	{
+		if(m_pWeapon&&m_flTime<gpGlobals->curtime)
+		{
+			ShowWeapon();
+		}
+	}
+	void Update(float frametime)
+	{
+		FrameUpdatePreEntityThink(); // This adds compatibility to this gamesystem on the client
+	}
+	void SetShowWeapon(CBaseCombatWeapon *pWeapon, int iActivity, float delta)
+	{
+		m_pWeapon = pWeapon;
+		m_iActivity = iActivity;
+		if(delta==0)
+		{
+			ShowWeapon();
+		}
+		else
+		{
+			m_flTime = gpGlobals->curtime + delta;
+		}
+	}
+	void ClearShowWeapon()
+	{
+		m_pWeapon = NULL;
+	}
+private:
+	void ShowWeapon()
+	{
+		Assert(m_pWeapon);
+		m_pWeapon->SetWeaponVisible(true);
+		if(m_pWeapon->GetOwner())
+		{
+			CBaseCombatWeapon *pLastWeapon = m_pWeapon->GetOwner()->GetActiveWeapon();
+			m_pWeapon->GetOwner()->m_hActiveWeapon = m_pWeapon;
+			CBasePlayer *pOwner = ToBasePlayer( m_pWeapon->GetOwner() );
+			if ( pOwner )
+			{
+				m_pWeapon->SetViewModel();
+				m_pWeapon->SendWeaponAnim( m_iActivity );
+ 
+				pOwner->SetNextAttack( gpGlobals->curtime + m_pWeapon->SequenceDuration() );
+ 
+				if ( pLastWeapon && pOwner->Weapon_ShouldSetLast( pLastWeapon, m_pWeapon ) )
+				{
+					pOwner->Weapon_SetLast( pLastWeapon->GetLastWeapon() );
+				}
+ 
+				CBaseViewModel *pViewModel = pOwner->GetViewModel();
+				Assert( pViewModel );
+				if ( pViewModel )
+					pViewModel->RemoveEffects( EF_NODRAW );
+				pOwner->ResetAutoaim( );
+			}
+		}
+ 
+		// Can't shoot again until we've finished deploying
+		m_pWeapon->m_flNextSecondaryAttack = m_pWeapon->m_flNextPrimaryAttack	= gpGlobals->curtime + m_pWeapon->SequenceDuration();
+ 
+		ClearShowWeapon();
+	}
+	CBaseCombatWeapon *m_pWeapon;
+	int m_iActivity;
+	float m_flTime;
+};
+static CShowWeapon g_ShowWeapon;
 
 //-----------------------------------------------------------------------------
 // Purpose: Get my data in the file weapon info array
@@ -649,6 +736,20 @@ void CBaseCombatWeapon::SetWeaponIdleTime( float time )
 float CBaseCombatWeapon::GetWeaponIdleTime( void )
 {
 	return m_flTimeWeaponIdle;
+}
+
+void CBaseCombatWeapon::InputAllowPlayerPickup( inputdata_t &inputdata )
+{
+#if !defined( CLIENT_DLL )
+	RemoveSpawnFlags( SF_WEAPON_NO_PLAYER_PICKUP );
+#endif
+}
+
+void CBaseCombatWeapon::InputDisallowPlayerPickup( inputdata_t &inputdata )
+{
+#if !defined( CLIENT_DLL )
+	AddSpawnFlags( 	SF_WEAPON_NO_PLAYER_PICKUP );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1342,13 +1443,18 @@ bool CBaseCombatWeapon::IsWeaponVisible( void )
 //-----------------------------------------------------------------------------
 bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 {
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	Assert( pOwner );
+	//CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	//Assert( pOwner );
 
 	m_bFireOnEmpty = false;
 
+	if (GetWeaponFlags() & ITEM_FLAG_EXHAUSTIBLE)
+	{
+		return true;
+	}
+
 	// If we don't have any ammo, switch to the next best weapon
-	if ( !HasAnyAmmo() && m_flNextPrimaryAttack < gpGlobals->curtime && m_flNextSecondaryAttack < gpGlobals->curtime )
+	/*if ( !HasAnyAmmo() && m_flNextPrimaryAttack < gpGlobals->curtime && m_flNextSecondaryAttack < gpGlobals->curtime )
 	{
 		// weapon isn't useable, switch.
 		if ( ( (GetWeaponFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) == false ) && ( g_pGameRules->SwitchToNextBestWeapon( pOwner, this ) ) )
@@ -1370,7 +1476,7 @@ bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 			if ( Reload() )
 				return true;
 		}
-	}
+	}*/
 
 	return false;
 }
@@ -1386,49 +1492,58 @@ bool CBaseCombatWeapon::ReloadOrSwitchWeapons( void )
 bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, int iActivity, char *szAnimExt )
 {
 	// Msg( "deploy %s at %f\n", GetClassname(), gpGlobals->curtime );
-
+ 
 	// Weapons that don't autoswitch away when they run out of ammo 
 	// can still be deployed when they have no ammo.
 	if ( !HasAnyAmmo() && AllowsAutoSwitchFrom() )
 		return false;
 
-	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
-	if ( pOwner )
+	float flSequenceDuration = 0.0f;
+	if(GetOwner())
 	{
-		// Dead men deploy no weapons
-		if ( pOwner->IsAlive() == false )
+		if ( !GetOwner()->IsAlive() )
 			return false;
+		#ifdef SERVER_DLL
+		if (GetOwner()->IsPlayer())
+		{
+			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(UTIL_GetLocalPlayer());
 
-		pOwner->SetAnimationExtension( szAnimExt );
+			if ( pPlayer->m_bHolsteredImpulse )
+			{
+				return false;
+			}
+		}
+		#else
+		if (GetOwner()->IsPlayer())
+		{
+			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
 
-		SetViewModel();
-		SendWeaponAnim( iActivity );
-
-		pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
+			if ( pPlayer->m_bHolsteredImpulse )
+			{
+				return false;
+			}
+		}
+		#endif
+		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+		if ( pOwner )
+		{
+			pOwner->SetAnimationExtension( szAnimExt );
+		}
+		CBaseCombatWeapon *pActive = GetOwner()->GetActiveWeapon();
+		if ( pActive && (pActive->GetActivity() == ACT_VM_HOLSTER || pActive->GetActivity() == ACT_VM_HOLSTEREMPTY) )
+		{
+			flSequenceDuration = pActive->SequenceDuration();
+			pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
+		}
 	}
-
-	// Can't shoot again until we've finished deploying
-	m_flNextPrimaryAttack	= gpGlobals->curtime + SequenceDuration();
-	m_flNextSecondaryAttack	= gpGlobals->curtime + SequenceDuration();
-	m_flHudHintMinDisplayTime = 0;
-
-	m_bAltFireHudHintDisplayed = false;
-	m_bReloadHudHintDisplayed = false;
-	m_flHudHintPollTime = gpGlobals->curtime + 5.0f;
-	
-	WeaponSound( DEPLOY );
-
-	SetWeaponVisible( true );
-
-/*
-
-This code is disabled for now, because moving through the weapons in the carousel 
-selects and deploys each weapon as you pass it. (sjb)
-
-*/
-
-	SetContextThink( NULL, 0, HIDEWEAPON_THINK_CONTEXT );
-
+	g_ShowWeapon.SetShowWeapon( this, iActivity, flSequenceDuration );
+ 
+#ifndef CLIENT_DLL
+	// Cancel any pending hide events
+	g_EventQueue.CancelEventOn( this, "HideWeapon" );
+#endif
+ 
+	m_bWeaponCanFire = true;
 	return true;
 }
 
@@ -1438,12 +1553,20 @@ selects and deploys each weapon as you pass it. (sjb)
 bool CBaseCombatWeapon::Deploy( )
 {
 	MDLCACHE_CRITICAL_SECTION();
+
 	return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), GetDrawActivity(), (char*)GetAnimPrefix() );
 }
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )
 {
-	return ACT_VM_DRAW;
+	if( m_iClip1 == 0 && HasEmptyAnimations() )
+	{
+		return ACT_VM_DRAWEMPTY;
+	}
+	else
+	{
+		return ACT_VM_DRAW;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1456,16 +1579,24 @@ bool CBaseCombatWeapon::Holster( CBaseCombatWeapon *pSwitchingTo )
 	// cancel any reload in progress.
 	m_bInReload = false; 
 	m_bFiringWholeClip = false;
+	m_bWeaponCanFire = false;
 
 	// kill any think functions
 	SetThink(NULL);
 
 	// Send holster animation
-	SendWeaponAnim( ACT_VM_HOLSTER );
+	if( m_iClip1 == 0 && HasEmptyAnimations())
+	{
+		SendWeaponAnim( ACT_VM_HOLSTEREMPTY );
+	}
+	else
+	{
+		SendWeaponAnim( ACT_VM_HOLSTER );
+	}
 
 	// Some weapon's don't have holster anims yet, so detect that
 	float flSequenceDuration = 0;
-	if ( GetActivity() == ACT_VM_HOLSTER )
+	if ( GetActivity() == ACT_VM_HOLSTER || GetActivity() == ACT_VM_HOLSTEREMPTY )
 	{
 		flSequenceDuration = SequenceDuration();
 	}
@@ -1528,6 +1659,18 @@ void CBaseCombatWeapon::InputHideWeapon( inputdata_t &inputdata )
 	}
 }
 #endif
+
+void CBaseCombatWeapon::InputEnableMotion( inputdata_t &inputdata )
+{
+#if !defined( CLIENT_DLL )
+	if ( m_pConstraint != NULL )
+	{
+		RemoveSpawnFlags( SF_WEAPON_START_CONSTRAINED );
+		physenv->DestroyConstraint( m_pConstraint );
+		m_pConstraint = NULL;
+	}
+#endif
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1650,6 +1793,9 @@ void CBaseCombatWeapon::ItemPostFrame( void )
 {
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 	if (!pOwner)
+		return;
+
+	if( m_bWeaponCanFire == false )
 		return;
 
 	UpdateAutoFire();
@@ -1783,7 +1929,6 @@ void CBaseCombatWeapon::HandleFireOnEmpty()
 	if ( m_bFireOnEmpty )
 	{
 		ReloadOrSwitchWeapons();
-		m_fFireDuration = 0.0f;
 	}
 	else
 	{
@@ -2047,9 +2192,16 @@ bool CBaseCombatWeapon::Reload( void )
 void CBaseCombatWeapon::WeaponIdle( void )
 {
 	//Idle again if we've finished
-	if ( HasWeaponIdleTimeElapsed() )
+	if ( HasWeaponIdleTimeElapsed())
 	{
-		SendWeaponAnim( ACT_VM_IDLE );
+		if( m_iClip1 == 0 && HasEmptyAnimations())
+		{
+			SendWeaponAnim( ACT_VM_IDLE_EMPTY );
+		}
+		else
+		{
+			SendWeaponAnim( ACT_VM_IDLE );
+		}
 	}
 }
 
@@ -2541,6 +2693,7 @@ BEGIN_PREDICTION_DATA( CBaseCombatWeapon )
 	DEFINE_PRED_FIELD( m_flTimeWeaponIdle, FIELD_FLOAT, FTYPEDESC_INSENDTABLE ),
 	DEFINE_FIELD( m_bInReload, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFireOnEmpty, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bWeaponCanFire, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFiringWholeClip, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flNextEmptySoundTime, FIELD_FLOAT ),
 	DEFINE_FIELD( m_Activity, FIELD_INTEGER ),
@@ -2583,6 +2736,7 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 	DEFINE_FIELD( m_flTimeWeaponIdle, FIELD_TIME ),
 
 	DEFINE_FIELD( m_bInReload, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bWeaponCanFire, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bFireOnEmpty, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hOwner, FIELD_EHANDLE ),
 
@@ -2646,6 +2800,9 @@ BEGIN_DATADESC( CBaseCombatWeapon )
 
 	DEFINE_THINKFUNC( HideThink ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "HideWeapon", InputHideWeapon ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "AllowPlayerPickup", InputAllowPlayerPickup ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisallowPlayerPickup", InputDisallowPlayerPickup ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableMotion", InputEnableMotion ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse"),

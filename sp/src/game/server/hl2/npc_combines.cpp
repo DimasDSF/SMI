@@ -115,6 +115,7 @@ void CNPC_CombineS::Precache()
 	UTIL_PrecacheOther( "item_healthvial" );
 	UTIL_PrecacheOther( "weapon_frag" );
 	UTIL_PrecacheOther( "item_ammo_ar2_altfire" );
+	UTIL_PrecacheOther( "item_ammo_smg1_grenade" );
 
 	BaseClass::Precache();
 }
@@ -306,8 +307,41 @@ void CNPC_CombineS::Event_Killed( const CTakeDamageInfo &info )
 #ifdef HL2_EPISODIC
 			if ( HasSpawnFlags( SF_COMBINE_NO_AR2DROP ) == false )
 #endif
+			if ( FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) && ( random->RandomInt(0, 100) < 40 ) )
 			{
 				CBaseEntity *pItem = DropItem( "item_ammo_ar2_altfire", WorldSpaceCenter()+RandomVector(-4,4), RandomAngle(0,360) );
+
+				if ( pItem )
+				{
+					IPhysicsObject *pObj = pItem->VPhysicsGetObject();
+
+					if ( pObj )
+					{
+						Vector			vel		= RandomVector( -64.0f, 64.0f );
+						AngularImpulse	angImp	= RandomAngularImpulse( -300.0f, 300.0f );
+
+						vel[2] = 0.0f;
+						pObj->AddVelocity( &vel, &angImp );
+					}
+
+					if( info.GetDamageType() & DMG_DISSOLVE )
+					{
+						CBaseAnimating *pAnimating = dynamic_cast<CBaseAnimating*>(pItem);
+
+						if( pAnimating )
+						{
+							pAnimating->Dissolve( NULL, gpGlobals->curtime, false, ENTITY_DISSOLVE_NORMAL );
+						}
+					}
+					else
+					{
+						WeaponManager_AddManaged( pItem );
+					}
+				}
+			}
+			if ( FClassnameIs( GetActiveWeapon(), "weapon_smg1" ) && ( random->RandomInt(0, 100) < 35 ) )
+			{
+				CBaseEntity *pItem = DropItem( "item_ammo_smg1_grenade", WorldSpaceCenter()+RandomVector(-4,4), RandomAngle(0,360) );
 
 				if ( pItem )
 				{

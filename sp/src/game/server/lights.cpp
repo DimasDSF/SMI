@@ -29,6 +29,9 @@ BEGIN_DATADESC( CLight )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_STRING, "SetPattern", InputSetPattern ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "FadeToPattern", InputFadeToPattern ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetFadeTime", InputSetFadeTime ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ResetFadeTime", InputResetFadeTime ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "FlashPattern", InputFlashPattern ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"Toggle", InputToggle ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"TurnOn", InputTurnOn ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"TurnOff", InputTurnOff ),
@@ -175,6 +178,33 @@ void CLight::InputSetPattern( inputdata_t &inputdata )
 	CLEARBITS(m_spawnflags, SF_LIGHT_START_OFF);
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Input handler for setting a light pattern
+//-----------------------------------------------------------------------------
+void CLight::InputFlashPattern( inputdata_t &inputdata )
+{
+	m_iRememberedPattern[0]	= (STRING(m_iszPattern))[0];
+	m_iRememberedPattern[1] = 0;
+	if ( m_iszPattern != inputdata.value.StringID())
+	{
+		m_iszPatternFlash	= inputdata.value.StringID();
+
+		engine->LightStyle(m_iStyle, (char *)STRING( m_iszPatternFlash ));
+
+		SetThink(&CLight::FlashThink);
+		SetNextThink( gpGlobals->curtime + 1);
+
+		// Light is on if pattern is set
+		CLEARBITS(m_spawnflags, SF_LIGHT_START_OFF);
+	}
+}
+
+void CLight::FlashThink(void)
+{
+	engine->LightStyle(m_iStyle, m_iRememberedPattern);
+	SetNextThink( TICK_NEVER_THINK );
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Input handler for fading from first value in old pattern to 
@@ -183,13 +213,63 @@ void CLight::InputSetPattern( inputdata_t &inputdata )
 void CLight::InputFadeToPattern( inputdata_t &inputdata )
 {
 	m_iCurrentFade	= (STRING(m_iszPattern))[0];
+	m_iCalcCurrentFade = m_iCurrentFade;
 	m_iTargetFade	= inputdata.value.String()[0];
 	m_iszPattern	= inputdata.value.StringID();
+
+	if ( m_bHasFadeTime )
+	{
+		m_iDifference = 0;
+		while (m_iCalcCurrentFade != m_iTargetFade )
+		{
+			if (m_iCalcCurrentFade < m_iTargetFade)
+			{
+				m_iCalcCurrentFade++;
+				m_iDifference++;
+			}
+			else if (m_iCalcCurrentFade > m_iTargetFade)
+			{
+				m_iCalcCurrentFade--;
+				m_iDifference++;
+			}
+		}
+		m_fFadeDelay = m_fFadeTime / m_iDifference;
+	}
+
 	SetThink(&CLight::FadeThink);
 	SetNextThink( gpGlobals->curtime );
 
 	// Light is on if pattern is set
 	CLEARBITS(m_spawnflags, SF_LIGHT_START_OFF);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Input handler for setting fade time
+//-----------------------------------------------------------------------------
+void CLight::InputSetFadeTime( inputdata_t &inputdata )
+{
+	if ( inputdata.value.Float())
+	{
+		if ( inputdata.value.Float() > 0.1)
+		{
+			m_fFadeTime = inputdata.value.Float();
+			m_bHasFadeTime = true;
+		}
+		else
+		{
+			m_fFadeTime = 0;
+			m_bHasFadeTime = false;
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Input handler for resetting fade time
+//-----------------------------------------------------------------------------
+void CLight::InputResetFadeTime( inputdata_t &inputdata )
+{
+	m_fFadeTime = 0;
+	m_bHasFadeTime = false;
 }
 
 
@@ -222,7 +302,14 @@ void CLight::FadeThink(void)
 		engine->LightStyle(m_iStyle, sCurString);
 
 		// UNDONE: Consider making this settable war to control fade speed
-		SetNextThink( gpGlobals->curtime + 0.1f );
+		if ( m_bHasFadeTime )
+		{
+			SetNextThink( gpGlobals->curtime + m_fFadeDelay + 0.1f );
+		}
+		else
+		{
+			SetNextThink( gpGlobals->curtime + 0.1f );
+		}
 	}
 }
 

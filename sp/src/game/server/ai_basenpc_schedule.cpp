@@ -57,6 +57,7 @@ struct TaskTimings
 
 TaskTimings g_AITaskTimings[MAX_TASKS_RUN];
 int			g_nAITasksRun;
+int			m_SIILast;
 
 void CAI_BaseNPC::DumpTaskTimings()
 {
@@ -1608,6 +1609,11 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			break;
 		}
 
+	case TASK_FACE_RANDOM:
+		GetMotor()->SetIdealYaw( random->RandomFloat(0.0, 360.0 ));
+		SetTurnActivity();
+		break;
+
 	case TASK_FACE_IDEAL:
 		SetTurnActivity();
 		break;
@@ -2216,6 +2222,40 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			GetNavigator()->SetGoal( goal );
 			break;
 		}
+
+	case TASK_GET_PATH_TO_SQUADLEADER:
+		{
+			if (GetSquad())
+			{
+				//AI_NavGoal_t goal;
+				//GOALTYPE_LOCATION
+				int node = GetNavigator()->GetNetwork()->NearestNodeToPoint( this, GetSquad()->GetLeader()->GetAbsOrigin(), false );
+				CAI_Node *pNode = GetNavigator()->GetNetwork()->GetNode( node );
+				
+				if( !pNode )
+				{
+					TaskFail( FAIL_NO_ROUTE );
+					break;
+				}
+
+				Vector vecNodePos;
+				vecNodePos = pNode->GetPosition( GetHullType() );
+
+				AI_NavGoal_t goal( vecNodePos );
+				goal.type = GOALTYPE_LOCATION_NEAREST_NODE;
+				//goal.dest = GetSquad()->GetLeader()->WorldSpaceCenter();
+				//goal.pTarget = GetSquad()->GetLeader();
+
+				GetNavigator()->SetArrivalDistance( 150 );
+				GetNavigator()->SetGoal( goal );
+			}
+			else
+			{
+				TaskFail( FAIL_NO_TARGET );
+			}
+			break;
+		}
+
 
 	case TASK_GET_PATH_TO_SAVEPOSITION_LOS:
 	{
@@ -3416,6 +3456,7 @@ void CAI_BaseNPC::RunTask( const Task_t *pTask )
 		break;
 
 	case TASK_FACE_HINTNODE:
+	case TASK_FACE_RANDOM:
 	case TASK_FACE_LASTPOSITION:
 	case TASK_FACE_SAVEPOSITION:
 	case TASK_FACE_AWAY_FROM_SAVEPOSITION:
@@ -4363,6 +4404,19 @@ bool CAI_BaseNPC::IsInterruptable()
 		}
 	}
 	
+	if ((IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) || IsCurSchedule(SCHED_INVESTIGATE_SOUND)) && (!HasCondition(COND_NEW_ENEMY) && !HasCondition(COND_SEE_FEAR) && !HasCondition(COND_SEE_ENEMY) && !HasCondition(COND_LIGHT_DAMAGE) && !HasCondition(COND_HEAVY_DAMAGE)))
+	{
+		if( m_SIILast + 10 < gpGlobals->curtime )
+		{
+			m_SIILast = gpGlobals->curtime;
+			return IsAlive();
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	return IsAlive();
 }
 
@@ -4390,17 +4444,89 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
+	if ((m_iLastInvestigation + 80 < gpGlobals->curtime) && m_iNumInvestigations != 0)
+	{
+		m_iNumInvestigations = 0;
+		//DevWarning( 2, "%i < %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 80 , gpGlobals->curtime );
+	}
+	
+	if (GetSquad() && (GetSquad()->NumMembers() > 1) && m_bShouldMoveToRVSquadLeader && (GetSquad()->GetLeader() != this) )
+	{
+		if ( !m_bMovedToRVSquadLeader )
+		{
+			if ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 1200)
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_RUN_TO_SQUADLEADER;
+			}
+			else if ( ((GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() <= 1200) && ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250) )
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_WALK_TO_SQUADLEADER;
+			}
+			else
+			{
+				m_bShouldMoveToRVSquadLeader = false;
+				m_bMovedToRVSquadLeader = true;
+				return SCHED_IDLE_STAND;
+			}
+		}
+	}
+
 	int nSched = SelectFlinchSchedule();
 	if ( nSched != SCHED_NONE )
 		return nSched;
 
-	if ( HasCondition ( COND_HEAR_DANGER ) ||
-		 HasCondition ( COND_HEAR_COMBAT ) ||
-		 HasCondition ( COND_HEAR_WORLD  ) ||
-		 HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
-		 HasCondition ( COND_HEAR_PLAYER ) )
+if ( (m_NPCState != NPC_STATE_COMBAT) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND) &&
+			 ( HasCondition ( COND_HEAR_DANGER ) ||
+			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly() ) ||
+			  HasCondition ( COND_HEAR_WORLD  ) ||
+			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
+			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		return SCHED_ALERT_FACE_BESTSOUND;
+		if ((random->RandomInt(1,10) > 6) && (m_iLastInvestigation + 5 < gpGlobals->curtime))
+		{
+			if (m_iNumInvestigations < 2)
+			{
+				m_iNumInvestigations++;
+				//DevWarning(2, "Got m_iNumInvestigations equal to %i < 2, walking\n", m_iNumInvestigations - 1);
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
+				return SCHED_INVESTIGATE_SOUND_WALK;
+			}
+			else if (m_iNumInvestigations >= 2)
+			{
+				m_iNumInvestigations++;
+				//DevWarning(2, "Got m_iNumInvestigations equal to %i > 2, running\n", m_iNumInvestigations - 1);
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
+					return SCHED_INVESTIGATE_SOUND;
+			}
+			else
+			{
+				return SCHED_ALERT_FACE_BESTSOUND;
+			}
+		}
 	}
 	
 	// no valid route!
@@ -4433,16 +4559,46 @@ int CAI_BaseNPC::SelectAlertSchedule()
 		return SCHED_ALERT_REACT_TO_COMBAT_SOUND;
 	}
 
-	if ( (m_NPCState != NPC_STATE_COMBAT) ||
-			  HasCondition ( COND_HEAR_DANGER ) ||
-			  HasCondition ( COND_HEAR_PLAYER ) ||
+	if ( (m_NPCState != NPC_STATE_COMBAT) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND) &&
+			 ( HasCondition ( COND_HEAR_DANGER ) ||
+			  (HasCondition ( COND_HEAR_PLAYER ) && !IsPlayerAlly()) ||
 			  HasCondition ( COND_HEAR_WORLD  ) ||
 			  HasCondition ( COND_HEAR_BULLET_IMPACT ) ||
-			  HasCondition ( COND_HEAR_PHYSICS_DANGER ) ||
-			  HasCondition ( COND_HEAR_BUGBAIT ) ||
-			  HasCondition ( COND_HEAR_COMBAT ) )
+			  HasCondition ( COND_HEAR_COMBAT ) ) )
 	{
-		return SCHED_INVESTIGATE_SOUND;
+		if (m_iLastInvestigation + 5 < gpGlobals->curtime)
+		{
+			if (random->RandomInt(1,10) > 3)
+			{
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
+				return SCHED_INVESTIGATE_SOUND;
+			}
+			else
+			{
+				if(GetSquad())
+				{
+					for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+					{
+						GetSquad()->m_SquadMembers[i]->m_iLastInvestigation = gpGlobals->curtime;
+					}
+				}
+				else
+				{
+					m_iLastInvestigation = gpGlobals->curtime;
+				}
+				return SCHED_ALERT_FACE_BESTSOUND;
+			}
+		}
 	}
 
 	if ( gpGlobals->curtime - GetEnemies()->LastTimeSeen( AI_UNKNOWN_ENEMY ) < TIME_CARE_ABOUT_DAMAGE )

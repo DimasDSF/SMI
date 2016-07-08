@@ -37,6 +37,7 @@
 
 // Spawnflags
 #define SF_DROPSHIP_WAIT_FOR_DROPOFF_INPUT		( 1 << 15 )	
+#define SF_DROPSHIP_WAIT_FOR_TAKEOFF_INPUT		( 1 << 16 )
 
 #define DROPSHIP_ACCEL_RATE				300
 
@@ -46,7 +47,7 @@
 
 // Special actions
 #define DROPSHIP_DEFAULT_SOLDIERS		4
-#define DROPSHIP_MAX_SOLDIERS			6
+#define DROPSHIP_MAX_SOLDIERS			12
 
 // Movement
 #define DROPSHIP_BUFF_TIME				0.3f
@@ -254,6 +255,7 @@ public:
 	void	InputDropMines( inputdata_t &inputdata );
 	void	InputDropStrider( inputdata_t &inputdata );
 	void	InputDropAPC( inputdata_t &inputdata );
+	void	InputTakeOff( inputdata_t &inputdata );
 
 	void	InputPickup( inputdata_t &inputdata );
 	void	InputSetGunRange( inputdata_t &inputdata );
@@ -301,6 +303,7 @@ private:
 	float	m_existPitch;
 	float	m_existRoll;
 	bool	m_bDropMines;		// signal to drop mines
+	bool	m_bWaitingForTakeoff;
 	bool	m_bIsFiring;
 	int		m_iBurstRounds;
 	bool	m_leaveCrate;
@@ -309,6 +312,8 @@ private:
 	float	m_flLandingSpeed;
 	float	m_flGunRange;
 	bool	m_bInvulnerable;
+	bool	m_bSetOpenSeq;
+	bool	m_bSetCloseSeq;
 
 	QAngle	m_vecAngAcceleration;
 	
@@ -327,6 +332,7 @@ private:
 	string_t	m_iszAPCVehicleName;
 
 	// Templates for soldier's dropped off
+	string_t	m_sStriderName;
 	string_t	m_sNPCTemplate[ DROPSHIP_MAX_SOLDIERS ];
 	string_t	m_sNPCTemplateData[ DROPSHIP_MAX_SOLDIERS ];	
 	string_t	m_sDustoffPoints[ DROPSHIP_MAX_SOLDIERS ];	
@@ -352,6 +358,7 @@ private:
 
 	// Outputs
 	COutputEvent	m_OnFinishedDropoff;
+	COutputEvent	m_OnTakeoff;
 	COutputEvent	m_OnFinishedPickup;
 
 	COutputFloat	m_OnContainerShotDownBeforeDropoff;
@@ -458,7 +465,6 @@ void CCombineDropshipContainer::Spawn()
 	m_iHealth = m_iMaxHealth = sk_dropship_container_health.GetFloat();
 }
 
-
 //-----------------------------------------------------------------------------
 // Allows us to use vphysics
 //-----------------------------------------------------------------------------
@@ -511,9 +517,9 @@ void CCombineDropshipContainer::CreateCorpse()
 		ThrowFlamingGib();
 	}
 
-	AddSolidFlags( FSOLID_NOT_SOLID );
-	AddEffects( EF_NODRAW );
-	UTIL_Remove( this );
+	//AddSolidFlags( FSOLID_NOT_SOLID );
+	//AddEffects( EF_NODRAW );
+	//UTIL_Remove( this );
 }
 
 
@@ -778,12 +784,19 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_FIELD( m_sRollermineTemplateData, FIELD_STRING ),
 
 	DEFINE_ARRAY( m_sNPCTemplateData, FIELD_STRING, DROPSHIP_MAX_SOLDIERS ),
+	DEFINE_KEYFIELD( m_sStriderName, FIELD_STRING, "StriderName" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[0], FIELD_STRING,	"NPCTemplate" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[1], FIELD_STRING,	"NPCTemplate2" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[2], FIELD_STRING,	"NPCTemplate3" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[3], FIELD_STRING,	"NPCTemplate4" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[4], FIELD_STRING,	"NPCTemplate5" ),
 	DEFINE_KEYFIELD( m_sNPCTemplate[5], FIELD_STRING,	"NPCTemplate6" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[0], FIELD_STRING,	"NPCTemplate7" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[1], FIELD_STRING,	"NPCTemplate8" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[2], FIELD_STRING,	"NPCTemplate9" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[3], FIELD_STRING,	"NPCTemplate10" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[4], FIELD_STRING,	"NPCTemplate11" ),
+	DEFINE_KEYFIELD( m_sNPCTemplate[5], FIELD_STRING,	"NPCTemplate12" ),
 	// Here to shut classcheck up
 	//DEFINE_ARRAY( m_sNPCTemplate, FIELD_STRING,  DROPSHIP_MAX_SOLDIERS  ),
 	//DEFINE_ARRAY( m_sDustoffPoints, FIELD_STRING,  DROPSHIP_MAX_SOLDIERS  ),
@@ -793,6 +806,12 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_KEYFIELD( m_sDustoffPoints[3], FIELD_STRING,	"Dustoff4" ),
 	DEFINE_KEYFIELD( m_sDustoffPoints[4], FIELD_STRING,	"Dustoff5" ),
 	DEFINE_KEYFIELD( m_sDustoffPoints[5], FIELD_STRING,	"Dustoff6" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[0], FIELD_STRING,	"Dustoff7" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[1], FIELD_STRING,	"Dustoff8" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[2], FIELD_STRING,	"Dustoff9" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[3], FIELD_STRING,	"Dustoff10" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[4], FIELD_STRING,	"Dustoff11" ),
+	DEFINE_KEYFIELD( m_sDustoffPoints[5], FIELD_STRING,	"Dustoff12" ),
 	DEFINE_FIELD( m_iCurrentTroopExiting, FIELD_INTEGER ),
 	DEFINE_FIELD( m_hLastTroopToLeave, FIELD_EHANDLE ),
 
@@ -816,8 +835,10 @@ BEGIN_DATADESC( CNPC_CombineDropship )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopWaitingForDropoff", InputStopWaitingForDropoff ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "Hover", InputHover ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "FlyToPathTrack", InputFlyToPathTrack ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "TakeOff", InputTakeOff ),
 	
 	DEFINE_OUTPUT( m_OnFinishedDropoff, "OnFinishedDropoff" ),
+	DEFINE_OUTPUT( m_OnTakeoff, "OnTakeoff" ),
 	DEFINE_OUTPUT( m_OnFinishedPickup, "OnFinishedPickup" ),
 
 	DEFINE_OUTPUT( m_OnContainerShotDownBeforeDropoff, "OnCrateShotDownBeforeDropoff" ),
@@ -856,6 +877,8 @@ void CNPC_CombineDropship::Spawn( void )
 	m_iContainerMoveType = MOVETYPE_NONE;
 	m_iCurrentTroopExiting = 0;
 	m_bHasDroppedOff = false;
+	m_bSetOpenSeq = false;
+	m_bSetCloseSeq = false;
 	m_iMuzzleAttachment = -1;
 	m_iMachineGunBaseAttachment = -1;
 	m_iMachineGunRefAttachment = -1;
@@ -901,6 +924,7 @@ void CNPC_CombineDropship::Spawn( void )
 
 	case CRATE_STRIDER:
 		m_hContainer = (CBaseAnimating*)CreateEntityByName( "npc_strider" );
+		m_hContainer->SetName( m_sStriderName );
 		m_hContainer->SetAbsOrigin( GetAbsOrigin() - Vector( 0, 0 , 100 ) );
 		m_hContainer->SetAbsAngles( GetAbsAngles() );
 		m_hContainer->SetParent(this, 0);
@@ -1013,6 +1037,15 @@ void CNPC_CombineDropship::Spawn( void )
 	SetSchedule( SCHED_IDLE_STAND );
 
 	SetLandingState( LANDING_NO );
+
+	if ( HasSpawnFlags( SF_DROPSHIP_WAIT_FOR_TAKEOFF_INPUT ) )
+	{
+		m_bWaitingForTakeoff = true;
+	}
+	else
+	{
+		m_bWaitingForTakeoff = false;
+	}
 
 	if ( HasSpawnFlags( SF_DROPSHIP_WAIT_FOR_DROPOFF_INPUT ) )
 	{
@@ -1878,6 +1911,29 @@ void CNPC_CombineDropship::SetLandingState( LandingState_t landingState )
 	if ( landingState == m_iLandState )
 		return;
 
+	if( landingState == LANDING_HOVER_TOUCHDOWN || landingState == LANDING_TOUCHDOWN)
+	{
+		if( m_hContainer )
+			{
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
+			}
+	}
+	else if( landingState == LANDING_LIFTOFF )
+	{
+		if( m_hContainer && !m_bSetCloseSeq)
+			{
+				m_bSetCloseSeq = true;
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("close") );
+			}
+	}
+	else if( landingState == LANDING_NO )
+	{
+		if( m_hContainer )
+		{
+			m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
+		}
+	}
+
 	if ( m_pDescendingWarningSound )
 	{
 		CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
@@ -1980,10 +2036,12 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 
 				if( IsHovering() )
 				{
+					m_bSetCloseSeq = false;
 					SetLandingState( LANDING_HOVER_DESCEND );
 				}
 				else
 				{
+					m_bSetCloseSeq = false;
 					SetLandingState( LANDING_DESCEND );
 				}
 
@@ -2159,7 +2217,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				m_flNextTroopSpawnAttempt = 0;
 
 				// Open our container
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
+				//m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
 
 				// Start unloading troops
 				m_iCurrentTroopExiting = 0;
@@ -2169,6 +2227,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			{
 				float flHoverTime = ( m_iCrateType >= 0 ) ? DROPSHIP_LANDING_HOVER_TIME : 0.5f;
 				m_flTimeTakeOff = gpGlobals->curtime + flHoverTime;
+				m_OnFinishedDropoff.FireOutput( this, this );
 			}
 		}
 		break;
@@ -2198,12 +2257,13 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 					{
 						// We're out of troops, time to leave
 						m_flTimeTakeOff = gpGlobals->curtime + 0.5;
+						m_OnFinishedDropoff.FireOutput( this, this );
 					}
 				}
 			}
 			else
 			{
-				if( gpGlobals->curtime > m_flTimeTakeOff )
+				if( gpGlobals->curtime > m_flTimeTakeOff && !m_bWaitingForTakeoff )
 				{
 					SetLandingState( LANDING_LIFTOFF );
 					SetActivity( (Activity)ACT_DROPSHIP_LIFTOFF );
@@ -2239,7 +2299,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 						UTIL_SetSize( this, DROPSHIP_BBOX_MIN, DROPSHIP_BBOX_MAX );
 					}
 				}
-				else if ( (m_flTimeTakeOff - gpGlobals->curtime) < 0.5f )
+				else if ( (m_flTimeTakeOff - gpGlobals->curtime) < 0.5f && !m_bWaitingForTakeoff )
 				{
 					// Manage engine wash and volume
 					m_engineThrust = UTIL_Approach( 1.0f, m_engineThrust, 0.1f );
@@ -2257,12 +2317,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				SetLandingState( LANDING_NO );
 				m_hLandTarget = NULL;
 				m_bHasDroppedOff = true;
-				m_OnFinishedDropoff.FireOutput( this, this );
-			}
-
-			if ( m_hContainer )
-			{
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
+				m_OnTakeoff.FireOutput( this, this );
 			}
 		}
 		break;
@@ -2371,6 +2426,7 @@ void CNPC_CombineDropship::SpawnTroop( void )
 	// Are we fully unloaded? If so, take off. Otherwise, tell the next troop to exit.
 	if ( m_iCurrentTroopExiting >= m_soldiersToDrop || m_sNPCTemplateData[m_iCurrentTroopExiting] == NULL_STRING )
 	{
+		m_OnFinishedDropoff.FireOutput( this, this );
 		// We're done, take off.
 		m_flTimeTakeOff = gpGlobals->curtime + 0.5;
 		return;
@@ -2586,6 +2642,11 @@ void CNPC_CombineDropship::InputNPCFinishDustoff( inputdata_t &inputdata )
 void CNPC_CombineDropship::InputStopWaitingForDropoff( inputdata_t &inputdata )
 {
 	m_bWaitForDropoffInput = false;
+}
+
+void CNPC_CombineDropship::InputTakeOff( inputdata_t &inputdata )
+{
+	m_bWaitingForTakeoff = false;
 }
 
 //------------------------------------------------------------------------------
@@ -2838,7 +2899,6 @@ void CNPC_CombineDropship::UpdateContainerGunFacing( Vector &vecMuzzle, Vector &
 
 		float flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.x, m_hContainer->GetPoseParameter(m_poseWeapon_Pitch), DROPSHIP_GUN_SPEED));
 		m_hContainer->SetPoseParameter( m_poseWeapon_Pitch, flNewAngle );
-
 		flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.y, m_hContainer->GetPoseParameter(m_poseWeapon_Yaw), DROPSHIP_GUN_SPEED));
 		m_hContainer->SetPoseParameter( m_poseWeapon_Yaw, flNewAngle );
 		m_hContainer->StudioFrameAdvance();

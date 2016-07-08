@@ -182,6 +182,9 @@ public:
 	virtual void Event_Killed( const CTakeDamageInfo &info );
 	virtual int OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo );
 
+	void	InputLastHeadcrabThrown( inputdata_t &inputdata );
+	void	InputThrownHeadcrab( inputdata_t &inputdata );
+
 	DECLARE_DATADESC();
 	DEFINE_CUSTOM_AI;
 
@@ -206,6 +209,8 @@ protected:
 	virtual const char *GetTorsoModel( void );
 	virtual const char *GetHeadcrabClassname( void );
 	virtual const char *GetHeadcrabModel( void );
+	COutputEvent	m_OnLastHeadcrabThrown;
+	COutputEvent	m_OnThrownHeadcrab;
 
 private:
 
@@ -244,6 +249,10 @@ BEGIN_DATADESC( CNPC_PoisonZombie )
 	DEFINE_FIELD( m_flNextPainSoundTime, FIELD_TIME ),
 
 	DEFINE_FIELD( m_bNearEnemy, FIELD_BOOLEAN ),
+
+	//outputs
+	DEFINE_OUTPUT( m_OnLastHeadcrabThrown, "OnLastHeadcrabThrown" ),
+	DEFINE_OUTPUT( m_OnThrownHeadcrab, "OnThrownHeadcrab" ),
 
 	// NOT serialized:
 	//DEFINE_FIELD( m_nThrowCrab, FIELD_INTEGER ),
@@ -687,6 +696,7 @@ void CNPC_PoisonZombie::HandleAnimEvent( animevent_t *pEvent )
 		pCrab->SetOwnerEntity( this );
 
 		pCrab->Spawn();
+		m_OnThrownHeadcrab.FireOutput( this, pCrab, 0 );
 
 		pCrab->SetLocalAngles( GetLocalAngles() );
 		pCrab->SetActivity( ACT_RANGE_ATTACK1 );
@@ -710,6 +720,7 @@ void CNPC_PoisonZombie::HandleAnimEvent( animevent_t *pEvent )
 		if (m_nCrabCount == 0)
 		{
 			CapabilitiesRemove( bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_RANGE_ATTACK2 );
+			m_OnLastHeadcrabThrown.FireOutput( this, pCrab, 0 );
 		}
 
 		m_flNextCrabThrowTime = gpGlobals->curtime + random->RandomInt( ZOMBIE_THROW_MIN_DELAY, ZOMBIE_THROW_MAX_DELAY );
@@ -747,6 +758,16 @@ int CNPC_PoisonZombie::RandomThrowCrab( void )
 	} while ( nCrab == -1 );
 	
 	return nCrab;
+}
+
+void CNPC_PoisonZombie::InputLastHeadcrabThrown( inputdata_t &inputdata )
+{
+	m_OnLastHeadcrabThrown.FireOutput( inputdata.pActivator, inputdata.pCaller, 0 );
+}
+
+void CNPC_PoisonZombie::InputThrownHeadcrab( inputdata_t &inputdata )
+{
+	m_OnThrownHeadcrab.FireOutput( inputdata.pActivator, inputdata.pCaller, 0 );
 }
 
 
@@ -911,6 +932,11 @@ int CNPC_PoisonZombie::SelectFailSchedule( int nFailedSchedule, int nFailedTask,
 int CNPC_PoisonZombie::SelectSchedule( void )
 {
 	int nSchedule = BaseClass::SelectSchedule();
+
+	if( m_NPCState == NPC_STATE_IDLE && !IsCurSchedule( SCHED_ZOMBIE_WANDER_MEDIUM ) && !m_hCine)
+	{
+		return SCHED_ZOMBIE_WANDER_MEDIUM;
+	}
 
 	if ( nSchedule == SCHED_SMALL_FLINCH )
 	{

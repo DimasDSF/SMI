@@ -98,7 +98,7 @@ CWeaponFrag::CWeaponFrag() :
 	CBaseHLCombatWeapon(),
 	m_bRedraw( false )
 {
-	NULL;
+	m_bCanBeDropped = false;
 }
 
 //-----------------------------------------------------------------------------

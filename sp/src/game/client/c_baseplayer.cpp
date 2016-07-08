@@ -1203,57 +1203,40 @@ void C_BasePlayer::TeamChange( int iNewTeam )
 // Purpose: Creates, destroys, and updates the flashlight effect as needed.
 //-----------------------------------------------------------------------------
 void C_BasePlayer::UpdateFlashlight()
-
 {
+	if ( IsEffectActive( EF_DIMLIGHT ) )
+	{
+		if (!m_pFlashlight)
+		{
+			m_pFlashlight = new CFlashlightEffect(index);
 
-if ( IsEffectActive( EF_DIMLIGHT ) )
+			if (!m_pFlashlight)
+				return;
 
-{
-
-if (!m_pFlashlight)
-
-{
-
-
-m_pFlashlight = new CFlashlightEffect(index);
-
-if (!m_pFlashlight)
-
-return;
-
-m_pFlashlight->TurnOn();
-
-}
-
-QAngle angLightDir;
-
-Vector vecLightOrigin, vecForward, vecRight, vecUp;
-
-
-GetViewModel()->GetAttachment( 1, vecLightOrigin, angLightDir );
-
-::FormatViewModelAttachment( vecLightOrigin, true );
-
-
-AngleVectors( angLightDir, &vecForward, &vecRight, &vecUp );
-
-
-m_pFlashlight->UpdateLight( vecLightOrigin, vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE );
-
-}
-
-else if (m_pFlashlight)
-
-{
-
-// Turned off the flashlight; delete it.
-
-delete m_pFlashlight;
-
-m_pFlashlight = NULL;
-
-}
-
+			m_pFlashlight->TurnOn();
+		}
+		if ( FClassnameIs(GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetActiveWeapon(), "weapon_bugbait") || FClassnameIs(GetActiveWeapon(), "weapon_cubemap") || FClassnameIs(GetActiveWeapon(), "weapon_stunstick") || FClassnameIs(GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetActiveWeapon(), "weapon_frag") || FClassnameIs(GetActiveWeapon(), "weapon_slam") )
+		{
+			Vector vecForward, vecRight, vecUp;
+			EyeVectors( &vecForward, &vecRight, &vecUp );
+			m_pFlashlight->UpdateLight( EyePosition(), vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE );
+		}
+		else 
+		{
+			QAngle angLightDir;
+			Vector vecLightOrigin, vecForward, vecRight, vecUp;
+			GetViewModel()->GetAttachment( 1, vecLightOrigin, angLightDir );
+			::FormatViewModelAttachment( vecLightOrigin, true );
+			AngleVectors( angLightDir, &vecForward, &vecRight, &vecUp );
+			m_pFlashlight->UpdateLight( vecLightOrigin, vecForward, vecRight, vecUp, FLASHLIGHT_DISTANCE );
+		}
+	}
+	else if (m_pFlashlight)
+	{
+		// Turned off the flashlight; delete it.
+		delete m_pFlashlight;
+		m_pFlashlight = NULL;
+	}
 }
 
 

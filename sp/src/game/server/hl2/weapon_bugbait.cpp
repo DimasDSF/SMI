@@ -93,6 +93,7 @@ CWeaponBugBait::CWeaponBugBait( void )
 {
 	m_bDrawBackFinished	= false;
 	m_bRedraw			= false;
+	m_bCanBeDropped		= false;
 	m_hSporeTrail		= NULL;
 }
 

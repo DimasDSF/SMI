@@ -32,6 +32,8 @@ public:
 
 					C_BaseCombatCharacter( void );
 	virtual			~C_BaseCombatCharacter( void );
+	
+	friend class C_ShowWeapon; // This allows CShowWeapon to access whatever it needs to update for the character
 
 	virtual void	OnPreDataChanged( DataUpdateType_t updateType );
 	virtual void	OnDataChanged( DataUpdateType_t updateType );

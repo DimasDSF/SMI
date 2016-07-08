@@ -192,6 +192,7 @@ public:
 
 	bool m_fActive;		// only true when the entity is playing a looping sound
 	bool m_fLooping;		// true when the sound played will loop
+	bool m_fRecheckSource;
 
 	string_t m_iszSound;			// Path/filename of WAV file to play.
 	string_t m_sSourceEntName;
@@ -453,13 +454,8 @@ void CAmbientGeneric::Activate( void )
 	{
 		if (m_sSourceEntName != NULL_STRING)
 		{
-			m_hSoundSource = gEntList.FindEntityByName( NULL, m_sSourceEntName );
-			if ( m_hSoundSource != NULL )
-			{
-				m_nSoundSourceEntIndex = m_hSoundSource->entindex();
-			}
+			m_fRecheckSource = 1;
 		}
-
 		if (m_hSoundSource == NULL)
 		{
 			m_hSoundSource = this;
@@ -856,6 +852,19 @@ void CAmbientGeneric::InputPlaySound( inputdata_t &inputdata )
 {
 	if (!m_fActive)
 	{
+		if ( m_fRecheckSource == 1 )
+		{
+			m_hSoundSource = gEntList.FindEntityByName( NULL, m_sSourceEntName );
+			if ( m_hSoundSource != NULL )
+			{
+				m_nSoundSourceEntIndex = m_hSoundSource->entindex();
+			}
+			else if (m_hSoundSource == NULL)
+			{
+				m_hSoundSource = this;
+				m_nSoundSourceEntIndex = m_hSoundSource->entindex();
+			}
+		}
 		//Adrian: Stop our current sound before starting a new one!
 		SendSound( SND_STOP ); 
 		

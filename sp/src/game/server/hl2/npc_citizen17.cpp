@@ -84,7 +84,7 @@ ConVar	sk_citizen_heal_toss_player_delay("sk_citizen_heal_toss_player_delay", "2
 
 
 #define MEDIC_THROW_SPEED npc_citizen_medic_throw_speed.GetFloat()
-#define USE_EXPERIMENTAL_MEDIC_CODE() (npc_citizen_heal_chuck_medkit.GetBool() && NameMatches("griggs"))
+#define USE_EXPERIMENTAL_MEDIC_CODE() (npc_citizen_heal_chuck_medkit.GetBool())
 #endif
 
 ConVar player_squad_autosummon_time( "player_squad_autosummon_time", "5" );
@@ -92,6 +92,7 @@ ConVar player_squad_autosummon_move_tolerance( "player_squad_autosummon_move_tol
 ConVar player_squad_autosummon_player_tolerance( "player_squad_autosummon_player_tolerance", "10" );
 ConVar player_squad_autosummon_time_after_combat( "player_squad_autosummon_time_after_combat", "8" );
 ConVar player_squad_autosummon_debug( "player_squad_autosummon_debug", "0" );
+ConVar player_squad_enable_autosummon( "player_squad_enable_autosummon", "0" );
 
 #define ShouldAutosquad() (npc_citizen_auto_player_squad.GetBool())
 
@@ -1221,8 +1222,16 @@ int CNPC_Citizen::SelectScheduleHeal()
 				// use the new heal toss algorithm
 				if ( ShouldHealTossTarget( pEntity, HasCondition( COND_CIT_PLAYERHEALREQUEST ) ) )
 				{
-					SetTarget( pEntity );
-					return SCHED_CITIZEN_HEAL_TOSS;
+					//if ( pEntity->IsPlayer())
+					//{
+						SetTarget( pEntity );
+						return SCHED_CITIZEN_HEAL_TOSS;
+					//}
+					//else
+					//{
+					//	SetTarget( pEntity );
+					//	return SCHED_CITIZEN_HEAL;
+					//}
 				}
 			}
 			else if ( PlayerInRange( GetLocalOrigin(), HEAL_MOVE_RANGE ) )
@@ -1882,10 +1891,14 @@ void CNPC_Citizen::HandleAnimEvent( animevent_t *pEvent )
 		{
 			CBaseCombatCharacter *pTarget = dynamic_cast<CBaseCombatCharacter *>( GetTarget() );
 			Assert(pTarget);
-			if ( pTarget )
+			if ( pTarget && pTarget->IsPlayer() )
 			{
 				m_flPlayerHealTime 	= gpGlobals->curtime + sk_citizen_heal_toss_player_delay.GetFloat();;
 				TossHealthKit( pTarget, Vector(48.0f, 0.0f, 0.0f)  );
+			}
+			else
+			{
+				Heal();
 			}
 		}
 		else
@@ -2092,7 +2105,7 @@ bool CNPC_Citizen::IsManhackMeleeCombatant()
 {
 	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
 	CBaseEntity *pEnemy = GetEnemy();
-	return ( pEnemy && pWeapon && pEnemy->Classify() == CLASS_MANHACK && pWeapon->ClassMatches( "weapon_crowbar" ) );
+	return ( pEnemy && pWeapon && pEnemy->Classify() == CLASS_MANHACK && (pWeapon->ClassMatches( "weapon_crowbar" ) || pWeapon->ClassMatches( "weapon_stunstick" )) );
 }
 
 //-----------------------------------------------------------------------------
@@ -2196,15 +2209,49 @@ bool CNPC_Citizen::ShouldLookForBetterWeapon()
 
 			if( FClassnameIs( pWeapon, "weapon_ar2" ) )
 			{
+				if( NumWeaponsInSquad("weapon_ar2") > 2)
+				{
+					bDefer = false;
+				}
+				else
+				{
+					if( random->RandomInt( 0, 1 ) == 0 )
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME;
+					}
+					else
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME + 10.0f;
+					}
+
+					bDefer = true;
+				}
 				// Content to keep this weapon forever
-				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
-				bDefer = true;
+				//m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				//bDefer = true;
 			}
 			else if( FClassnameIs( pWeapon, "weapon_rpg" ) )
 			{
 				// Content to keep this weapon forever
-				m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
-				bDefer = true;
+				if( NumWeaponsInSquad("weapon_rpg") > 1)
+				{
+					bDefer = false;
+				}
+				else
+				{
+					if( random->RandomInt( 0, 1 ) == 0 )
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME;
+					}
+					else
+					{
+						m_flNextWeaponSearchTime = gpGlobals->curtime + SHOTGUN_DEFER_SEARCH_TIME + 10.0f;
+					}
+
+					bDefer = true;
+				}
+				//m_flNextWeaponSearchTime = OTHER_DEFER_SEARCH_TIME;
+				//bDefer = true;
 			}
 			else if( FClassnameIs( pWeapon, "weapon_shotgun" ) )
 			{
@@ -2214,7 +2261,7 @@ bool CNPC_Citizen::ShouldLookForBetterWeapon()
 				if( NumWeaponsInSquad("weapon_shotgun") > 1 )
 				{
 					// Check for another weapon now. If I don't find one, this code will
-					// retry in 2 seconds or so.
+					// retry in 2 seconds or so
 					bDefer = false;
 				}
 				else
@@ -2376,7 +2423,7 @@ bool CNPC_Citizen::IsCommandMoving()
 //-----------------------------------------------------------------------------
 bool CNPC_Citizen::ShouldAutoSummon()
 {
-	if ( !AI_IsSinglePlayer() || !IsFollowingCommandPoint() || !IsInPlayerSquad() )
+	if ( !AI_IsSinglePlayer() || !IsFollowingCommandPoint() || !IsInPlayerSquad() || player_squad_enable_autosummon.GetInt() == 0 )
 		return false;
 
 	CHL2_Player *pPlayer = (CHL2_Player *)UTIL_GetLocalPlayer();
@@ -3523,6 +3570,9 @@ bool CNPC_Citizen::ShouldHealTossTarget( CBaseEntity *pTarget, bool bActiveUse )
 		return false;
 
 	bool bTargetIsPlayer = pTarget->IsPlayer();
+
+	if ( pTarget && (!pTarget->IsPlayer()))
+		return false;
 
 	// Don't heal or give ammo to targets in vehicles
 	CBaseCombatCharacter *pCCTarget = pTarget->MyCombatCharacterPointer();

@@ -156,10 +156,16 @@ void CBaseTrigger::InputTouchTest( inputdata_t &inputdata )
 //------------------------------------------------------------------------------
 void CBaseTrigger::Spawn()
 {
-	if ( HasSpawnFlags( SF_TRIGGER_ONLY_PLAYER_ALLY_NPCS ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) )
+	if ( HasSpawnFlags( SF_TRIGGER_ONLY_PLAYER_ALLY_NPCS ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) || HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
 	{
 		// Automatically set this trigger to work with NPC's.
 		AddSpawnFlags( SF_TRIGGER_ALLOW_NPCS );
+	}
+
+	if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) && HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
+	{
+		RemoveSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES );
+		RemoveSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES );
 	}
 
 	if ( HasSpawnFlags( SF_TRIGGER_ONLY_CLIENTS_IN_VEHICLES ) )
@@ -360,8 +366,8 @@ bool CBaseTrigger::PassesTriggerFilters(CBaseEntity *pOther)
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_CLIENTS) && (pOther->GetFlags() & FL_CLIENT)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_NPCS) && (pOther->GetFlags() & FL_NPC)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PUSHABLES) && FClassnameIs(pOther, "func_pushable")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_*")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_*")) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PHYSICS) && pOther->GetMoveType() == MOVETYPE_VPHYSICS) 
 #if defined( HL2_EPISODIC ) || defined( TF_DLL )		
 		||
@@ -388,6 +394,11 @@ bool CBaseTrigger::PassesTriggerFilters(CBaseEntity *pOther)
 			if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_IN_VEHICLES ) )
 			{
 				if ( !pNPC || !pNPC->IsInAVehicle() )
+					return false;
+			}
+			if ( HasSpawnFlags( SF_TRIGGER_ONLY_NPCS_NOT_IN_VEHICLES ) )
+			{
+				if ( !pNPC || pNPC->IsInAVehicle() )
 					return false;
 			}
 		}
@@ -2791,6 +2802,8 @@ public:
 	// Input handlers
 	void InputEnable( inputdata_t &inputdata );
 	void InputDisable( inputdata_t &inputdata );
+	void InputSetTarget( inputdata_t &inputdata );
+	void InputSetTrackedAttachment( inputdata_t &inputdata );
 
 private:
 	EHANDLE m_hPlayer;
@@ -2814,6 +2827,8 @@ private:
 	string_t m_iszTargetAttachment;
 	int	  m_iAttachmentIndex;
 	bool  m_bSnapToGoal;
+	bool  m_bTargetSetDynamic;
+	bool  m_bTargetAttachmentSetDynamic;
 
 #if HL2_EPISODIC
 	bool  m_bInterpolatePosition;
@@ -2857,6 +2872,8 @@ BEGIN_DATADESC( CTriggerCamera )
 	DEFINE_KEYFIELD( m_iszTargetAttachment, FIELD_STRING, "targetattachment" ),
 	DEFINE_FIELD( m_iAttachmentIndex, FIELD_INTEGER ),
 	DEFINE_FIELD( m_bSnapToGoal, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bTargetSetDynamic, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bTargetAttachmentSetDynamic, FIELD_BOOLEAN ),
 #if HL2_EPISODIC
 	DEFINE_KEYFIELD( m_bInterpolatePosition, FIELD_BOOLEAN, "interpolatepositiontoplayer" ),
 	DEFINE_FIELD( m_vStartPos, FIELD_VECTOR ),
@@ -2869,6 +2886,8 @@ BEGIN_DATADESC( CTriggerCamera )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetTarget", InputSetTarget ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetTrackedAttachment", InputSetTrackedAttachment ),
 
 	// Function Pointers
 	DEFINE_FUNCTION( FollowTarget ),
@@ -2889,6 +2908,8 @@ void CTriggerCamera::Spawn( void )
 	m_nRenderMode = kRenderTransTexture;
 
 	m_state = USE_OFF;
+	m_bTargetSetDynamic = 0;
+	m_bTargetAttachmentSetDynamic = 0;
 	
 	m_initialSpeed = m_flSpeed;
 
@@ -2960,6 +2981,43 @@ void CTriggerCamera::InputDisable( inputdata_t &inputdata )
 	Disable();
 }
 
+
+void CTriggerCamera::InputSetTarget( inputdata_t &inputdata )
+{
+	m_hTarget = gEntList.FindEntityByName( NULL, inputdata.value.String() );
+	m_bTargetSetDynamic = 1;
+		if ( m_hTarget )
+	{
+		// follow the player down
+		SetThink( &CTriggerCamera::FollowTarget );
+		SetNextThink( gpGlobals->curtime );
+	}
+}
+
+void CTriggerCamera::InputSetTrackedAttachment( inputdata_t &inputdata )
+{
+	m_iAttachmentIndex = 0;
+			m_bTargetAttachmentSetDynamic = 1;
+			if ( !m_hTarget->GetBaseAnimating() )
+			{
+				Warning("%s tried to target an attachment (%s) on target %s, which has no model.\n", GetClassname(), inputdata.value.String(), STRING(m_hTarget->GetEntityName()) );
+			}
+			else
+			{
+				m_iAttachmentIndex = m_hTarget->GetBaseAnimating()->LookupAttachment( inputdata.value.String() );
+				if ( m_iAttachmentIndex <= 0 )
+				{
+					Warning("%s could not find attachment %s on target %s.\n", GetClassname(), inputdata.value.String(), STRING(m_hTarget->GetEntityName()) );
+				}
+				else
+				{	
+					QAngle vecGoal;
+					Vector vecOrigin;
+					m_hTarget->GetBaseAnimating()->GetAttachment( m_iAttachmentIndex, vecOrigin );
+					VectorAngles( vecOrigin - GetAbsOrigin(), vecGoal );
+				}
+			}
+}
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -3040,27 +3098,34 @@ void CTriggerCamera::Enable( void )
 	{
 		m_hTarget = m_hPlayer;
 	}
-	else
+	else if ( !m_bTargetSetDynamic )
 	{
 		m_hTarget = GetNextTarget();
+	}
+	else if ( m_bTargetSetDynamic )
+	{
+		m_hTarget = m_hTarget;
 	}
 
 	// If we don't have a target, ignore the attachment / etc
 	if ( m_hTarget )
 	{
-		m_iAttachmentIndex = 0;
-		if ( m_iszTargetAttachment != NULL_STRING )
+		if ( !m_bTargetAttachmentSetDynamic )
 		{
-			if ( !m_hTarget->GetBaseAnimating() )
+			m_iAttachmentIndex = 0;
+			if ( m_iszTargetAttachment != NULL_STRING )
 			{
-				Warning("%s tried to target an attachment (%s) on target %s, which has no model.\n", GetClassname(), STRING(m_iszTargetAttachment), STRING(m_hTarget->GetEntityName()) );
-			}
-			else
-			{
-				m_iAttachmentIndex = m_hTarget->GetBaseAnimating()->LookupAttachment( STRING(m_iszTargetAttachment) );
-				if ( m_iAttachmentIndex <= 0 )
+				if ( !m_hTarget->GetBaseAnimating() )
 				{
-					Warning("%s could not find attachment %s on target %s.\n", GetClassname(), STRING(m_iszTargetAttachment), STRING(m_hTarget->GetEntityName()) );
+					Warning("%s tried to target an attachment (%s) on target %s, which has no model.\n", GetClassname(), STRING(m_iszTargetAttachment), STRING(m_hTarget->GetEntityName()) );
+				}
+				else
+				{
+					m_iAttachmentIndex = m_hTarget->GetBaseAnimating()->LookupAttachment( STRING(m_iszTargetAttachment) );
+					if ( m_iAttachmentIndex <= 0 )
+					{
+						Warning("%s could not find attachment %s on target %s.\n", GetClassname(), STRING(m_iszTargetAttachment), STRING(m_hTarget->GetEntityName()) );
+					}
 				}
 			}
 		}
@@ -4391,8 +4456,8 @@ bool CBaseVPhysicsTrigger::PassesTriggerFilters( CBaseEntity *pOther )
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_CLIENTS) && (pOther->GetFlags() & FL_CLIENT)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_NPCS) && (pOther->GetFlags() & FL_NPC)) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PUSHABLES) && FClassnameIs(pOther, "func_pushable")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_")) ||
-		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "weapon_*")) ||
+		(HasSpawnFlags(SF_TRIGGER_ALLOW_PICKUPS) && FClassnameIs(pOther, "item_*")) ||
 		(HasSpawnFlags(SF_TRIGGER_ALLOW_PHYSICS) && pOther->GetMoveType() == MOVETYPE_VPHYSICS))
 	{
 		bool bOtherIsPlayer = pOther->IsPlayer();

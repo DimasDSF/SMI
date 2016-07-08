@@ -1326,13 +1326,13 @@ void CNPC_CombineGunship::DoCombat( void )
 			m_vecAttackPosition = GetEnemy()->EyePosition();
 		}
 
-#ifdef BELLYBLAST
+//#ifdef BELLYBLAST
 		// Check for a ground attack
 		if ( CheckGroundAttack() )
 		{
 			StartGroundAttack();
 		}
-#endif
+//#endif
 
 		// See if we're attacking
 		if ( m_bIsGroundAttacking )

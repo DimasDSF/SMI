@@ -142,8 +142,10 @@ public:
 		m_bDarknessSpeechAllowed = inputdata.value.Bool();
 	}
 	void InputGiveEMP( inputdata_t &inputdata );
+	void InputSetModel( inputdata_t &inputdata );
 	void InputVehiclePunted( inputdata_t &inputdata );
 	void InputOutsideTransition( inputdata_t &inputdata );
+	void InputZapTarget( inputdata_t &inputdata );
 
 	virtual void	OnGivenWeapon( CBaseCombatWeapon *pNewWeapon );
 	virtual void	OnChangeActiveWeapon( CBaseCombatWeapon *pOldWeapon, CBaseCombatWeapon *pNewWeapon );

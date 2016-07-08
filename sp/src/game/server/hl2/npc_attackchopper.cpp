@@ -37,6 +37,7 @@
 #include "physics_saverestore.h"
 #include "ai_memory.h"
 #include "npc_attackchopper.h"
+#include "combine_mine.h"
 
 #ifdef HL2_EPISODIC
 #include "physics_bone_follower.h"
@@ -50,6 +51,7 @@
 // -------------------------------------
 #define CHOPPER_DRONE_NAME	"models/combine_helicopter/helicopter_bomb01.mdl"
 #define CHOPPER_MODEL_NAME	"models/combine_helicopter.mdl"
+#define CHOPPER_CARRIER_MODEL_NAME	"models/carrier_helicopter.mdl"
 #define CHOPPER_MODEL_CORPSE_NAME	"models/combine_helicopter_broken.mdl"
 #define CHOPPER_RED_LIGHT_SPRITE	"sprites/redglow1.vmt"
 
@@ -65,6 +67,10 @@ static const char *s_pChunkModelName[CHOPPER_MAX_CHUNKS] =
 #define BOMB_SKIN_LIGHT_ON		1
 #define BOMB_SKIN_LIGHT_OFF		0
 
+
+#define	HELICOPTER_CARRIER_CHUNK_COCKPIT	"models/gibs/carrier_helicopter_brokenpiece_04_cockpit.mdl"
+#define	HELICOPTER_CARRIER_CHUNK_TAIL		"models/gibs/carrier_helicopter_brokenpiece_05_tailfan.mdl"
+#define	HELICOPTER_CARRIER_CHUNK_BODY		"models/gibs/carrier_helicopter_brokenpiece_06_body.mdl"
 
 #define	HELICOPTER_CHUNK_COCKPIT	"models/gibs/helicopter_brokenpiece_04_cockpit.mdl"
 #define	HELICOPTER_CHUNK_TAIL		"models/gibs/helicopter_brokenpiece_05_tailfan.mdl"
@@ -115,6 +121,7 @@ static const char *s_pChunkModelName[CHOPPER_MAX_CHUNKS] =
 #define SF_HELICOPTER_IGNORE_AVOID_FORCES	0x00080000
 #define SF_HELICOPTER_AGGRESSIVE			0x00100000
 #define SF_HELICOPTER_LONG_SHADOW			0x00200000
+#define SF_HELICOPTER_CARRIER_MODEL			0x00400000
 
 #define CHOPPER_SLOW_BOMB_SPEED	250
 
@@ -436,9 +443,13 @@ private:
 	virtual void Startup();
 
 	void	InitializeRotorSound( void );
+	bool m_bSpotlightForcedOn;
+	EHANDLE m_hForcedSpotlightPos;
+	string_t m_iszSpotlightForcedPosName;
 
 	// Weaponry
 	bool	FireGun( void );
+	bool	SpotlightForced() {return m_bSpotlightForcedOn; }
 
 	// Movement:	
 	virtual void Flight( void );
@@ -459,6 +470,8 @@ private:
 
 	// Turns off the gun
 	void	InputGunOff( inputdata_t &inputdata );
+	void	InputDropMines( inputdata_t &inputdata );
+	void	InputSetMinesName( inputdata_t &inputdata );
 
 	// Vehicle attack modes
 	void	InputStartBombingVehicle( inputdata_t &inputdata );
@@ -473,6 +486,9 @@ private:
 	void	InputStartLongCycleShooting( inputdata_t &inputdata );
 	void	InputStartContinuousShooting( inputdata_t &inputdata );
 	void	InputStartFastShooting( inputdata_t &inputdata );
+	void	InputForceEnableSpotlight( inputdata_t &inputdata );
+	void	InputForceDisableSpotlight( inputdata_t &inputdata );
+	void	InputSetSpotlightTarget( inputdata_t &inputdata );
 
 	int		GetShootingMode( );
 	bool	IsDeadlyShooting();
@@ -552,6 +568,7 @@ private:
 	// Actually drops the bomb
 	void CreateBomb( bool bCheckForFairness = true, Vector *pVecVelocity = NULL, bool bMegaBomb = false );
 	CGrenadeHelicopter *SpawnBombEntity( const Vector &vecPos, const Vector &vecVelocity ); // Spawns the bomb entity and sets it up
+	CBounceBomb *SpawnMineEntity( const Vector &vecPos, const Vector &vecVelocity ); //Spawns the mine entity and sets it up
 
 	// Deliberately aims as close as possible w/o hitting
 	void AimCloseToTargetButMiss( CBaseEntity *pTarget, float flMinDist, float flMaxDist, const Vector &shootOrigin, Vector *pResult );
@@ -709,6 +726,7 @@ private:
 	float		m_flGracePeriod;
 	bool		m_bBombsExplodeOnContact;
 	bool		m_bNonCombat;
+	bool		m_bSpotlightOn;
 
 	int			m_nNearShots;
 	int			m_nMaxNearShots;
@@ -751,6 +769,14 @@ private:
 
 	// Special attacks
 	bool		m_bIsCarpetBombing;
+	bool		m_bIsDroppingMines;
+	string_t	m_iszMinesName;
+	bool		m_bMineLikesPlayer;
+	bool		m_bMineLikesPlayerAllies;
+	bool		m_bMineLikesCitizens;
+	bool		m_bMineLikesCombine;
+	bool		m_bMineLikesZombies;
+	bool		m_bMineLikesAntlions;
 
 	// Fun damage effects
 	float		m_flGoalRollDmg;
@@ -823,6 +849,7 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_FIELD( m_nShootingMode,		FIELD_INTEGER ),
 	DEFINE_FIELD( m_bDeadlyShooting,	FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bBombingSuppressed,	FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSpotlightOn, FIELD_BOOLEAN ),
 	DEFINE_SOUNDPATCH( m_pGunFiringSound ),
 	DEFINE_AUTO_ARRAY( m_hLights,		FIELD_EHANDLE ),
 	DEFINE_FIELD( m_bIgnorePathVisibilityTests, FIELD_BOOLEAN ),
@@ -832,6 +859,17 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 
 	DEFINE_KEYFIELD( m_bAlwaysTransition, FIELD_BOOLEAN, "AlwaysTransition" ),
 	DEFINE_KEYFIELD( m_iszTransitionTarget, FIELD_STRING, "TransitionTarget" ),
+	DEFINE_KEYFIELD( m_bIsDroppingMines, FIELD_BOOLEAN, "IsDroppingMines" ),
+	DEFINE_KEYFIELD( m_iszMinesName, FIELD_STRING, "MinesName" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayer, FIELD_BOOLEAN, "MineLikesPlayer" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayerAllies, FIELD_BOOLEAN, "MineLikesPlayerAllies" ),
+	DEFINE_KEYFIELD( m_bMineLikesCitizens, FIELD_BOOLEAN, "MineLikesCitizens" ),
+	DEFINE_KEYFIELD( m_bMineLikesCombine, FIELD_BOOLEAN, "MineLikesCombine" ),
+	DEFINE_KEYFIELD( m_bMineLikesZombies, FIELD_BOOLEAN, "MineLikesZombies" ),
+	DEFINE_KEYFIELD( m_bMineLikesAntlions, FIELD_BOOLEAN, "MineLikesAntlions" ),
+	DEFINE_KEYFIELD( m_bSpotlightForcedOn, FIELD_BOOLEAN, "SpotlightForceEnabled" ),
+	DEFINE_KEYFIELD( m_iszSpotlightForcedPosName, FIELD_STRING, "SpotlightTarget" ), 
+	DEFINE_FIELD( m_hForcedSpotlightPos, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_bIsCarpetBombing, FIELD_BOOLEAN ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableAlwaysTransition", InputEnableAlwaysTransition ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableAlwaysTransition", InputDisableAlwaysTransition ),
@@ -858,6 +896,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "DropBombDelay", InputDropBombDelay ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartCarpetBombing", InputStartCarpetBombing ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopCarpetBombing", InputStopCarpetBombing ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableBombing", InputEnableBombing ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableBombing", InputDisableBombing ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BecomeIndestructible", InputBecomeIndestructible ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableDeadlyShooting", InputEnableDeadlyShooting ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableDeadlyShooting", InputDisableDeadlyShooting ),
@@ -869,6 +909,11 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetHealthFraction", InputSetHealthFraction ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartBombExplodeOnContact", InputStartBombExplodeOnContact ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StopBombExplodeOnContact", InputStopBombExplodeOnContact ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableSpotlight", InputForceEnableSpotlight ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableSpotlight", InputForceDisableSpotlight ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "DropMines", InputDropMines ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetMineName", InputSetMinesName ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetSpotlightTarget", InputSetSpotlightTarget ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisablePathVisibilityTests", InputDisablePathVisibilityTests ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnablePathVisibilityTests", InputEnablePathVisibilityTests ),
@@ -929,6 +974,21 @@ void Chopper_PrecacheChunks( CBaseEntity *pChopper )
 	pChopper->PrecacheModel( HELICOPTER_CHUNK_TAIL );
 	pChopper->PrecacheModel( HELICOPTER_CHUNK_BODY );
 }
+
+//------------------------------------------------------------------------------
+// Purpose :
+//------------------------------------------------------------------------------
+void ChopperCarrier_PrecacheChunks( CBaseEntity *pChopper )
+{
+	for ( int i = 0; i < CHOPPER_MAX_CHUNKS; ++i )
+	{
+		pChopper->PrecacheModel( s_pChunkModelName[i] );
+	}
+
+	pChopper->PrecacheModel( HELICOPTER_CARRIER_CHUNK_COCKPIT );
+	pChopper->PrecacheModel( HELICOPTER_CARRIER_CHUNK_TAIL );
+	pChopper->PrecacheModel( HELICOPTER_CARRIER_CHUNK_BODY );
+}
  
 //------------------------------------------------------------------------------
 // Purpose :
@@ -937,9 +997,13 @@ void CNPC_AttackHelicopter::Precache( void )
 {
 	BaseClass::Precache();
 
-	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
+	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) && !HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL) )
 	{
 		PrecacheModel( CHOPPER_MODEL_NAME );
+	}
+	else if ( HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL) && !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE))
+	{
+		PrecacheModel( CHOPPER_CARRIER_MODEL_NAME );
 	}
 	else
 	{
@@ -954,7 +1018,14 @@ void CNPC_AttackHelicopter::Precache( void )
 	{
 		UTIL_PrecacheOther( "grenade_helicopter" );
 		UTIL_PrecacheOther( "env_fire_trail" );
-		Chopper_PrecacheChunks( this );
+		if (!HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL))
+		{
+			Chopper_PrecacheChunks( this );
+		}
+		else
+		{
+			ChopperCarrier_PrecacheChunks( this );
+		}
 		PrecacheModel("models/combine_soldier.mdl");
 	}
 
@@ -1038,9 +1109,13 @@ void CNPC_AttackHelicopter::Spawn( void )
 	m_bBombingSuppressed = false;
 	m_bIgnorePathVisibilityTests = false;
 
-	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
+	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) && !HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL) )
 	{
 		SetModel( CHOPPER_MODEL_NAME );
+	}
+	else if ( HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL) && !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE))
+	{
+		SetModel( CHOPPER_CARRIER_MODEL_NAME );
 	}
 	else
 	{
@@ -1096,6 +1171,10 @@ void CNPC_AttackHelicopter::Spawn( void )
 	m_nAttackMode = ATTACK_MODE_DEFAULT;
 	m_flInputDropBombTime = gpGlobals->curtime;
 	SetActivity( ACT_IDLE );
+	m_bSpotlightForcedOn = false;
+	m_bSpotlightOn = false;
+	m_bIsDroppingMines = false;
+	m_bMineLikesCombine = true;
 
 	int nBombAttachment = LookupAttachment("bomb");
 	m_hSensor = static_cast<CBombDropSensor*>(CreateEntityByName( "npc_helicoptersensor" ));
@@ -1157,6 +1236,11 @@ void CNPC_AttackHelicopter::Startup()
 
 		SetContextThink( &CNPC_AttackHelicopter::BlinkLightsThink, gpGlobals->curtime + CHOPPER_LIGHT_BLINK_TIME_SHORT, s_pBlinkLightThinkContext );
 	}
+
+	if( m_bSpotlightForcedOn || m_bSpotlightOn)
+	{
+		SpotlightStartup();
+	}
 }
 
 
@@ -1202,13 +1286,30 @@ void CNPC_AttackHelicopter::BlinkLightsThink()
 //------------------------------------------------------------------------------
 void CNPC_AttackHelicopter::SpotlightStartup()
 {
-	if ( !HasSpawnFlags( SF_HELICOPTER_LIGHTS ) )
+	if ( !HasSpawnFlags( SF_HELICOPTER_LIGHTS ) && !m_bSpotlightForcedOn )
 		return;
+
+	m_bSpotlightOn = true;
 
 	Vector vecForward;
 	Vector vecOrigin;
 	GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
-	m_Spotlight.SpotlightCreate( m_nSpotlightAttachment, vecForward );
+	if( m_iszSpotlightForcedPosName == NULL_STRING && !m_hForcedSpotlightPos )
+	{
+		m_Spotlight.SpotlightCreate( m_nSpotlightAttachment, vecForward );
+	}
+	else if ( m_iszSpotlightForcedPosName != NULL_STRING )
+	{
+		m_Spotlight.SpotlightCreate( m_nSpotlightAttachment, vecForward );
+		m_hForcedSpotlightPos = gEntList.FindEntityByName( NULL, m_iszSpotlightForcedPosName );
+		m_Spotlight.SetSpotlightTargetPos( m_hForcedSpotlightPos->WorldSpaceCenter() );
+		m_iszSpotlightForcedPosName = NULL_STRING;
+	}
+	else if ( m_hForcedSpotlightPos )
+	{
+		m_Spotlight.SpotlightCreate( m_nSpotlightAttachment, vecForward );
+		m_Spotlight.SetSpotlightTargetPos( m_hForcedSpotlightPos->WorldSpaceCenter() );
+	}
 	SpotlightThink();
 }
 
@@ -1218,8 +1319,12 @@ void CNPC_AttackHelicopter::SpotlightStartup()
 //------------------------------------------------------------------------------
 void CNPC_AttackHelicopter::SpotlightShutdown()
 {
-	m_Spotlight.SpotlightDestroy();
-	SetContextThink( NULL, gpGlobals->curtime, s_pSpotlightThinkContext );
+	if ( !SpotlightForced() )
+	{
+		m_bSpotlightOn = false;
+		m_Spotlight.SpotlightDestroy();
+		SetContextThink( NULL, gpGlobals->curtime, s_pSpotlightThinkContext );
+	}
 }
 
 
@@ -1231,42 +1336,189 @@ void CNPC_AttackHelicopter::SpotlightThink()
 	// NOTE: This function should deal with all deactivation cases
 	if ( m_lifeState != LIFE_ALIVE ) 
 	{
+		m_bSpotlightForcedOn = false;
 		SpotlightShutdown();
 		return;
 	}
 
-	switch( m_nAttackMode )
+	if( m_iszSpotlightForcedPosName != NULL_STRING)
 	{
-	case ATTACK_MODE_BULLRUSH_VEHICLE:
-		{
-			switch ( m_nSecondaryMode )
-			{
-			case BULLRUSH_MODE_SHOOT_GUN:
-				{
-					Vector vecForward;
-					Vector vecOrigin;
-					GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
-					m_Spotlight.SetSpotlightTargetDirection( vecForward );
-				}
-				break;
+		m_hForcedSpotlightPos = gEntList.FindEntityByName( NULL, m_iszSpotlightForcedPosName );
+		m_iszSpotlightForcedPosName = NULL_STRING;
+	}
 
-			case BULLRUSH_MODE_SHOOT_IDLE_PLAYER:
+	if(m_hForcedSpotlightPos)
+	{
+		Vector vecForward;
+		Vector vecOrigin;
+		GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+		m_Spotlight.SetSpotlightTargetDirection( vecForward );
+		m_Spotlight.SetSpotlightTargetPos( m_hForcedSpotlightPos->WorldSpaceCenter() );
+		DevMsg( 2, "Spotlight Aligning to specific target %s \n", m_hForcedSpotlightPos->GetDebugName());
+	}
+	else
+	{
+		switch( m_nAttackMode )
+		{
+		case ATTACK_MODE_DEFAULT:
+			{
+				Vector vecForward;
+				Vector vecOrigin;
+				GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
 				if ( GetEnemy() )
 				{
-					m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+					CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+					if( pEnemy && pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+					}
+					else if ( pEnemy && !pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+					}
 				}
-				break;
-
-			default:
-				SpotlightShutdown();
-				return;
+				else
+				{
+					m_Spotlight.SetSpotlightTargetDirection( vecForward );
+				}
 			}
-		}
-		break;
+			break;
 
-	default:
-		SpotlightShutdown();
-		return;
+		case ATTACK_MODE_BOMB_VEHICLE:
+			{
+				Vector vecForward;
+				Vector vecOrigin;
+				GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+				if ( GetEnemy() )
+				{
+					CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+					if( pEnemy && pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+					}
+					else if ( pEnemy && !pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+					}
+				}
+				else
+				{
+					m_Spotlight.SetSpotlightTargetDirection( vecForward );
+				}
+			}
+			break;
+
+		case ATTACK_MODE_TRAIL_VEHICLE:
+			{
+				Vector vecForward;
+				Vector vecOrigin;
+				GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+				if ( GetEnemy() )
+				{
+					CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+					if( pEnemy && pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+					}
+					else if ( pEnemy && !pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+					}
+				}
+				else
+				{
+					m_Spotlight.SetSpotlightTargetDirection( vecForward );
+				}
+			}
+			break;
+
+		case ATTACK_MODE_ALWAYS_LEAD_VEHICLE:
+			{
+				Vector vecForward;
+				Vector vecOrigin;
+				GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+				if ( GetEnemy() )
+				{
+					CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+					if( pEnemy && pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+					}
+					else if ( pEnemy && !pEnemy->IsInAVehicle() )
+					{
+						m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+					}
+				}
+				else
+				{
+					m_Spotlight.SetSpotlightTargetDirection( vecForward );
+				}
+			}
+			break;
+
+		case ATTACK_MODE_BULLRUSH_VEHICLE:
+			{
+				switch ( m_nSecondaryMode )
+				{
+				case BULLRUSH_MODE_SHOOT_GUN:
+					{
+						Vector vecForward;
+						Vector vecOrigin;
+						GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+						if ( GetEnemy() )
+						{
+							CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+							if( pEnemy && pEnemy->IsInAVehicle() )
+							{
+								m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+							}
+							else if ( pEnemy && !pEnemy->IsInAVehicle() )
+							{
+								m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+							}
+						}
+						else
+						{
+							m_Spotlight.SetSpotlightTargetDirection( vecForward );
+						}
+					}
+					break;
+
+				case BULLRUSH_MODE_SHOOT_IDLE_PLAYER:
+					{
+						Vector vecForward;
+						Vector vecOrigin;
+						GetAttachment( m_nSpotlightAttachment, vecOrigin, &vecForward );
+						if ( GetEnemy() )
+						{
+							CBaseCombatCharacter *pEnemy = dynamic_cast< CBaseCombatCharacter* >(GetEnemy());
+							if( pEnemy && pEnemy->IsInAVehicle() )
+							{
+								m_Spotlight.SetSpotlightTargetPos( pEnemy->GetVehicleEntity()->WorldSpaceCenter() );
+							}
+							else if ( pEnemy && !pEnemy->IsInAVehicle() )
+							{
+								m_Spotlight.SetSpotlightTargetPos( GetEnemy()->WorldSpaceCenter() );
+							}
+						}
+						else
+						{
+							m_Spotlight.SetSpotlightTargetDirection( vecForward );
+						}
+					}
+					break;
+
+				default:
+					SpotlightShutdown();
+					return;
+				}
+			}
+			break;
+
+		default:
+			SpotlightShutdown();
+			return;
+		}
 	}
 
 	m_Spotlight.Update();
@@ -1323,6 +1575,8 @@ void CNPC_AttackHelicopter::Activate( void )
 	m_nGunTipAttachment = LookupAttachment("muzzle");
 	m_nBombAttachment = LookupAttachment("bomb");
 	m_nSpotlightAttachment = LookupAttachment("spotlight");
+	m_nRocketAttachment1 = LookupAttachment( "damage0" );
+	m_nRocketAttachment2 = LookupAttachment( "damage3" );
 
 	if ( HasSpawnFlags( SF_HELICOPTER_LONG_SHADOW ) )
 	{
@@ -2793,6 +3047,37 @@ CGrenadeHelicopter *CNPC_AttackHelicopter::SpawnBombEntity( const Vector &vecPos
 	return pGrenade;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Create the mine entity and set it up
+// Input  : &vecPos - Position to spawn at
+//			&vecVelocity - velocity to spawn with
+//-----------------------------------------------------------------------------
+CBounceBomb *CNPC_AttackHelicopter::SpawnMineEntity( const Vector &vecPos, const Vector &vecVelocity )
+{
+	// Create the grenade and set it up
+	CBounceBomb *pGrenade = static_cast<CBounceBomb*>(CreateEntityByName( "combine_mine" ));
+	pGrenade->SetAbsOrigin( vecPos );
+	pGrenade->SetOwnerEntity( this );
+	if(m_iszMinesName != NULL_STRING )
+	{
+		pGrenade->KeyValue( "targetname", STRING(m_iszMinesName) );
+	}
+	pGrenade->SetAbsVelocity( vecVelocity );
+	DispatchSpawn( pGrenade );
+
+#ifdef HL2_EPISODIC
+	// Disable collisions with the owner's bone followers while we drop
+	physfollower_t *pFollower = m_BoneFollowerManager.GetBoneFollower( 0 );
+	if ( pFollower )
+	{
+		CBaseEntity *pBoneFollower = pFollower->hFollower;
+		PhysDisableEntityCollisions( pBoneFollower, pGrenade );
+	}
+#endif // HL2_EPISODIC
+
+	return pGrenade;
+}
+
 //------------------------------------------------------------------------------
 // Actually drops the bomb
 //------------------------------------------------------------------------------
@@ -2841,10 +3126,23 @@ void CNPC_AttackHelicopter::CreateBomb( bool bCheckForFairness, Vector *pVecVelo
 	EmitSound( "NPC_AttackHelicopter.DropMine" );
 
 	// Make the bomb and send it off
-	CGrenadeHelicopter *pGrenade = SpawnBombEntity( vTipPos, vecActualVelocity );
-	if ( pGrenade && bMegaBomb )
+	if (m_bIsDroppingMines)
 	{
-		pGrenade->AddSpawnFlags( SF_GRENADE_HELICOPTER_MEGABOMB );
+		CBounceBomb *pGrenade = SpawnMineEntity( vTipPos, vecActualVelocity );
+		pGrenade->SetPlayerRel( m_bMineLikesPlayer );
+		pGrenade->SetPlayerAllyRel( m_bMineLikesPlayerAllies );
+		pGrenade->SetCitizenRel(m_bMineLikesCitizens );
+		pGrenade->SetCombineRel( m_bMineLikesCombine );
+		pGrenade->SetZombieRel( m_bMineLikesZombies );
+		pGrenade->SetAntlionRel( m_bMineLikesAntlions );
+	}
+	else
+	{
+		CGrenadeHelicopter *pGrenade = SpawnBombEntity( vTipPos, vecActualVelocity );
+		if ( pGrenade && bMegaBomb )
+		{
+			pGrenade->AddSpawnFlags( SF_GRENADE_HELICOPTER_MEGABOMB );
+		}
 	}
 }
 
@@ -2869,6 +3167,74 @@ void CNPC_AttackHelicopter::InputDropBomb( inputdata_t &inputdata )
 	}
 }
 
+//------------------------------------------------------------------------------
+//Enable/Disable Dropping Mines
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputDropMines( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() == 1 )
+	{
+		m_bIsDroppingMines = true;
+	}
+	else
+	{
+		m_bIsDroppingMines = false;
+	}
+}
+
+//------------------------------------------------------------------------------
+//Set Dropped Mines Name
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputSetMinesName( inputdata_t &inputdata )
+{
+	if( MAKE_STRING(inputdata.value.String()) != NULL_STRING)
+	{
+		m_iszMinesName = MAKE_STRING(inputdata.value.String());
+	}
+	else
+	{
+		m_iszMinesName = NULL_STRING;
+	}
+}
+//------------------------------------------------------------------------------
+// Enable Spotlight
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputForceEnableSpotlight( inputdata_t &inputdata )
+{
+	m_bSpotlightForcedOn = true;
+	if ( m_bSpotlightOn == false )
+	{
+		SpotlightStartup();
+	}
+}
+
+//------------------------------------------------------------------------------
+// Disable Spotlight
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputForceDisableSpotlight( inputdata_t &inputdata )
+{
+	m_bSpotlightForcedOn = false;
+	if ( m_bSpotlightOn == true )
+	{
+		SpotlightShutdown();
+	}
+}
+
+void CNPC_AttackHelicopter::InputSetSpotlightTarget( inputdata_t &inputdata )
+{
+	if( inputdata.value.String() != NULL )
+	{
+		m_iszSpotlightForcedPosName = NULL_STRING;
+		m_hForcedSpotlightPos = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+		DevMsg( 2, "Set Spotlight Target \n" );
+		SpotlightThink();
+	}
+	else
+	{
+		m_hForcedSpotlightPos = NULL;
+		SpotlightThink();
+	}
+}
 
 //------------------------------------------------------------------------------
 // Drops a bomb straight downwards
@@ -2885,7 +3251,14 @@ void CNPC_AttackHelicopter::InputDropBombStraightDown( inputdata_t &inputdata )
 	GetAttachment( m_nBombAttachment, vTipPos );
 
 	// Make the bomb drop straight down
-	SpawnBombEntity( vTipPos, vec3_origin );
+	if( m_bIsDroppingMines )
+	{
+		SpawnMineEntity( vTipPos, vec3_origin );
+	}
+	else
+	{
+		SpawnBombEntity( vTipPos, vec3_origin );
+	}
 
 	// If we're in the middle of a bomb dropping schedule, wait to drop another bomb.
 	if ( ShouldDropBombs() )
@@ -2941,7 +3314,14 @@ void CNPC_AttackHelicopter::InputDropBombAtTargetInternal( inputdata_t &inputdat
 	}
 
 	// Make the bomb and send it off
-	SpawnBombEntity( vTipPos, vecVelocity );
+	if( m_bIsDroppingMines )
+	{
+		SpawnMineEntity( vTipPos, vecVelocity );
+	}
+	else
+	{
+		SpawnBombEntity( vTipPos, vecVelocity );
+	}
 
 	// If we're in the middle of a bomb dropping schedule, wait to drop another bomb.
 	if ( ShouldDropBombs() )
@@ -3660,50 +4040,80 @@ void Chopper_BecomeChunks( CBaseEntity *pChopper )
 	}
 
 	// Body
-	CHelicopterChunk *pBodyChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity(), HELICOPTER_CHUNK_BODY, CHUNK_BODY );
-	Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+	if( !pChopper->HasSpawnFlags(SF_HELICOPTER_CARRIER_MODEL))
+	{
+		CHelicopterChunk *pBodyChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity(), HELICOPTER_CHUNK_BODY, CHUNK_BODY );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		CHelicopterChunk *pCockpitChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * -800.0f, HELICOPTER_CHUNK_COCKPIT, CHUNK_COCKPIT );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		pCockpitChunk->m_hMaster = pBodyChunk;
+		CHelicopterChunk *pTailChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * 800.0f, HELICOPTER_CHUNK_TAIL, CHUNK_TAIL );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		pTailChunk->m_hMaster = pBodyChunk;
 
-	vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * 100.0f ) + ( vecUp * -38.0f );
+		vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * 100.0f ) + ( vecUp * -38.0f );
+		vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * -175.0f );
 
-	// Cockpit
-	CHelicopterChunk *pCockpitChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * -800.0f, HELICOPTER_CHUNK_COCKPIT, CHUNK_COCKPIT );
-	Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
-
-	pCockpitChunk->m_hMaster = pBodyChunk;
-
-	vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * -175.0f );
-
-	// Tail
-	CHelicopterChunk *pTailChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * 800.0f, HELICOPTER_CHUNK_TAIL, CHUNK_TAIL );
-	Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
-
-	pTailChunk->m_hMaster = pBodyChunk;
-
-	// Constrain all the pieces together loosely
-	IPhysicsObject *pBodyObject = pBodyChunk->VPhysicsGetObject();
-	Assert( pBodyObject );
-
-	IPhysicsObject *pCockpitObject = pCockpitChunk->VPhysicsGetObject();
-	Assert( pCockpitObject );
-
-	IPhysicsObject *pTailObject = pTailChunk->VPhysicsGetObject();
-	Assert( pTailObject );
-
-	IPhysicsConstraintGroup *pGroup = NULL;
+		// Constrain all the pieces together loosely
+		IPhysicsObject *pBodyObject = pBodyChunk->VPhysicsGetObject();
+		Assert( pBodyObject );
+		IPhysicsObject *pCockpitObject = pCockpitChunk->VPhysicsGetObject();
+		Assert( pCockpitObject );
+		IPhysicsObject *pTailObject = pTailChunk->VPhysicsGetObject();
+		Assert( pTailObject );
+		IPhysicsConstraintGroup *pGroup = NULL;
 	
-	// Create the constraint
-	constraint_fixedparams_t fixed;
-	fixed.Defaults();
-	fixed.InitWithCurrentObjectState( pBodyObject, pTailObject );
-	fixed.constraint.Defaults();
+		// Create the constraint
+		constraint_fixedparams_t fixed;
+		fixed.Defaults();
+		fixed.InitWithCurrentObjectState( pBodyObject, pTailObject );
+		fixed.constraint.Defaults();
 
-	pBodyChunk->m_pTailConstraint = physenv->CreateFixedConstraint( pBodyObject, pTailObject, pGroup, fixed );
+		pBodyChunk->m_pTailConstraint = physenv->CreateFixedConstraint( pBodyObject, pTailObject, pGroup, fixed );
 
-	fixed.Defaults();
-	fixed.InitWithCurrentObjectState( pBodyObject, pCockpitObject );
-	fixed.constraint.Defaults();
+		fixed.Defaults();
+		fixed.InitWithCurrentObjectState( pBodyObject, pCockpitObject );
+		fixed.constraint.Defaults();
 
-	pBodyChunk->m_pCockpitConstraint = physenv->CreateFixedConstraint( pBodyObject, pCockpitObject, pGroup, fixed );
+		pBodyChunk->m_pCockpitConstraint = physenv->CreateFixedConstraint( pBodyObject, pCockpitObject, pGroup, fixed );
+		}
+	else
+	{
+		CHelicopterChunk *pBodyChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity(), HELICOPTER_CARRIER_CHUNK_BODY, CHUNK_BODY );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		CHelicopterChunk *pCockpitChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * -800.0f, HELICOPTER_CARRIER_CHUNK_COCKPIT, CHUNK_COCKPIT );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		pCockpitChunk->m_hMaster = pBodyChunk;
+		CHelicopterChunk *pTailChunk = CHelicopterChunk::CreateHelicopterChunk( vecChunkPos, vecChunkAngles, pChopper->GetAbsVelocity() + vecRight * 800.0f, HELICOPTER_CARRIER_CHUNK_TAIL, CHUNK_TAIL );
+		Chopper_CreateChunk( pChopper, vecChunkPos, RandomAngle( 0, 360 ), s_pChunkModelName[random->RandomInt( 0, CHOPPER_MAX_CHUNKS - 1 )], false );
+		pTailChunk->m_hMaster = pBodyChunk;
+
+		vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * 100.0f ) + ( vecUp * -38.0f );
+		vecChunkPos = pChopper->GetAbsOrigin() + ( vecForward * -175.0f );
+
+		// Constrain all the pieces together loosely
+		IPhysicsObject *pBodyObject = pBodyChunk->VPhysicsGetObject();
+		Assert( pBodyObject );
+		IPhysicsObject *pCockpitObject = pCockpitChunk->VPhysicsGetObject();
+		Assert( pCockpitObject );
+		IPhysicsObject *pTailObject = pTailChunk->VPhysicsGetObject();
+		Assert( pTailObject );
+		IPhysicsConstraintGroup *pGroup = NULL;
+	
+		// Create the constraint
+		constraint_fixedparams_t fixed;
+		fixed.Defaults();
+		fixed.InitWithCurrentObjectState( pBodyObject, pTailObject );
+		fixed.constraint.Defaults();
+
+		pBodyChunk->m_pTailConstraint = physenv->CreateFixedConstraint( pBodyObject, pTailObject, pGroup, fixed );
+
+		fixed.Defaults();
+		fixed.InitWithCurrentObjectState( pBodyObject, pCockpitObject );
+		fixed.constraint.Defaults();
+
+		pBodyChunk->m_pCockpitConstraint = physenv->CreateFixedConstraint( pBodyObject, pCockpitObject, pGroup, fixed );
+	}
 }
 
 //-----------------------------------------------------------------------------

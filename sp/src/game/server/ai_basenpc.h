@@ -904,6 +904,11 @@ public:
 
 	NPC_STATE			m_NPCState;				// npc's current state
 	float				m_flLastStateChangeTime;
+	int					m_iTimeLostEnemy;
+	bool				m_bShouldMoveToRVSquadLeader;
+	bool				m_bMovedToRVSquadLeader;
+	int m_iNumInvestigations;
+	int m_iLastInvestigation;
 
 private:
 	NPC_STATE			m_IdealNPCState;		// npc should change to this state
@@ -991,7 +996,7 @@ public:
 	CSound *			GetLoudestSoundOfType( int iType );
 	virtual CSound *	GetBestSound( int validTypes = ALL_SOUNDS );
 	virtual CSound *	GetBestScent( void );
-	virtual float		HearingSensitivity( void )		{ return 1.0;	}
+	virtual float		HearingSensitivity( void )		{ return 3.0;	}
 	virtual bool		ShouldIgnoreSound( CSound * )	{ return false; }
 	bool				SoundIsVisible( CSound *pSound );
 
@@ -1728,7 +1733,7 @@ public:
 	virtual float		GetHintDelay( short sHintType );
 	virtual Activity	GetCoverActivity( CAI_Hint* pHint );
 	virtual Activity	GetReloadActivity( CAI_Hint* pHint );
-
+	CSound *			GetCurrentSound( void );
 	virtual void		SetTurnActivity( void );
 	bool				UpdateTurnGesture( void );
 
@@ -1894,6 +1899,8 @@ public:
 	COutputEvent		m_OnHearWorld;
 	COutputEvent		m_OnHearPlayer;
 	COutputEvent		m_OnHearCombat;
+	COutputEvent		m_OnKilledByPlayer;
+	COutputEvent		m_OnKilledPlayerAssist;
 	COutputEvent		m_OnDamagedByPlayer;
 	COutputEvent		m_OnDamagedByPlayerSquad;
 	COutputEvent		m_OnDenyCommanderUse;
@@ -1924,6 +1931,7 @@ private:
 	void				TryRestoreHull( void );
 	bool				m_fIsUsingSmallHull;
 	bool				m_bCheckContacts;
+	int					m_iPlayerDamage;
 
 private:
 	// Task implementation helpers
@@ -2016,6 +2024,7 @@ private:
 public:
 	void	SetNavigationDeferred( bool bState ) { m_bDeferredNavigation = bState; }
 	bool	IsNavigationDeferred( void ) { return m_bDeferredNavigation; }
+	bool IsNavHullValid() const;
 
 	//-----------------------------------------------------
 protected:
@@ -2024,7 +2033,7 @@ protected:
 
 private:
 	// Checks to see that the nav hull is valid for the NPC
-	bool IsNavHullValid() const;
+
 
 	friend class CAI_SystemHook;
 	friend class CAI_SchedulesManager;

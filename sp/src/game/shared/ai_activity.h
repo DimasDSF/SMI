@@ -94,6 +94,8 @@ typedef enum
 	ACT_PICKUP_GROUND,		// pick up something in front of you on the ground
 	ACT_PICKUP_RACK,		// pick up something from a rack or shelf in front of you.
 	ACT_IDLE_ANGRY,			// FIXME: being used as an combat ready idle?  alternate idle animation in which the monster is clearly agitated. (loop)
+	ACT_RUN_PASSIVE,
+	ACT_WALK_PASSIVE,
 
 	ACT_IDLE_RELAXED,
 	ACT_IDLE_STIMULATED,
@@ -217,7 +219,9 @@ typedef enum
 	// viewmodel (weapon) activities
 	// FIXME: move these to the specific viewmodels, no need to make global
 	ACT_VM_DRAW,
+	ACT_VM_DRAWEMPTY,
 	ACT_VM_HOLSTER,
+	ACT_VM_HOLSTEREMPTY,
 	ACT_VM_IDLE,
 	ACT_VM_FIDGET,
 	ACT_VM_PULLBACK,
@@ -325,6 +329,9 @@ typedef enum
 	ACT_SHOTGUN_RELOAD_START,
 	ACT_SHOTGUN_RELOAD_FINISH,
 	ACT_SHOTGUN_PUMP,
+	ACT_SHOTGUN_PUMP_EMPTY,
+	ACT_SHOTGUN_PUMP_NOSHELL,
+	ACT_SHOTGUN_PUMP_NOSHELL_EMPTY,
 
 	// SMG2 special activities
 	ACT_SMG2_IDLE2,

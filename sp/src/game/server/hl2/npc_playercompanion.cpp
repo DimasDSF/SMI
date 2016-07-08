@@ -122,6 +122,9 @@ BEGIN_DATADESC( CNPC_PlayerCompanion )
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "EnableWeaponPickup", InputEnableWeaponPickup ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DisableWeaponPickup", InputDisableWeaponPickup ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "PickupWeapon", InputPickupWeapon ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "EquipSpecificWeapon", InputEquipSpecificWeapon ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "DropWeapon", InputDropWeapon ),
 
 
 #if HL2_EPISODIC
@@ -2331,10 +2334,10 @@ WeaponProficiency_t CNPC_PlayerCompanion::CalcWeaponProficiency( CBaseCombatWeap
 {
 	if( FClassnameIs( pWeapon, "weapon_ar2" ) )
 	{
-		return WEAPON_PROFICIENCY_VERY_GOOD;
+		return WEAPON_PROFICIENCY_GOOD;
 	}
 
-	return WEAPON_PROFICIENCY_PERFECT;
+	return WEAPON_PROFICIENCY_VERY_GOOD;
 }
 
 //-----------------------------------------------------------------------------
@@ -3366,6 +3369,131 @@ void CNPC_PlayerCompanion::InputCancelEnterVehicle( inputdata_t &inputdata )
 	m_PassengerBehavior.CancelEnterVehicle();
 }
 
+void CNPC_PlayerCompanion::InputEquipSpecificWeapon( inputdata_t &inputdata )
+{
+	CBaseEntity *pThisNPC = this;
+	CBaseEntity *pWeaponPickup = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if ( pWeaponPickup )
+	{
+		if ( FClassnameIs( pWeaponPickup, "weapon_*" ) )
+		{
+			CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon *>( pWeaponPickup );
+			if ( FClassnameIs(pThisNPC, "npc_citizen") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_pistol" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) ) )
+			{
+				if ( GetActiveWeapon() )
+				{
+					Weapon_Drop(GetActiveWeapon());
+					PickupWeapon( pWeapon );
+				}
+				else
+				{
+				PickupWeapon( pWeapon );
+				}
+			}
+			else if ( FClassnameIs(pThisNPC, "npc_alyx") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_pistol" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) || FClassnameIs( pWeapon, "weapon_alyxgun" ) ) )
+			{	
+				if ( GetActiveWeapon() )
+				{
+					Weapon_Drop(GetActiveWeapon());
+					PickupWeapon( pWeapon );
+				}
+				else
+				{
+				PickupWeapon( pWeapon );
+				}
+			}
+			else if ( FClassnameIs(pThisNPC, "npc_barney") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_pistol" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) ) )
+			{
+				if ( GetActiveWeapon() )
+				{
+					Weapon_Drop(GetActiveWeapon());
+					PickupWeapon( pWeapon );
+				}
+				else
+				{
+				PickupWeapon( pWeapon );
+				}
+			}
+			else
+			{
+				DevMsg( 2, "This npc is not allowed to pickup a weapon of this type\n");
+			}
+		}
+		else
+		{
+			DevMsg( 2, "Selected entity is not a weapon\n");
+		}
+	}
+}
+
+void CNPC_PlayerCompanion::InputPickupWeapon( inputdata_t &inputdata )
+{
+	CBaseEntity *pThisNPC = this;
+	CBaseEntity *pWeaponPickup = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if ( pWeaponPickup )
+	{
+		if ( FClassnameIs( pWeaponPickup, "weapon_*" ) )
+		{
+			CBaseCombatWeapon *pWeapon = dynamic_cast<CBaseCombatWeapon *>( pWeaponPickup );
+			if ( FClassnameIs(pThisNPC, "npc_citizen") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) ) )
+			{
+				SetTarget( pWeaponPickup );
+				ForcePickupWeapon( pWeapon, pThisNPC );
+			}
+			else if ( FClassnameIs(pThisNPC, "npc_alyx") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) || FClassnameIs( pWeapon, "weapon_alyxgun" ) ) )
+			{	
+				SetTarget( pWeaponPickup );
+				ForcePickupWeapon( pWeapon, pThisNPC );
+			}
+			else if ( FClassnameIs(pThisNPC, "npc_barney") && ( FClassnameIs( pWeapon, "weapon_smg1" ) || FClassnameIs( pWeapon, "weapon_ar2" ) || FClassnameIs( pWeapon, "weapon_stunstick" ) || FClassnameIs( pWeapon, "weapon_crowbar" ) || FClassnameIs( pWeapon, "weapon_shotgun" ) ) )
+			{
+				SetTarget( pWeaponPickup );
+				ForcePickupWeapon( pWeapon, pThisNPC );
+			}
+			else
+			{
+				DevMsg( 2, "This npc is not allowed to pickup a weapon of this type\n");
+			}
+		}
+		else if ( FClassnameIs( pWeaponPickup, "item_healthkit" ) || FClassnameIs( pWeaponPickup, "item_healthvial" ) )
+		{
+			SetTarget( pWeaponPickup );
+			SetSchedule( SCHED_GET_HEALTHKIT );
+		}
+		else 
+		{
+			DevMsg( 2, "Selected entity is not a weapon, and not an item\n");
+		}
+	}
+}
+
+void CNPC_PlayerCompanion::InputDropWeapon( inputdata_t &inputdata )
+{
+	CBaseEntity *pWeaponDropTarget = gEntList.FindEntityByName(NULL, inputdata.value.String());
+	if ( GetActiveWeapon() && pWeaponDropTarget != NULL )
+	{
+		Vector vecTargetPos = pWeaponDropTarget->WorldSpaceCenter();
+		Weapon_Drop( GetActiveWeapon(), &vecTargetPos );
+	}
+	else if ( GetActiveWeapon() && pWeaponDropTarget == NULL )
+	{
+		Weapon_Drop( GetActiveWeapon() );
+	}
+	else if (!GetActiveWeapon())
+	{
+		DevMsg( 2, "Selected NPC has no weapon\n");
+	}
+	else
+	{
+		DevMsg( 2, "Unexpected Error in weapon throw input function\n");
+	}
+}
+
+void CNPC_PlayerCompanion::ForcePickupWeapon( CBaseCombatWeapon *pWeapon, CBaseEntity *pThisNPC )
+{
+	m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
+	SetSchedule( SCHED_NEW_WEAPON );
+}
 //-----------------------------------------------------------------------------
 // Purpose: Forces the NPC out of the vehicle they're riding in
 // Input  : bImmediate - If we need to exit immediately, teleport to any exit location

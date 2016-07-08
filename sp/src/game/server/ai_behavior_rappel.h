@@ -81,6 +81,7 @@ private:
 
 	//---------------------------------
 	bool	m_bWaitingToRappel;
+	bool	m_bDrawLine;
 	bool	m_bOnGround;
 	CHandle<CBeam> m_hLine;
 	Vector	m_vecRopeAnchor;

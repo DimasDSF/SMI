@@ -131,11 +131,19 @@ public:
 	void	InputDepleteAmmo( inputdata_t &inputdata );
 	void	InputRestoreAmmo( inputdata_t &inputdata );
 	void	InputSelfDestruct( inputdata_t &inputdata );
+	void	InputForceSetTarget( inputdata_t &inputdata );
+	void	InputForceResetTarget( inputdata_t &inputdata );
+	void	InputSetMaxRange( inputdata_t &inputdata );
+	void	InputSetTurnSpeed( inputdata_t &inputdata );
 
 	virtual bool	IsValidEnemy( CBaseEntity *pEnemy );
 	bool			CanBeAnEnemyOf( CBaseEntity *pEnemy );
 	bool			IsBeingCarriedByPlayer( void ) { return m_bCarriedByPlayer; }
 	bool			WasJustDroppedByPlayer( void );
+	void			ApplyForcedRelationships( CBaseEntity *PrevTarget, CBaseEntity *CurTarget );
+	void			ResetForcedRelationships( CBaseEntity *CurTarget );
+
+	float	MaxTargetRange( void );
 
 	int		BloodColor( void ) { return DONT_BLEED; }
 	float	MaxYawSpeed( void );
@@ -208,6 +216,7 @@ protected:
 	bool	m_bActive;		//Denotes the turret is deployed and looking for targets
 	bool	m_bBlinkState;
 	bool	m_bEnabled;		//Denotes whether the turret is able to deploy or not
+	bool	m_bSendsShotOutput;
 	bool	m_bNoAlarmSounds;
 	bool	m_bSelfDestructing;	// Going to blow up
 
@@ -216,6 +225,12 @@ protected:
 	float	m_flLastSight;
 	float	m_flThrashTime;
 	float	m_flPingTime;
+	float	m_flMaxTargetRange;
+	float	m_flTurnSpeed;
+	EHANDLE	m_hForcedTarget;
+	EHANDLE m_hPrevForcedTarget;
+	Disposition_t SavedForcedDisposition;
+	float	m_fForceTargetDelay;
 	float	m_flNextActivateSoundTime;
 	bool	m_bCarriedByPlayer;
 	bool	m_bUseCarryAngles;
@@ -248,6 +263,7 @@ protected:
 	COutputEvent m_OnTipped;
 	COutputEvent m_OnPhysGunPickup;
 	COutputEvent m_OnPhysGunDrop;
+	COutputEvent m_OnShotFired;
 
 	bool	m_bHackedByAlyx;
 	HSOUNDSCRIPTHANDLE			m_ShotSounds;

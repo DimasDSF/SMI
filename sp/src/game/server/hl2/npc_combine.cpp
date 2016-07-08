@@ -16,6 +16,7 @@
 #include "soundent.h"
 #include "game.h"
 #include "npcevent.h"
+#include "item_ammo.h"
 #include "npc_combine.h"
 #include "activitylist.h"
 #include "player.h"
@@ -41,7 +42,7 @@ int g_fCombineQuestion;				// true if an idle grunt asked a question. Cleared wh
 
 #define COMBINE_GRENADE_THROW_SPEED 650
 #define COMBINE_GRENADE_TIMER		3.5
-#define COMBINE_GRENADE_FLUSH_TIME	3.0		// Don't try to flush an enemy who has been out of sight for longer than this.
+#define COMBINE_GRENADE_FLUSH_TIME	6.0		// Don't try to flush an enemy who has been out of sight for longer than this.
 #define COMBINE_GRENADE_FLUSH_DIST	256.0	// Don't try to flush an enemy who has moved farther than this distance from the last place I saw him.
 
 #define COMBINE_LIMP_HEALTH				20
@@ -66,6 +67,7 @@ string_t	s_iszShotgunClassname;
 // Interactions
 //-----------------------------------------------------------------------------
 int	g_interactionCombineBash		= 0; // melee bash attack
+int m_iAmmoCrateNextSearchTime;
 
 //=========================================================
 // Combines's Anim Events Go Here
@@ -348,6 +350,7 @@ void CNPC_Combine::Spawn( void )
 	m_flAlertPatrolTime			= 0;
 
 	m_flNextAltFireTime = gpGlobals->curtime;
+	m_iAmmoCrateNextSearchTime	= 0;
 
 	NPCInit();
 }
@@ -378,7 +381,7 @@ void CNPC_Combine::PostNPCInit()
 		// an AR2. 
 		if( !GetActiveWeapon() || !FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) )
 		{
-			DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
+			//DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
 		}
 	}
 
@@ -897,6 +900,22 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 		}
 		break;
 
+	case TASK_COMBINE_MOVETO_PICKUP_GRENADES:
+		{
+			if ( !m_hAmmoCrate )
+			{
+				TaskFail(FAIL_NO_TARGET);
+				return;
+			}
+
+			GetNavigator()->SetArrivalDistance( 30 );
+
+			if (( m_hAmmoCrate.Get()->GetAbsOrigin() - GetLocalOrigin()).Length() < 30 )
+			{
+				TaskComplete( true );
+			}
+		}
+		break;
 	case TASK_COMBINE_IGNORE_ATTACKS:
 		// must be in a squad
 		if (m_pSquad && m_pSquad->NumMembers() > 2)
@@ -1085,6 +1104,36 @@ void CNPC_Combine::RunTask( const Task_t *pTask )
 		if ( IsActivityFinished() )
 		{
 			TaskComplete();
+		}
+		break;
+
+	case TASK_COMBINE_MOVETO_PICKUP_GRENADES:
+		{
+			if ( !m_hAmmoCrate )
+			{
+				TaskFail(FAIL_NO_TARGET);
+				return;
+			}
+
+			if ( GetTaskInterrupt() > 0 )
+			{
+				ClearTaskInterrupt();
+
+				Vector vecAmmoCrate = m_hAmmoCrate.Get()->GetAbsOrigin();
+				AI_NavGoal_t nearGoal( GOALTYPE_LOCATION_NEAREST_NODE, m_hAmmoCrate.Get()->WorldSpaceCenter(), ACT_RUN, AIN_HULL_TOLERANCE );
+
+				GetNavigator()->SetGoal( nearGoal );
+				GetNavigator()->SetArrivalDirection( vecAmmoCrate - nearGoal.dest );
+			}
+			else
+			{
+				TaskInterrupt();
+			}
+
+			if (( GetNavigator()->GetGoalPos() - GetLocalOrigin()).Length2D() < 30 )
+			{
+				TaskComplete( true );
+			}
 		}
 		break;
 
@@ -1823,6 +1872,43 @@ int CNPC_Combine::SelectSchedule( void )
 	{
 	case NPC_STATE_IDLE:
 		{
+			CBaseEntity *pAmmoCrateEnt = NULL;
+			if (m_iNumGrenades < 5 && (m_iAmmoCrateNextSearchTime < gpGlobals->curtime))
+			{
+				m_iAmmoCrateNextSearchTime = gpGlobals->curtime + 5;
+				while ( (pAmmoCrateEnt = gEntList.FindEntityInSphere( pAmmoCrateEnt, GetLocalOrigin(), 600 )) != NULL)
+				{
+					//DevWarning( 2, "Found an entity for ammo crate search\n" );
+					if ( FClassnameIs(pAmmoCrateEnt, "item_ammo_crate" ) )
+						{
+							//DevWarning( 2, "Found an ammo crate\n" );
+							CItem_AmmoCrate *pAmmoCrate = dynamic_cast<CItem_AmmoCrate*>(pAmmoCrateEnt);
+							if ( pAmmoCrate )
+							{
+								//DevWarning( 2, "Ammo crate is valid\n" );
+								m_hAmmoCrate = pAmmoCrate;
+								if ( (!IsElite() && pAmmoCrate->m_nAmmoType == 5) || (IsElite() && pAmmoCrate->m_nAmmoType == 8) )
+								{
+									//DevWarning( 2, "Ammo crate uses grenades\n" );
+									//if ( pAmmoCrate->m_nUseTimesRemaining == -1 || pAmmoCrate->m_nUseTimesRemaining > 0 )
+									if ( pAmmoCrate->m_nUseTimesRemaining != 0 )
+									{
+										//DevWarning( 2, "Ammo crate has >1 charge remaining\n" );
+										if ( (GetAbsOrigin() - pAmmoCrate->GetAbsOrigin()).Length2D() > 30 )
+										{
+											return SCHED_COMBINE_MOVETO_PICKUP_GRENADES;
+										}
+										else
+										{
+											return SCHED_COMBINE_PICKUP_GRENADES;
+										}
+									}
+								}
+							}
+						}
+				}
+			}
+
 			if ( m_bShouldPatrol )
 				return SCHED_COMBINE_PATROL;
 		}
@@ -1848,7 +1934,7 @@ int CNPC_Combine::SelectSchedule( void )
 				{
 					if( m_pSquad && m_pSquad->GetSquadMemberNearestTo( pSound->GetSoundReactOrigin() ) == this && OccupyStrategySlot( SQUAD_SLOT_INVESTIGATE_SOUND ) )
 					{
-						return SCHED_INVESTIGATE_SOUND;
+						//return SCHED_INVESTIGATE_SOUND;
 					}
 				}
 			}
@@ -1888,7 +1974,25 @@ int CNPC_Combine::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 			// the other memebers of the squad will hog all of the attack slots and pick schedules to move to establish line of
 			// fire. During this time, the shotgunner is prevented from attacking. If he also cannot find cover (the fallback case)
 			// he will stand around like an idiot, right in front of you. Instead of this, we have him run up to you for a melee attack.
+			if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))))
+			{
+				return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+			}
+			else
+			{
+				return SCHED_COMBINE_MOVE_TO_MELEE;
+			}
+		}
+	}
+	if ( failedSchedule == SCHED_BACK_AWAY_FROM_MELEE_ENEMY )
+	{
+		if (random->RandomInt(1,10) >= 4)
+		{
 			return SCHED_COMBINE_MOVE_TO_MELEE;
+		}
+		else
+		{
+			return SCHED_COMBINE_TAKE_COVER1;
 		}
 	}
 
@@ -1919,7 +2023,14 @@ int CNPC_Combine::SelectScheduleAttack()
 	// Kick attack?
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
 	{
-		return SCHED_MELEE_ATTACK1;
+		if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))))
+		{
+			return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+		}
+		else
+		{
+			return SCHED_MELEE_ATTACK1;
+		}
 	}
 
 	// If I'm fighting a combine turret (it's been hacked to attack me), I can't really
@@ -2259,12 +2370,16 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 
 	case SCHED_VICTORY_DANCE:
 		{
+			// A release for combine soldier signalling
+			//-------------
+			m_flAlertRelease = gpGlobals->curtime + 10.0;
+			//-------------
 			return SCHED_COMBINE_VICTORY_DANCE;
 		}
 	case SCHED_COMBINE_SUPPRESS:
 		{
 #define MIN_SIGNAL_DIST	256
-			if ( GetEnemy() != NULL && GetEnemy()->IsPlayer() && m_bFirstEncounter )
+			if ( GetEnemy() != NULL && m_bFirstEncounter )
 			{
 				float flDistToEnemy = ( GetEnemy()->GetAbsOrigin() - GetAbsOrigin() ).Length();
 
@@ -2286,11 +2401,37 @@ int CNPC_Combine::TranslateSchedule( int scheduleType )
 			return SCHED_FAIL;
 		}
 
+	case SCHED_COMBINE_MOVETO_PICKUP_GRENADES:
+		{
+			if ( (GetNavigator()->GetGoalPos() - GetAbsOrigin()).Length2D() < 20 )
+			{
+				return SCHED_COMBINE_PICKUP_GRENADES;
+			}
+			else
+			{
+				return SCHED_COMBINE_MOVETO_PICKUP_GRENADES;
+			}
+		}
+
+	case SCHED_COMBINE_PICKUP_GRENADES:
+		{
+			m_hAmmoCrate->Use( this, this, USE_ON, 1 );
+			m_iNumGrenades = 5;
+			return SCHED_COMBINE_PICKUP_GRENADES;
+		}
+
 	case SCHED_COMBINE_PATROL:
 		{
 			// If I have an enemy, don't go off into random patrol mode.
 			if ( GetEnemy() && GetEnemy()->IsAlive() )
 				return SCHED_COMBINE_PATROL_ENEMY;
+			// Reset to a First Encounter Mode
+			//------------
+			if ( gpGlobals->curtime < m_flAlertRelease )
+				{
+					m_bFirstEncounter = true;
+				}
+			//------------
 
 			return SCHED_COMBINE_PATROL;
 		}
@@ -2424,7 +2565,7 @@ void CNPC_Combine::HandleAnimEvent( animevent_t *pEvent )
 		case COMBINE_AE_GREN_LAUNCH:
 			{
 				EmitSound( "NPC_Combine.GrenadeLaunch" );
-
+				//npc_contactgrenade
 				CBaseEntity *pGrenade = CreateNoSpawn( "npc_contactgrenade", Weapon_ShootPosition(), vec3_angle, this );
 				pGrenade->KeyValue( "velocity", m_vecTossVelocity );
 				pGrenade->Spawn( );
@@ -2883,7 +3024,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 	if( gpGlobals->curtime < m_flNextAltFireTime )
 		return false;
 
-	if( !GetEnemy() )
+	if( !GetEnemy() && !m_hForcedGrenadeTarget )
 		return false;
 
 	if (gpGlobals->curtime < m_flNextGrenadeCheck )
@@ -2895,19 +3036,39 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 
 	CBaseEntity *pEnemy = GetEnemy();
 
-	if( !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
+	//if( !pEnemy->IsPlayer() && (!pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) )
+	//	return false;
+	//if ( !pEnemy->IsNPC() || !pEnemy->IsPlayer() )
+	if ( m_hForcedGrenadeTarget && ( !m_hForcedGrenadeTarget->IsNPC() || !m_hForcedGrenadeTarget->IsPlayer() || !( m_hForcedGrenadeTarget->Classify() == CLASS_BULLSEYE ) ) )
+		return false;
+
+	if ( !m_hForcedGrenadeTarget && ( !pEnemy->IsPlayer() && (!(pEnemy->Classify() == CLASS_BULLSEYE) || !pEnemy->IsNPC() || !pEnemy->MyNPCPointer()->IsPlayerAlly()) ) )
 		return false;
 
 	Vector vecTarget;
 
 	// Determine what point we're shooting at
-	if( bUseFreeKnowledge )
+	if ( m_hForcedGrenadeTarget )
 	{
-		vecTarget = GetEnemies()->LastKnownPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		if( bUseFreeKnowledge )
+		{
+			vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter() + (m_hForcedGrenadeTarget->GetViewOffset()*0.75);
+		}
+		else
+		{
+			vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter() + (m_hForcedGrenadeTarget->GetViewOffset()*0.75);
+		}
 	}
-	else
+	else if (!m_hForcedGrenadeTarget )
 	{
-		vecTarget = GetEnemies()->LastSeenPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		if( bUseFreeKnowledge )
+		{
+			vecTarget = GetEnemies()->LastKnownPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		}
+		else
+		{
+			vecTarget = GetEnemies()->LastSeenPosition( pEnemy ) + (pEnemy->GetViewOffset()*0.75);// approximates the chest
+		}
 	}
 
 	// Trace a hull about the size of the combine ball (don't shoot through grates!)
@@ -2984,6 +3145,15 @@ bool CNPC_Combine::CanGrenadeEnemy( bool bUseFreeKnowledge )
 //-----------------------------------------------------------------------------
 int CNPC_Combine::MeleeAttack1Conditions ( float flDot, float flDist )
 {
+	if (flDist > 192)
+	{
+		SetCondition( COND_ESCAPED_MELEE );
+	}
+	else
+	{
+		ClearCondition( COND_ESCAPED_MELEE );
+	}
+
 	if (flDist > 64)
 	{
 		return COND_NONE; // COND_TOO_FAR_TO_ATTACK;
@@ -3308,6 +3478,7 @@ DECLARE_TASK( TASK_COMBINE_CHASE_ENEMY_CONTINUOUSLY )
 DECLARE_TASK( TASK_COMBINE_DIE_INSTANTLY )
 DECLARE_TASK( TASK_COMBINE_PLAY_SEQUENCE_FACE_ALTFIRE_TARGET )
 DECLARE_TASK( TASK_COMBINE_GET_PATH_TO_FORCED_GREN_LOS )
+DECLARE_TASK( TASK_COMBINE_MOVETO_PICKUP_GRENADES )
 DECLARE_TASK( TASK_COMBINE_SET_STANDING )
 
 //Activities
@@ -3801,6 +3972,39 @@ DEFINE_SCHEDULE
  "	Interrupts"
  )
 
+ DEFINE_SCHEDULE
+ (
+ SCHED_COMBINE_MOVETO_PICKUP_GRENADES,
+
+ "	Tasks "
+ "		TASK_SET_FAIL_SCHEDULE						SCHEDULE:SCHED_IDLE_STAND"
+ "		TASK_SET_TOLERANCE_DISTANCE					10"
+ "		TASK_COMBINE_MOVETO_PICKUP_GRENADES			0"
+ "		TASK_WALK_PATH								0"
+ "		TASK_WAIT_FOR_MOVEMENT						0"
+ "		TASK_SET_SCHEDULE							SCHEDULE:SCHED_COMBINE_PICKUP_GRENADES"
+ "	"
+ "	Interrupts "
+ "		COND_NEW_ENEMY"
+ "		COND_SEE_ENEMY"
+ "		COND_TASK_FAILED"
+ )
+
+ DEFINE_SCHEDULE
+ (
+ SCHED_COMBINE_PICKUP_GRENADES,
+
+ "	Tasks "
+ "		TASK_STOP_MOVING							0"
+ "		TASK_PLAY_SEQUENCE					ACTIVITY:ACT_RELOAD_LOW"
+ "		TASK_SET_SCHEDULE					SCHEDULE:SCHED_MOVE_AWAY"
+ "	"
+ "	Interrupts "
+ "		COND_NEW_ENEMY"
+ "		COND_SEE_ENEMY"
+ "		COND_TASK_FAILED"
+ )
+
  //=========================================================
  // Move to LOS of the mapmaker's forced grenade throw target
  //=========================================================
@@ -3871,7 +4075,7 @@ DEFINE_SCHEDULE
 
  "	Tasks"
  "		TASK_STOP_MOVING				0"
- "		TASK_GET_PATH_TO_RANDOM_NODE	500" 
+ "		TASK_GET_PATH_TO_RANDOM_NODE	800" 
  "		TASK_WALK_PATH					0"
  "		TASK_WAIT_FOR_MOVEMENT			0"
  "		TASK_STOP_MOVING				0"

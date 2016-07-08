@@ -476,6 +476,7 @@ private:
 
 	bool				m_bInZoom;
 	bool				m_bMustReload;
+	bool				m_bIsBeingHolstered;
 };
 
 LINK_ENTITY_TO_CLASS( weapon_crossbow, CWeaponCrossbow );
@@ -504,6 +505,8 @@ CWeaponCrossbow::CWeaponCrossbow( void )
 	m_bAltFiresUnderwater = true;
 	m_bInZoom			= false;
 	m_bMustReload		= false;
+	m_bCanBeDropped		= false;
+	m_bIsBeingHolstered = false;
 }
 
 #define	CROSSBOW_GLOW_SPRITE	"sprites/light_glow02_noz.vmt"
@@ -584,7 +587,7 @@ void CWeaponCrossbow::CheckZoomToggle( void )
 {
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 	
-	if ( pPlayer->m_afButtonPressed & IN_ATTACK2 )
+	if ( pPlayer->m_afButtonPressed & IN_ATTACK2 && !m_bIsBeingHolstered )
 	{
 			ToggleZoom();
 	}
@@ -709,7 +712,7 @@ bool CWeaponCrossbow::Deploy( void )
 	{
 		return DefaultDeploy( (char*)GetViewModel(), (char*)GetWorldModel(), ACT_CROSSBOW_DRAW_UNLOADED, (char*)GetAnimPrefix() );
 	}
-
+	m_bIsBeingHolstered = false;
 	SetSkin( BOLT_SKIN_GLOW );
 
 	return BaseClass::Deploy();
@@ -722,6 +725,7 @@ bool CWeaponCrossbow::Deploy( void )
 //-----------------------------------------------------------------------------
 bool CWeaponCrossbow::Holster( CBaseCombatWeapon *pSwitchingTo )
 {
+	m_bIsBeingHolstered = true;
 	StopEffects();
 	return BaseClass::Holster( pSwitchingTo );
 }

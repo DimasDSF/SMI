@@ -239,6 +239,7 @@ private:
 	// Input
 	void	InputEnable( inputdata_t &inputdata );
 	void	InputDisable( inputdata_t &inputdata );
+	void	InputSpawnBall( inputdata_t &inputdata );
 
 	// Fire ball grabbed output
 	void	GrabBallTouch( CBaseEntity *pOther );
@@ -257,6 +258,7 @@ private:
 	float m_flRadius;
 	float m_flDisableTime;
 	bool m_bEnabled;
+	string_t m_iszBallName;
 
 	COutputEvent m_OnBallGrabbed;
 	COutputEvent m_OnBallReinserted;
@@ -286,6 +288,7 @@ private:
 	int			m_iBounces;
 	float		m_flConeDegrees;
 	string_t	m_iszBullseyeName;
+	string_t	m_iszBallName;
 };
 
 // Creates a combine ball

@@ -7,6 +7,7 @@
 //=============================================================================//
 #include "cbase.h"
 #include "player_pickup.h"
+#include "player.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -35,6 +36,7 @@ void Pickup_OnPhysGunDrop( CBaseEntity *pDroppedObject, CBasePlayer *pPlayer, Ph
 	IPlayerPickupVPhysics *pPickup = dynamic_cast<IPlayerPickupVPhysics *>(pDroppedObject);
 	if ( pPickup )
 	{
+		pPlayer->m_bHolsteredProp = false;
 		pPickup->OnPhysGunDrop( pPlayer, Reason );
 	}
 }
@@ -45,6 +47,7 @@ void Pickup_OnPhysGunPickup( CBaseEntity *pPickedUpObject, CBasePlayer *pPlayer,
 	IPlayerPickupVPhysics *pPickup = dynamic_cast<IPlayerPickupVPhysics *>(pPickedUpObject);
 	if ( pPickup )
 	{
+		pPlayer->m_bHolsteredProp = true;
 		pPickup->OnPhysGunPickup( pPlayer, reason );
 	}
 

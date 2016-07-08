@@ -1,4 +1,4 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= Copyright © Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Security cameras will track a default target (if they have one)
 //			until they either acquire an enemy to track or are told to track
@@ -34,6 +34,7 @@
 #include "explode.h"
 #include "IEffects.h"
 #include "animation.h"
+#include "globalstate.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -131,6 +132,11 @@ public:
 	void InputDisable(inputdata_t &inputdata);
 	void InputSetAngry(inputdata_t &inputdata);
 	void InputSetIdle(inputdata_t &inputdata);
+	void InputShotTarget(inputdata_t &inputdata);
+	void InputSetTurnSpeed(inputdata_t &inputdata);
+	void InputSetIdleTurnSpeed(inputdata_t &inputdata);
+	void InputSetInnerRadius(inputdata_t &inputdata);
+	void InputSetOuterRadius(inputdata_t &inputdata);
 
 	void DrawDebugGeometryOverlays(void);
 	
@@ -138,7 +144,15 @@ public:
 
 	int OnTakeDamage(const CTakeDamageInfo &inputInfo);
 
-	Class_T Classify() { return (m_bEnabled) ? CLASS_MILITARY : CLASS_NONE; }
+	Class_T Classify() 
+	{ 
+		if (!m_bEnabled)
+			return CLASS_NONE;
+		else if (GlobalEntity_GetState("combine_base_hacked") == GLOBAL_ON)
+			return CLASS_PLAYER_ALLY;
+		else
+			return CLASS_COMBINE_TURRET_STAT;
+	}
 	
 	bool IsValidEnemy( CBaseEntity *pEnemy );
 	bool FVisible(CBaseEntity *pEntity, int traceMask = MASK_BLOCKLOS, CBaseEntity **ppBlocker = NULL);
@@ -179,6 +193,7 @@ protected:
 
 	int m_nInnerRadius;	// The camera will only lock onto enemies that are within the inner radius.
 	int m_nOuterRadius; // The camera will flash amber when enemies are within the outer radius, but outside the inner radius.
+	int m_nRandomClickCount;
 
 	bool m_bActive;		// The camera is deployed and looking for targets
 	bool m_bAngry;		// The camera has gotten angry at someone and sounded an alarm.
@@ -189,10 +204,16 @@ protected:
 
 	EHANDLE	m_hEnemyTarget;			// Entity we acquired as an enemy.	
 
+	COutputEvent	m_OnPhoto;
+	COutputEvent	m_OnLostTarget;
+	COutputEvent	m_OnLastPhoto;
+
 	float m_flPingTime;
 	float m_flClickTime;			// Time to take next picture while angry.
 	int m_nClickCount;				// Counts pictures taken since we last became angry.
 	float m_flMoveSoundTime;
+	float m_flIdleTurnSpeed;
+	float m_flTurnSpeed;
 	float m_flTurnOffEyeFlashTime;
 	float m_flEyeHappyTime;
 
@@ -216,6 +237,8 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_FIELD(m_bBlinkState, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_bEnabled, FIELD_BOOLEAN),
 	DEFINE_KEYFIELD(m_sDefaultTarget, FIELD_STRING, "defaulttarget"),
+	DEFINE_KEYFIELD(m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed"),
+	DEFINE_KEYFIELD(m_flIdleTurnSpeed, FIELD_FLOAT, "IdleTurnSpeed"),
 	DEFINE_FIELD(m_hEnemyTarget, FIELD_EHANDLE),
 	DEFINE_FIELD(m_flPingTime, FIELD_TIME),
 	DEFINE_FIELD(m_flClickTime, FIELD_TIME),
@@ -238,6 +261,14 @@ BEGIN_DATADESC(CNPC_CombineCamera)
 	DEFINE_INPUTFUNC(FIELD_VOID, "Disable", InputDisable),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetAngry", InputSetAngry),
 	DEFINE_INPUTFUNC(FIELD_VOID, "SetIdle", InputSetIdle),
+	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetTurnSpeed", InputSetTurnSpeed),
+	DEFINE_INPUTFUNC(FIELD_INTEGER, "SetInnerRadius", InputSetInnerRadius),
+	DEFINE_INPUTFUNC(FIELD_INTEGER, "SetOuterRadius", InputSetOuterRadius),
+	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetIdleTurnSpeed", InputSetIdleTurnSpeed),
+
+	DEFINE_OUTPUT( m_OnPhoto, "OnPhoto"),
+	DEFINE_OUTPUT( m_OnLostTarget, "OnLostTarget"),
+	DEFINE_OUTPUT( m_OnLastPhoto, "OnLastPhoto"),
 
 END_DATADESC()
 
@@ -458,9 +489,23 @@ void CNPC_CombineCamera::Deploy()
 float CNPC_CombineCamera::MaxYawSpeed()
 {
 	if (m_hEnemyTarget)
-		return 180.0f;
+		if ( m_flTurnSpeed )
+		{
+			return m_flTurnSpeed;
+		}
+		else
+		{
+			return 180.0f;
+		}
 
-	return 60.0f;
+	if ( m_flIdleTurnSpeed )
+	{
+		return m_flIdleTurnSpeed;
+	}
+	else
+	{
+		return 60.0f;
+	}
 }
 
 
@@ -628,6 +673,7 @@ void CNPC_CombineCamera::ActiveThink()
 		SetAngry(false);
 		SetThink(&CNPC_CombineCamera::SearchThink);
 		SetNextThink( gpGlobals->curtime );
+		m_OnLostTarget.FireOutput( this, this );
 		return;
 	}
 
@@ -640,14 +686,12 @@ void CNPC_CombineCamera::ActiveThink()
 		{
 			m_OnFoundEnemy.Set(pTarget, pTarget, this);
 
-			// If it's a citizen, it's ok. If it's the player, it's not ok.
-			if ( pTarget->IsPlayer() )
-			{
 				SetEyeState(CAMERA_EYE_FOUND_TARGET);
 
 				if (HasSpawnFlags(SF_COMBINE_CAMERA_BECOMEANGRY))
 				{
 					SetAngry(true);
+					m_nRandomClickCount = random->RandomInt(1,5);
 				}
 				else
 				{
@@ -656,15 +700,6 @@ void CNPC_CombineCamera::ActiveThink()
 
 				m_OnFoundPlayer.Set(pTarget, pTarget, this);
 				m_hEnemyTarget = pTarget;
-			}
-			else
-			{
-				SetEyeState(CAMERA_EYE_HAPPY);
-				m_flEyeHappyTime = gpGlobals->curtime + 2.0;
-
-				// Now forget about this target forever
-				AddEntityRelationship( pTarget, D_NU, 99 );
-			}
 		}
 		else
 		{
@@ -742,14 +777,17 @@ void CNPC_CombineCamera::TrackTarget( CBaseEntity *pTarget )
 void CNPC_CombineCamera::MaintainEye()
 {
 	// Angry cameras take a few pictures of their target.
-	if ((m_bAngry) && (m_nClickCount <= 3))
+	if ((m_bAngry) && (m_nClickCount <= m_nRandomClickCount))
 	{
+		if ( m_nClickCount == 1 )
+		{
+			m_OnPhoto.FireOutput( m_hEnemyTarget, this, 0);
+		}
 		if ((m_flClickTime != 0) && (m_flClickTime < gpGlobals->curtime))
 		{
 			m_pEyeFlash->SetScale(1.0);
 			m_pEyeFlash->SetBrightness(255);
 			m_pEyeFlash->SetColor(255,255,255);
-
 			EmitSound("NPC_CombineCamera.Click");
 
 			m_flTurnOffEyeFlashTime = gpGlobals->curtime + 0.1;
@@ -759,6 +797,10 @@ void CNPC_CombineCamera::MaintainEye()
 		{
 			m_flTurnOffEyeFlashTime = 0;
 			m_pEyeFlash->SetBrightness( 0, 0.25f );
+			if (m_nClickCount >= m_nRandomClickCount)
+			{
+				m_OnLastPhoto.FireOutput( m_hEnemyTarget, this, 0);
+			}
 			m_nClickCount++;
 		}
 	}
@@ -992,6 +1034,69 @@ void CNPC_CombineCamera::Disable()
 
 
 //-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetTurnSpeed;
+	m_flTempSetTurnSpeed = inputdata.value.Float();
+//	m_flTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetTurnSpeed <= 0.0 )
+	{
+		m_flTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetTurnSpeed > 360.0 )
+	{
+		m_flTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flTurnSpeed = m_flTempSetTurnSpeed;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the turret's Maximum Turn Speed
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetIdleTurnSpeed( inputdata_t &inputdata )
+{
+	float m_flTempSetIdleTurnSpeed;
+	m_flTempSetIdleTurnSpeed = inputdata.value.Float();
+//	m_flIdleTurnSpeed = inputdata.value.Float();
+	if ( m_flTempSetIdleTurnSpeed <= 0.0 )
+	{
+		m_flIdleTurnSpeed = 10.0;
+	}
+	else if ( m_flTempSetIdleTurnSpeed > 360.0 )
+	{
+		m_flIdleTurnSpeed = 360.0;
+	}
+	else
+	{
+		m_flIdleTurnSpeed = m_flTempSetIdleTurnSpeed;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting the Camera's Inner/Outer Radiuses
+//-----------------------------------------------------------------------------
+void CNPC_CombineCamera::InputSetInnerRadius( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() > 0 )
+	{
+		m_nInnerRadius = inputdata.value.Int();
+	}
+}
+
+void CNPC_CombineCamera::InputSetOuterRadius( inputdata_t &inputdata )
+{
+	if( inputdata.value.Int() > 0 )
+	{
+		m_nOuterRadius = inputdata.value.Int();
+	}
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: Toggle the camera's state via input function
 //-----------------------------------------------------------------------------
 void CNPC_CombineCamera::InputToggle(inputdata_t &inputdata)
@@ -1185,4 +1290,12 @@ void CNPC_CombineCamera::DrawDebugGeometryOverlays(void)
 	}
 
 	BaseClass::DrawDebugGeometryOverlays();
+}
+
+//-----------------------------------------
+//
+//-----------------------------------------
+void CNPC_CombineCamera::InputShotTarget( inputdata_t &inputdata )
+{
+	m_OnPhoto.FireOutput( inputdata.pActivator, inputdata.pCaller, 0 );
 }

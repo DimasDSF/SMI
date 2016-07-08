@@ -60,6 +60,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 	DEFINE_KEYFIELD( m_bSynchPostIdles, FIELD_BOOLEAN, "m_bSynchPostIdles" ),
 	DEFINE_KEYFIELD( m_bIgnoreGravity, FIELD_BOOLEAN, "m_bIgnoreGravity" ),
 	DEFINE_KEYFIELD( m_bDisableNPCCollisions, FIELD_BOOLEAN, "m_bDisableNPCCollisions" ),
+	DEFINE_KEYFIELD( m_bProtectActor, FIELD_BOOLEAN, "ProtectActor" ),
 
 	DEFINE_FIELD( m_iDelay, FIELD_INTEGER ),
 	DEFINE_FIELD( m_bDelayed, FIELD_BOOLEAN ),
@@ -95,6 +96,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "MoveToPosition", InputMoveToPosition ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "BeginSequence", InputBeginSequence ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetActor", InputSetActor ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "CancelSequence", InputCancelSequence ),
 
 	DEFINE_KEYFIELD( m_iPlayerDeathBehavior, FIELD_INTEGER, "onplayerdeath" ),
@@ -102,6 +104,7 @@ BEGIN_DATADESC( CAI_ScriptedSequence )
 
 	// Outputs
 	DEFINE_OUTPUT(m_OnBeginSequence, "OnBeginSequence"),
+	DEFINE_OUTPUT(m_OnInPosition, "OnInPosition"),
 	DEFINE_OUTPUT(m_OnEndSequence, "OnEndSequence"),
 	DEFINE_OUTPUT(m_OnPostIdleEndSequence, "OnPostIdleEndSequence"),
 	DEFINE_OUTPUT(m_OnCancelSequence, "OnCancelSequence"),
@@ -185,12 +188,19 @@ void CAI_ScriptedSequence::ScriptEntityCancel( CBaseEntity *pentCine, bool bPret
 		else
 		{
 			// Fire the cancel
+			if ( pCineTarget->m_bProtectActor )
+			{
+				pTarget->m_takedamage = DAMAGE_YES;
+			}
  			pCineTarget->m_OnCancelSequence.FireOutput(NULL, pCineTarget);
-
 			if ( pCineTarget->m_startTime == 0 )
 			{
 				// If start time is 0, this sequence never actually ran. Fire the failed output.
 				pCineTarget->m_OnCancelFailedSequence.FireOutput(NULL, pCineTarget);
+				if ( pCineTarget->m_bProtectActor )
+				{
+					pTarget->m_takedamage = DAMAGE_YES;
+				}
 			}
 		}
 	}
@@ -312,6 +322,7 @@ void CAI_ScriptedSequence::InputMoveToPosition( inputdata_t &inputdata )
 		// Yes, are they already playing this script?
 		if ( pTarget->m_scriptState == CAI_BaseNPC::SCRIPT_PLAYING || pTarget->m_scriptState == CAI_BaseNPC::SCRIPT_POST_IDLE )
 		{
+			OnInPosition();
 			// Yes, see if we can enqueue ourselves.
 			if ( pTarget->CanPlaySequence( FCanOverrideState(), SS_INTERRUPT_BY_NAME ) )
 			{
@@ -410,6 +421,17 @@ void CAI_ScriptedSequence::InputCancelSequence( inputdata_t &inputdata )
 	DevMsg( 2,  "InputCancelScript: Cancelling script '%s'\n", STRING( m_iszPlay ));
 	StopThink();
 	ScriptEntityCancel( this );
+}
+
+void CAI_ScriptedSequence::InputSetActor( inputdata_t &inputdata )
+{
+	//CBaseEntity *pActorToSet = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	//string_t strActortoSet = MAKE_STRING( inputdata.value.String() );
+	//m_iszEntity = strActortoSet;
+		//strActortoSet; inputdata.value.String()
+	CBaseEntity *pActorToSet = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	m_hForcedTarget = pActorToSet;
+	DevMsg( 2,  "Setting Actor for script '%s'\n", STRING( m_iszPlay ));
 }
 
 void CAI_ScriptedSequence::InputScriptPlayerDeath( inputdata_t &inputdata )
@@ -617,7 +639,10 @@ void CAI_ScriptedSequence::StartScript( void )
 	if ( pTarget )
 	{
 		pTarget->RemoveSpawnFlags( SF_NPC_WAIT_FOR_SCRIPT );
-
+		if ( m_bProtectActor )
+		{
+			pEntity->m_takedamage = DAMAGE_NO;
+		}
 		//
 		// If the NPC is in another script, just enqueue ourselves and bail out.
 		// We'll possess the NPC when the current script finishes with the NPC.
@@ -797,6 +822,15 @@ void CAI_ScriptedSequence::OnBeginSequence( void )
 	m_OnBeginSequence.FireOutput( this, this );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Callback used for firing output when npc told to movetoposition
+//			is a place
+//-----------------------------------------------------------------------------
+void CAI_ScriptedSequence::OnInPosition( void )
+{
+	m_OnInPosition.FireOutput( this, this );
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Look up a sequence name and setup the target NPC to play it.
@@ -810,11 +844,28 @@ bool CAI_ScriptedSequence::StartSequence( CAI_BaseNPC *pTarget, string_t iszSeq,
 	Assert( pTarget );
 	m_sequenceStarted = true;
 	m_bIsPlayingEntry = (iszSeq == m_iszEntry);
+	m_bIsPreIdle = (iszSeq == m_iszPreIdle);
+	m_bIsPlaying = (iszSeq == m_iszPlay);
 
 	if ( !iszSeq && completeOnEmpty )
 	{
 		SequenceDone( pTarget );
 		return false;
+	}
+
+	if ( m_bIsPreIdle )
+	{
+		OnInPosition();
+	}
+
+	if ( m_iszPreIdle == NULL_STRING && m_iszEntry != NULL_STRING && m_bIsPlayingEntry)
+	{
+		OnInPosition();
+	}
+
+	if ( m_iszPreIdle == NULL_STRING && m_iszEntry == NULL_STRING && IsPlayingAction())
+	{
+		OnInPosition();
 	}
 
 	int nSequence = pTarget->LookupSequence( STRING( iszSeq ) );
@@ -858,7 +909,6 @@ void CAI_ScriptedSequence::SynchronizeSequence( CAI_BaseNPC *pNPC )
 	Assert( m_iDelay == 0 );
 	Assert( m_bWaitForBeginSequence == false );
 	m_bForceSynch = false;
-
 	// Reset cycle position
 	float flCycleRate = pNPC->GetSequenceCycleRate( pNPC->GetSequence() );
 	float flInterval = gpGlobals->curtime - m_startTime;
@@ -964,6 +1014,10 @@ void CAI_ScriptedSequence::SequenceDone( CAI_BaseNPC *pNPC )
 		}
 	}
 
+	if ( m_bProtectActor )
+	{
+		pNPC->m_takedamage = DAMAGE_YES;
+	}
 	m_OnEndSequence.FireOutput(NULL, this);
 }
 

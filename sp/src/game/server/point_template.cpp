@@ -55,14 +55,22 @@ BEGIN_DATADESC( CPointTemplate )
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[14], FIELD_STRING, "Template15"),
 	DEFINE_KEYFIELD( m_iszTemplateEntityNames[15], FIELD_STRING, "Template16"),
 	DEFINE_UTLVECTOR( m_hTemplateEntities, FIELD_CLASSPTR ),
+	DEFINE_KEYFIELD( m_iszSpawnTargetName, FIELD_STRING, "SpawnPoint"),
+	DEFINE_KEYFIELD( m_iSpawnTargetOffsetZ, FIELD_INTEGER, "SpawnPointOffsetZ"),
+	DEFINE_KEYFIELD( m_bDoAngleSetup, FIELD_BOOLEAN, "DoAngleSetupWithSpawnPoint"),
 
 	DEFINE_UTLVECTOR( m_hTemplates, FIELD_EMBEDDED ),
 
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "ForceSpawn", InputForceSpawn ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetSpawnPoint", InputSetSpawnPoint ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetSpawnPointOffsetZ", InputSetSpawnPointOffsetZ ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "ResetSpawnPoint", InputResetSpawnPoint ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_pOutputOnSpawned, "OnEntitySpawned" ),
+	DEFINE_OUTPUT( m_pOutputEntSpawned, "OnSingleEntSpawned" ),
+	DEFINE_OUTPUT( m_pOutputOnSetSpawn, "OnSetSpawn" ),
 
 END_DATADESC()
 
@@ -371,9 +379,45 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 		vecNewOrigin = matStoredLocalToWorld.GetTranslation();
 		MatrixToAngles( matStoredLocalToWorld, vecNewAngles );
 
-		// Set its origin & angles
-		pEntity->SetAbsOrigin( vecNewOrigin );
-		pEntity->SetAbsAngles( vecNewAngles );
+		if( m_iszSpawnTargetName != NULL_STRING )
+		{
+			m_iszSpawnTarget = gEntList.FindEntityByName( NULL, m_iszSpawnTargetName, NULL, this, this );
+			m_iszSpawnTargetName = NULL_STRING;
+		}
+
+		if ( m_iszSpawnTarget != NULL )
+		{
+			CBaseEntity *pSTarget = m_iszSpawnTarget;
+			Vector vecSPOrigin;
+			QAngle vecSPAngles;
+			if( m_iSpawnTargetOffsetZ )
+			{
+				vecSPOrigin = pSTarget->GetAbsOrigin() + Vector( 0, 0, m_iSpawnTargetOffsetZ);
+			}
+			else
+			{
+				vecSPOrigin = pSTarget->GetAbsOrigin();
+			}
+			pEntity->SetAbsOrigin( vecSPOrigin );
+			if( m_bDoAngleSetup )
+			{
+				vecSPAngles = pSTarget->GetAbsAngles();
+				pEntity->SetAbsAngles( vecSPAngles );
+			}
+			else
+			{
+				pEntity->SetAbsAngles( vecNewAngles );
+			}
+			m_pOutputEntSpawned.FireOutput( this, pEntity );
+		}
+		else
+		{
+		// Set its origin
+			pEntity->SetAbsOrigin( vecNewOrigin );
+		//& angles
+			pEntity->SetAbsAngles( vecNewAngles );
+			m_pOutputEntSpawned.FireOutput( this, pEntity );
+		}
 
 		pSpawnList[i].m_pEntity = pEntity;
 		pSpawnList[i].m_nDepth = 0;
@@ -391,6 +435,46 @@ bool CPointTemplate::CreateInstance( const Vector &vecOrigin, const QAngle &vecA
 	}
 
 	return true;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Setting spawnpoint
+// Input  : &inputdata -
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputSetSpawnPoint( inputdata_t &inputdata )
+{
+	CBaseEntity *pSITarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	if ( !pSITarget )
+	{
+		DevMsg("%s (%s) received SetSpawn input, but couldn't find target entity '%s'\n", GetClassname(), GetDebugName(), inputdata.value.String() );
+		return;
+	}
+
+	if ( pSITarget )
+	{
+		m_pOutputOnSetSpawn.FireOutput(this, pSITarget);
+	}
+	m_iszSpawnTarget = pSITarget;
+
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set Spawnpoint offset
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputSetSpawnPointOffsetZ( inputdata_t &inputdata )
+{
+	m_iSpawnTargetOffsetZ = inputdata.value.Int();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Reset Spawnpoint
+// Input  : &inputdata - 
+//-----------------------------------------------------------------------------
+void CPointTemplate::InputResetSpawnPoint( inputdata_t &inputdata )
+{
+	m_iszSpawnTarget = NULL;
 }
 
 //-----------------------------------------------------------------------------

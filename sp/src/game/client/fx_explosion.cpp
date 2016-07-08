@@ -274,7 +274,7 @@ void C_BaseExplosionEffect::CreateCore( void )
 	#ifdef _XBOX
 				pParticle->m_flDieTime	= 1.0f;
 	#else
-				pParticle->m_flDieTime	= random->RandomFloat( 2.0f, 3.0f );
+				pParticle->m_flDieTime	= random->RandomFloat( 2.0f, 4.0f );
 	#endif
 
 				pParticle->m_vecVelocity.Random( -spread, spread );
@@ -330,7 +330,7 @@ void C_BaseExplosionEffect::CreateCore( void )
 	#ifdef INVASION_CLIENT_DLL
 				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
 	#else
-				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
+				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 2.0f );
 	#endif
 
 				pParticle->m_vecVelocity.Random( -spread, spread );
@@ -658,7 +658,7 @@ void C_BaseExplosionEffect::CreateDebris( void )
 			break;
 
 		pParticle->m_flLifetime	= 0.0f;
-		pParticle->m_flDieTime	= 3.0f;
+		pParticle->m_flDieTime	= 10.0f;
 		
 		dir[0] = m_vecDirection[0] + random->RandomFloat( -1.0f, 1.0f );
 		dir[1] = m_vecDirection[1] + random->RandomFloat( -1.0f, 1.0f );

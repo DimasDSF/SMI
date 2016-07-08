@@ -35,6 +35,7 @@ public:
 
 private:
 	bool	m_bNeedPump;		// When emptied completely
+	bool	m_bPumpShell;		// Used For disabling Shell ejection after pumping for custom occasions
 	bool	m_bDelayedFire1;	// Fire primary when finished reloading
 	bool	m_bDelayedFire2;	// Fire secondary when finished reloading
 
@@ -97,6 +98,7 @@ PRECACHE_WEAPON_REGISTER(weapon_shotgun);
 BEGIN_DATADESC( CWeaponShotgun )
 
 	DEFINE_FIELD( m_bNeedPump, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bPumpShell, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bDelayedFire1, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bDelayedFire2, FIELD_BOOLEAN ),
 
@@ -293,6 +295,7 @@ bool CWeaponShotgun::StartReload( void )
 	if (m_iClip1 <= 0)
 	{
 		m_bNeedPump = true;
+		m_bPumpShell = false;
 	}
 
 	int j = MIN(1, pOwner->GetAmmoCount(m_iPrimaryAmmoType));
@@ -415,8 +418,38 @@ void CWeaponShotgun::Pump( void )
 	
 	WeaponSound( SPECIAL1 );
 
+	if ( m_iClip1 == 0 )
+	{
+		SetBodygroup(1,1);
+	}
+	else if ( m_iClip1 > 0 )
+	{
+		SetBodygroup(1,0);
+	}
 	// Finish reload animation
-	SendWeaponAnim( ACT_SHOTGUN_PUMP );
+	if (m_bPumpShell)
+	{
+		if ( m_iClip1 == 0 )
+		{
+			SendWeaponAnim( ACT_SHOTGUN_PUMP_EMPTY );
+		}
+		else
+		{
+			SendWeaponAnim( ACT_SHOTGUN_PUMP );
+		}
+	}
+	else
+	{
+		if ( m_iClip1 == 0 )
+		{
+			SendWeaponAnim( ACT_SHOTGUN_PUMP_NOSHELL_EMPTY );
+		}
+		else
+		{
+			SendWeaponAnim( ACT_SHOTGUN_PUMP_NOSHELL );
+		}
+		m_bPumpShell = true;
+	}
 
 	pOwner->m_flNextAttack	= gpGlobals->curtime + SequenceDuration();
 	m_flNextPrimaryAttack	= gpGlobals->curtime + SequenceDuration();
@@ -482,11 +515,11 @@ void CWeaponShotgun::PrimaryAttack( void )
 		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
 	}
 
-	if( m_iClip1 )
-	{
+	//if( m_iClip1 )
+	//{
 		// pump so long as some rounds are left.
 		m_bNeedPump = true;
-	}
+	//}
 
 	m_iPrimaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
@@ -526,7 +559,7 @@ void CWeaponShotgun::SecondaryAttack( void )
 	Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
 
 	// Fire the bullets
-	pPlayer->FireBullets( 12, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
+	pPlayer->FireBullets( sk_plr_num_shotgun_pellets.GetInt() * 2, vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, false, false );
 	pPlayer->ViewPunch( QAngle(random->RandomFloat( -5, 5 ),0,0) );
 
 	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 1.0 );
@@ -539,11 +572,11 @@ void CWeaponShotgun::SecondaryAttack( void )
 		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
 	}
 
-	if( m_iClip1 )
-	{
+	//if( m_iClip1 )
+	//{
 		// pump so long as some rounds are left.
 		m_bNeedPump = true;
-	}
+	//}
 
 	m_iSecondaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
@@ -560,20 +593,25 @@ void CWeaponShotgun::ItemPostFrame( void )
 		return;
 	}
 
+	if( m_bWeaponCanFire == false )
+		return;
+
 	if (m_bInReload)
 	{
 		// If I'm primary firing and have one round stop reloading and fire
 		if ((pOwner->m_nButtons & IN_ATTACK ) && (m_iClip1 >=1))
 		{
 			m_bInReload		= false;
-			m_bNeedPump		= false;
+			m_bPumpShell	= false;
+			m_bNeedPump		= true;
 			m_bDelayedFire1 = true;
 		}
 		// If I'm secondary firing and have one round stop reloading and fire
 		else if ((pOwner->m_nButtons & IN_ATTACK2 ) && (m_iClip1 >=2))
 		{
 			m_bInReload		= false;
-			m_bNeedPump		= false;
+			m_bPumpShell	= false;
+			m_bNeedPump		= true;
 			m_bDelayedFire2 = true;
 		}
 		else if (m_flNextPrimaryAttack <= gpGlobals->curtime)
@@ -622,14 +660,14 @@ void CWeaponShotgun::ItemPostFrame( void )
 			{
 				PrimaryAttack();
 			}
-			else if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
+			else /*if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))*/
 			{
 				DryFire();
 			}
-			else
-			{
-				StartReload();
-			}
+			//else
+			//{
+			//	StartReload();
+			//}
 		}
 
 		// Fire underwater?
@@ -654,14 +692,14 @@ void CWeaponShotgun::ItemPostFrame( void )
 		m_bDelayedFire1 = false;
 		if ( (m_iClip1 <= 0 && UsesClipsForAmmo1()) || ( !UsesClipsForAmmo1() && !pOwner->GetAmmoCount(m_iPrimaryAmmoType) ) )
 		{
-			if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
-			{
+			//if (!pOwner->GetAmmoCount(m_iPrimaryAmmoType))
+			//{
 				DryFire();
-			}
-			else
-			{
-				StartReload();
-			}
+			//}
+			//else
+			//{
+			//	StartReload();
+			//}
 		}
 		// Fire underwater?
 		else if (pOwner->GetWaterLevel() == 3 && m_bFiresUnderwater == false)
@@ -706,11 +744,11 @@ void CWeaponShotgun::ItemPostFrame( void )
 			// weapon is useable. Reload if empty and weapon has waited as long as it has to after firing
 			if ( m_iClip1 <= 0 && !(GetWeaponFlags() & ITEM_FLAG_NOAUTORELOAD) && m_flNextPrimaryAttack < gpGlobals->curtime )
 			{
-				if (StartReload())
-				{
+				//if (StartReload())
+				//{
 					// if we've successfully started to reload, we're done
-					return;
-				}
+				//	return;
+				//}
 			}
 		}
 
@@ -730,6 +768,7 @@ CWeaponShotgun::CWeaponShotgun( void )
 	m_bReloadsSingly = true;
 
 	m_bNeedPump		= false;
+	m_bPumpShell	= true;
 	m_bDelayedFire1 = false;
 	m_bDelayedFire2 = false;
 

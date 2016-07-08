@@ -111,6 +111,21 @@ void CHudBattery::OnThink( void )
 	}
 	else if ( m_iNewBat < m_iBat )
 	{
+		if ( m_iBat >= 100 )
+		{
+			if ( m_iNewBat > 100 )
+			{
+				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerMore100Damaged");
+			}
+			else if ( m_iNewBat == 100 )
+			{
+				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerMore100Damaged100");
+			}
+			else
+			{
+				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerMore100DamagedTo99");
+			}
+		}
 		if ( m_iBat == 100 )
 		{
 			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerNotFull");
@@ -136,6 +151,11 @@ void CHudBattery::OnThink( void )
 			{
 				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerIncreasedAbove20");
 				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerFull");
+			}
+			else if ( m_iNewBat > 100 )
+			{
+				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerIncreasedAbove20");
+				g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("SuitPowerFullMore100");
 			}
 			else
 			{

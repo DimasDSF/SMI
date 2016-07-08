@@ -655,6 +655,209 @@ DECLARE_CLIENT_EFFECT( "GunshipMuzzleFlash", GunshipMuzzleFlashCallback );
 
 
 //-----------------------------------------------------------------------------
+// Ceiling Turret Muzzle
+//-----------------------------------------------------------------------------
+void MuzzleFlash_CeilingT( ClientEntityHandle_t hEntity, int attachmentIndex )
+{
+	VPROF_BUDGET( "MuzzleFlash_CeilingT", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+
+	// If the client hasn't seen this entity yet, bail.
+	matrix3x4_t	matAttachment;
+	if ( !FX_GetAttachmentTransform( hEntity, attachmentIndex, matAttachment ) )
+		return;
+
+	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash", hEntity, attachmentIndex );
+	//_Strider
+	SimpleParticle *pParticle;
+	Vector			forward(1,0,0), offset; //NOTENOTE: All coords are in local space
+
+	float flScale = random->RandomFloat( 0.8f, 2.0f );
+
+	float burstSpeed = random->RandomFloat( 300.0f, 400.0f );
+
+#define	FRONT_LENGTH 12
+
+	// Front flash
+	for ( int i = 1; i < FRONT_LENGTH; i++ )
+	{
+		offset = (forward * (i*2.0f*flScale));
+
+		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( VarArgs( "effects/combinemuzzle%d", random->RandomInt(1,2) ) ), offset );
+			
+		if ( pParticle == NULL )
+			return;
+
+		pParticle->m_flLifetime		= 0.0f;
+		pParticle->m_flDieTime		= 0.1f;
+
+		pParticle->m_vecVelocity = forward * burstSpeed;
+
+		pParticle->m_uchColor[0]	= 255;
+		pParticle->m_uchColor[1]	= 255;
+		pParticle->m_uchColor[2]	= 255;
+
+		pParticle->m_uchStartAlpha	= 255.0f;
+		pParticle->m_uchEndAlpha	= 0;
+
+		pParticle->m_uchStartSize	= ( (random->RandomFloat( 10.0f, 12.0f ) * (FRONT_LENGTH-(i))/(FRONT_LENGTH*0.75f)) * flScale );
+		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+		pParticle->m_flRollDelta	= 0.0f;
+	}
+	
+	Vector right(0,1,0), up(0,0,1);
+	Vector dir = right - up;
+
+#define	SIDE_LENGTH	8
+
+	burstSpeed = random->RandomFloat( 300.0f, 400.0f );
+
+	// Diagonal flash
+	for ( int i = 1; i < SIDE_LENGTH; i++ )
+	{
+		offset = (dir * (i*flScale));
+
+		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( VarArgs( "effects/combinemuzzle%d", random->RandomInt(1,2) ) ), offset );
+			
+		if ( pParticle == NULL )
+			return;
+
+		pParticle->m_flLifetime		= 0.0f;
+		pParticle->m_flDieTime		= 0.2f;
+
+		pParticle->m_vecVelocity = dir * burstSpeed * 0.25f;
+
+		pParticle->m_uchColor[0]	= 255;
+		pParticle->m_uchColor[1]	= 255;
+		pParticle->m_uchColor[2]	= 255;
+
+		pParticle->m_uchStartAlpha	= 255;
+		pParticle->m_uchEndAlpha	= 0;
+
+		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+		pParticle->m_flRollDelta	= 0.0f;
+	}
+
+	dir = right + up;
+	burstSpeed = random->RandomFloat( 300.0f, 400.0f );
+
+	// Diagonal flash
+	for ( int i = 1; i < SIDE_LENGTH; i++ )
+	{
+		offset = (-dir * (i*flScale));
+
+		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( VarArgs( "effects/combinemuzzle%d", random->RandomInt(1,2) ) ), offset );
+			
+		if ( pParticle == NULL )
+			return;
+
+		pParticle->m_flLifetime		= 0.0f;
+		pParticle->m_flDieTime		= 0.2f;
+
+		pParticle->m_vecVelocity = dir * -burstSpeed * 0.25f;
+
+		pParticle->m_uchColor[0]	= 255;
+		pParticle->m_uchColor[1]	= 255;
+		pParticle->m_uchColor[2]	= 255;
+
+		pParticle->m_uchStartAlpha	= 255;
+		pParticle->m_uchEndAlpha	= 0;
+
+		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+		pParticle->m_flRollDelta	= 0.0f;
+	}
+
+	dir = up;
+	burstSpeed = random->RandomFloat( 300.0f, 400.0f );
+
+	// Top flash
+	for ( int i = 1; i < SIDE_LENGTH; i++ )
+	{
+		offset = (dir * (i*flScale));
+
+		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( VarArgs( "effects/combinemuzzle%d", random->RandomInt(1,2) ) ), offset );
+			
+		if ( pParticle == NULL )
+			return;
+
+		pParticle->m_flLifetime		= 0.0f;
+		pParticle->m_flDieTime		= 0.2f;
+
+		pParticle->m_vecVelocity = dir * burstSpeed * 0.25f;
+
+		pParticle->m_uchColor[0]	= 255;
+		pParticle->m_uchColor[1]	= 255;
+		pParticle->m_uchColor[2]	= 255;
+
+		pParticle->m_uchStartAlpha	= 255;
+		pParticle->m_uchEndAlpha	= 0;
+
+		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+		pParticle->m_flRollDelta	= 0.0f;
+	}
+
+	pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( "effects/strider_muzzle" ), vec3_origin );
+		
+	if ( pParticle == NULL )
+		return;
+
+	pParticle->m_flLifetime		= 0.0f;
+	pParticle->m_flDieTime		= random->RandomFloat( 0.3f, 0.4f );
+
+	pParticle->m_vecVelocity.Init();
+
+	pParticle->m_uchColor[0]	= 255;
+	pParticle->m_uchColor[1]	= 255;
+	pParticle->m_uchColor[2]	= 255;
+
+	pParticle->m_uchStartAlpha	= 255;
+	pParticle->m_uchEndAlpha	= 0;
+
+	pParticle->m_uchStartSize	= flScale * random->RandomFloat( 12.0f, 16.0f );
+	pParticle->m_uchEndSize		= 0.0f;
+	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+	pParticle->m_flRollDelta	= 0.0f;
+
+	Vector		origin;
+	MatrixGetColumn( matAttachment, 3, &origin );
+
+	int entityIndex = ClientEntityList().HandleToEntIndex( hEntity );
+	if ( entityIndex >= 0 )
+	{
+		dlight_t *el = effects->CL_AllocElight( LIGHT_INDEX_MUZZLEFLASH + entityIndex );
+
+		el->origin	= origin;
+
+		el->color.r = 64;
+		el->color.g = 128;
+		el->color.b = 255;
+		el->color.exponent = 5;
+
+		el->radius	= random->RandomInt( 100, 150 );
+		el->decay	= el->radius / 0.05f;
+		el->die		= gpGlobals->curtime + 0.1f;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CeilingTurretMuzzleFlashCallback( const CEffectData &data )
+{
+	MuzzleFlash_CeilingT( data.m_hEntity, data.m_nAttachmentIndex );
+}
+
+DECLARE_CLIENT_EFFECT( "CeilingTMuzzleFlash", CeilingTurretMuzzleFlashCallback );
+
+
+
+//-----------------------------------------------------------------------------
 // Hunter muzzle flashes
 //-----------------------------------------------------------------------------
 void MuzzleFlash_Hunter( ClientEntityHandle_t hEntity, int attachmentIndex )

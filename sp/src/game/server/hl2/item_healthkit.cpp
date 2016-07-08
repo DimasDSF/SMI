@@ -428,6 +428,7 @@ public:
 	bool CreateVPhysics(void);
 	void Off(void);
 	void Recharge(void);
+	void RechargePercent( int iPerc );
 	bool KeyValue(  const char *szKeyName, const char *szValue );
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	virtual int	ObjectCaps( void ) { return BaseClass::ObjectCaps() | m_iCaps; }
@@ -443,10 +444,15 @@ public:
 
 	COutputFloat m_OutRemainingHealth;
 	COutputEvent m_OnPlayerUse;
+	COutputEvent m_OnEmpty;
+	COutputEvent m_OnFullyRecharged;
 
 	void StudioFrameAdvance ( void );
 
 	float m_flJuice;
+
+	void InputRecharge( inputdata_t &inputdata );
+	void InputRechargePerc( inputdata_t &inputdata );
 
 	DECLARE_DATADESC();
 };
@@ -471,6 +477,11 @@ BEGIN_DATADESC( CNewWallHealth )
 
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
 	DEFINE_OUTPUT( m_OutRemainingHealth, "OutRemainingHealth"),
+	DEFINE_OUTPUT( m_OnEmpty, "OnEmpty" ),
+	DEFINE_OUTPUT( m_OnFullyRecharged, "OnFullyRecharged" ),
+
+	DEFINE_INPUTFUNC( FIELD_VOID, "Recharge", InputRecharge ),
+	DEFINE_INPUTFUNC( FIELD_INTEGER, "RechargePercent", InputRechargePerc ),
 
 END_DATADESC()
 
@@ -621,6 +632,7 @@ void CNewWallHealth::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 	// if there is no juice left, turn it off
 	if (m_iJuice <= 0)
 	{
+		m_OnEmpty.FireOutput( this, this );
 		ResetSequence( LookupSequence( "emptyclick" ) );
 		m_nState = 1;			
 		Off();
@@ -693,6 +705,19 @@ void CNewWallHealth::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 }
 
 
+void CNewWallHealth::InputRecharge( inputdata_t &inputdata )
+{
+	Recharge();
+}
+
+void CNewWallHealth::InputRechargePerc( inputdata_t &inputdata )
+{
+	if ( inputdata.value.Int() > 0 )
+	{
+		RechargePercent( inputdata.value.Int() );
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -710,6 +735,38 @@ void CNewWallHealth::Recharge(void)
 	SetThink( NULL );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CNewWallHealth::RechargePercent(int iPerc)
+{
+	EmitSound( "WallHealth.Recharge" );
+	if ( m_flJuice + (iPerc * (sk_healthcharger.GetFloat() / 100)) >= sk_healthcharger.GetFloat())
+	{
+		m_flJuice = sk_healthcharger.GetFloat();
+	}
+	else
+	{
+		m_flJuice = m_flJuice + (iPerc * (sk_healthcharger.GetFloat() / 100));
+	}
+
+	if ( m_flJuice > 0.0 )
+	{
+		m_nState = 0;
+	}
+
+	if ( m_flJuice >= sk_healthcharger.GetFloat())
+	{
+		m_OnFullyRecharged.FireOutput( this, this );
+	}
+	m_iJuice = m_flJuice;
+	ResetSequence( LookupSequence( "idle" ) );
+	StudioFrameAdvance();
+
+	m_iReactivate = 0;
+
+	SetThink( NULL );
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 

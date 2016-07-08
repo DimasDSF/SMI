@@ -741,6 +741,22 @@ int CAI_BaseNPC::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 		}
 	}
 
+	if( info.GetAttacker()->IsPlayer() )
+	{
+		m_iPlayerDamage = m_iPlayerDamage + info.GetDamage();
+	}
+
+	if( m_iHealth <= 0 && m_iPlayerDamage >= GetMaxHealth()/5 )
+	{
+		m_iPlayerDamage = 0;
+		m_OnKilledPlayerAssist.FireOutput( info.GetAttacker(), this );
+	}
+
+	if( m_iHealth <= 0 && info.GetAttacker()->IsPlayer() )
+	{
+		m_OnKilledByPlayer.FireOutput( info.GetAttacker(), this );
+	}
+
 	// If we're not allowed to die, refuse to die
 	// Allow my interaction partner to kill me though
 	if ( m_iHealth <= 0 && HasInteractionCantDie() && info.GetAttacker() != m_hInteractionPartner )
@@ -1937,18 +1953,35 @@ bool CAI_BaseNPC::QueryHearSound( CSound *pSound )
 
 	if ( pSound->IsSoundType( SOUND_PLAYER ) && GetState() == NPC_STATE_IDLE && !FVisible( pSound->GetSoundReactOrigin() ) )
 	{
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
 		// NPC's that are IDLE should disregard player movement sounds if they can't see them.
 		// This does not affect them hearing the player's weapon.
 		// !!!BUGBUG - this probably makes NPC's not hear doors opening, because doors opening put SOUND_PLAYER
 		// in the world, but the door's model will block the FVisible() trace and this code will then
 		// deduce that the sound can not be heard
-		return false;
+		if ( IRelationType( pPlayer ) >= D_LI )
+		{
+			return false;
+		}
+		if ( IRelationType( pPlayer ) < D_LI )
+		{
+			if ( random->RandomInt(0,100) < 95 )
+			{
+				return false;
+			}
+		}
 	}
 
-	// Disregard footsteps from our own class type
+	// If the person making the sound was a friend, don't respond
+	if ( pSound->IsSoundType( SOUND_DANGER ) && pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
+		return false;
+
+	// Disregard footsteps from our own class type or if the owner is friendly
 	if ( pSound->IsSoundType( SOUND_COMBAT ) && pSound->SoundChannel() == SOUNDENT_CHANNEL_NPC_FOOTSTEP )
 	{
 		if ( pSound->m_hOwner && pSound->m_hOwner->ClassMatches( m_iClassname ) )
+				return false;
+		if ( pSound->m_hOwner && IRelationType( pSound->m_hOwner ) >= D_LI )
 				return false;
 	}
 
@@ -2169,6 +2202,16 @@ void CAI_BaseNPC::OnListened()
 	{
 		m_OnHearCombat.FireOutput(this, this);
 	}
+}
+
+CSound * CAI_BaseNPC::GetCurrentSound()
+{
+	int	iSound = CSoundEnt::ActiveList();
+					
+	CSound *pCurrentSound = CSoundEnt::SoundPointerForIndex( iSound );
+	Assert( pCurrentSound );
+
+	return pCurrentSound;
 }
 
 //=========================================================
@@ -3277,10 +3320,10 @@ void CAI_BaseNPC::UpdateEfficiency( bool bInPVS )
 			// In PVS
 				// Facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 				// Not facing
-					AIE_EFFICIENT,
+					AIE_NORMAL,
 					AIE_EFFICIENT,
 					AIE_VERY_EFFICIENT,
 			// Not in PVS
@@ -3291,30 +3334,30 @@ void CAI_BaseNPC::UpdateEfficiency( bool bInPVS )
 			// In PVS
 				// Facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 				// Not facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 			// Not in PVS
+					AIE_NORMAL,
 					AIE_EFFICIENT,
 					AIE_VERY_EFFICIENT,
-					AIE_SUPER_EFFICIENT,
 		// Combat
 			// In PVS
 				// Facing
 					AIE_NORMAL,
 					AIE_NORMAL,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
 				// Not facing
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_EFFICIENT,
+					AIE_NORMAL,
+					AIE_NORMAL,
 			// Not in PVS
 					AIE_NORMAL,
-					AIE_EFFICIENT,
-					AIE_VERY_EFFICIENT,	
+					AIE_NORMAL,
+					AIE_EFFICIENT,	
 	};
 
 	static const int stateBase[] = { 0, 9, 18 };
@@ -4709,6 +4752,26 @@ void CAI_BaseNPC::GatherConditions( void )
 			ClearSenseConditions();
 		}
 
+		if ( m_NPCState == NPC_STATE_IDLE && m_iTimeLostEnemy + 20 < gpGlobals->curtime )
+		{
+			if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion") || FClassnameIs( this, "npc_antlionguard") || FClassnameIs( this, "npc_clawscanner") || FClassnameIs( this, "npc_cscanner"))
+			{
+				if (GetSquad() && (GetSquad()->NumMembers() > 1))
+				{
+					m_bShouldMoveToRVSquadLeader = true;
+					if (!IsMoving() && (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250)
+					{
+						m_bMovedToRVSquadLeader = false;
+					}
+				}
+			}
+		}
+
+		if (GetEnemy() != NULL)
+		{
+			m_bMovedToRVSquadLeader = false;
+		}
+
 		// do these calculations if npc has an enemy.
 		if ( GetEnemy() != NULL )
 		{
@@ -5185,8 +5248,8 @@ bool CAI_BaseNPC::ShouldLookForBetterWeapon()
 	if( IsMovingToPickupWeapon() )
 		return false;
 
-	if( !IsPlayerAlly() && GetActiveWeapon() )
-		return false;
+//	if( !IsPlayerAlly() && GetActiveWeapon() )
+//		return false;
 
 	if( IsInAScript() )
 		return false;
@@ -6817,6 +6880,7 @@ void CAI_BaseNPC::NPCInit ( void )
 	SetIdealState( NPC_STATE_IDLE );// Assume npc will be idle, until proven otherwise
 	SetIdealActivity( ACT_IDLE );
 	SetActivity( ACT_IDLE );
+	m_iLastInvestigation = gpGlobals->curtime;
 
 #ifdef HL1_DLL
 	SetDeathPose( ACT_INVALID );
@@ -10324,6 +10388,7 @@ bool CAI_BaseNPC::ChooseEnemy( void )
 				m_OnLostPlayer.FireOutput( pInitialEnemy, this );
 			}
 			m_OnLostEnemy.FireOutput( pInitialEnemy, this);
+			m_iTimeLostEnemy = gpGlobals->curtime;
 		}
 		else
 		{
@@ -10724,6 +10789,8 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_OUTPUT( m_OnHearWorld,				"OnHearWorld" ),
 	DEFINE_OUTPUT( m_OnHearPlayer,				"OnHearPlayer" ),
 	DEFINE_OUTPUT( m_OnHearCombat,				"OnHearCombat" ),
+	DEFINE_OUTPUT( m_OnKilledByPlayer,			"OnKilledByPlayer" ),
+	DEFINE_OUTPUT( m_OnKilledPlayerAssist,		"OnKilledNPCPlayerAssist"),
 	DEFINE_OUTPUT( m_OnDamagedByPlayer,		"OnDamagedByPlayer" ),
 	DEFINE_OUTPUT( m_OnDamagedByPlayerSquad,	"OnDamagedByPlayerSquad" ),
 	DEFINE_OUTPUT( m_OnDenyCommanderUse,		"OnDenyCommanderUse" ),

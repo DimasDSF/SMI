@@ -52,6 +52,12 @@ char *pszMineStateNames[] =
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+
+ConVar	sk_mine_rel_player_citizens( "sk_mine_rel_player_citizens","1",FCVAR_NONE,"(Combine_mine_relationship)Set to 1 if player Likes Citizens");
+ConVar	sk_mine_rel_player_combine( "sk_mine_rel_player_combine","0",FCVAR_NONE,"(Combine_mine_relationship)Set to 1 if player Likes Combine");
+ConVar	sk_mine_rel_player_zombies( "sk_mine_rel_player_zombies","0",FCVAR_NONE,"(Combine_mine_relationship)Set to 1 if player Likes Zombies");
+ConVar	sk_mine_rel_player_antlions( "sk_mine_rel_player_antlions","0",FCVAR_NONE,"(Combine_mine_relationship)Set to 1 if player Likes Antlions");
+
 // After this many flips, seriously cut the frequency with which you try.
 #define BOUNCEBOMB_MAX_FLIPS	5
 
@@ -71,6 +77,12 @@ BEGIN_DATADESC( CBounceBomb )
 
 	DEFINE_KEYFIELD( m_flExplosionDelay,	FIELD_FLOAT, "ExplosionDelay" ),
 	DEFINE_KEYFIELD( m_bBounce,			FIELD_BOOLEAN, "Bounce" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayer,			FIELD_BOOLEAN, "LikesPlayer" ),
+	DEFINE_KEYFIELD( m_bMineLikesPlayerAllies,			FIELD_BOOLEAN, "LikesPlayerAllies" ),
+	DEFINE_KEYFIELD( m_bMineLikesCitizens,			FIELD_BOOLEAN, "LikesCitizens" ),
+	DEFINE_KEYFIELD( m_bMineLikesCombine,			FIELD_BOOLEAN, "LikesCombine" ),
+	DEFINE_KEYFIELD( m_bMineLikesZombies,			FIELD_BOOLEAN, "LikesZombies" ),
+	DEFINE_KEYFIELD( m_bMineLikesAntlions,			FIELD_BOOLEAN, "LikesAntlions" ),
 
 	DEFINE_FIELD( m_bAwake, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hNearestNPC, FIELD_EHANDLE ),
@@ -105,6 +117,8 @@ BEGIN_DATADESC( CBounceBomb )
 
 	DEFINE_OUTPUT( m_OnPulledUp, "OnPulledUp" ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disarm", InputDisarm ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "Arm", InputArm ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "Trigger", InputLaunch ),
 
 END_DATADESC()
 
@@ -183,9 +197,22 @@ void CBounceBomb::Spawn()
 		SetMineState( MINE_STATE_DEPLOY );
 	}
 
+	m_bMineLikesPlayer = false;
+	m_bMineLikesPlayerAllies = false;
+	m_bMineLikesCitizens = false;
+	m_bMineLikesCombine = true;
+	m_bMineLikesZombies = false;
+	m_bMineLikesAntlions = false;
+
 	// default to a different skin for cavern turrets (unless explicitly overridden)
 	if ( m_iModification == MINE_MODIFICATION_CAVERN )
 	{
+		m_bMineLikesPlayer = true;
+		m_bMineLikesPlayerAllies = true;
+		m_bMineLikesCitizens = true;
+		m_bMineLikesCombine = true;
+		m_bMineLikesZombies = false;
+		m_bMineLikesAntlions = false;
 		// look for this value in the first datamap
 		// loop through the data description list, restoring each data desc block
 		datamap_t *dmap = GetDataDescMap();
@@ -219,7 +246,6 @@ void CBounceBomb::Spawn()
 		m_bPlacedByPlayer = true;
 	}
 }
-
 //---------------------------------------------------------
 //---------------------------------------------------------
 void CBounceBomb::OnRestore()
@@ -470,7 +496,7 @@ void CBounceBomb::BounceThink()
 	
 	if ( pPhysicsObject != NULL )
 	{
-		const float MINE_MAX_JUMP_HEIGHT = 200;
+		const float MINE_MAX_JUMP_HEIGHT = 100;
 
 		// Figure out how much headroom the mine has, and hop to within a few inches of that.
 		trace_t tr;
@@ -510,11 +536,12 @@ void CBounceBomb::BounceThink()
 		{
 			Vector vecPredict = m_hNearestNPC->GetSmoothedVelocity();
 
-			pPhysicsObject->ApplyForceCenter( vecPredict * 10 );
+			pPhysicsObject->ApplyForceCenter( vecPredict * (pPhysicsObject->GetMass() * 2.0f));
 		}
 
 		EmitSound( "NPC_CombineMine.Hop" );
-		SetThink( NULL );
+		SetThink( &CBounceBomb::ExplodeThink );
+		SetNextThink( gpGlobals->curtime + 0.33f );
 	}
 }
 
@@ -588,9 +615,9 @@ void CBounceBomb::CaptiveThink()
 	SetNextThink( gpGlobals->curtime + 0.05 );
 	StudioFrameAdvance();
 
-	float phase = fabs( sin( gpGlobals->curtime * 4.0f ) );
-	phase *= BOUNCEBOMB_HOOK_RANGE;
-	SetPoseParameter( m_iAllHooks, phase );
+	//float phase = fabs( sin( gpGlobals->curtime * 4.0f ) );
+	//phase *= BOUNCEBOMB_HOOK_RANGE;
+	SetPoseParameter( m_iAllHooks, BOUNCEBOMB_HOOK_RANGE );
 	return;
 }
 
@@ -735,7 +762,7 @@ void CBounceBomb::UpdateLight( bool bTurnOn, unsigned int r, unsigned int g, uns
 			{
 				pSprite->SetParent( this );		
 				pSprite->SetTransparency( kRenderTransAdd, r, g, b, a, kRenderFxNone );
-				pSprite->SetScale( 0.35, 0.0 );
+				pSprite->SetScale( 0.25, 0.0 );
 			}
 		}
 		else
@@ -922,31 +949,101 @@ float CBounceBomb::FindNearestNPC()
 bool CBounceBomb::IsFriend( CBaseEntity *pEntity )
 {
 	int classify = pEntity->Classify();
-	bool bIsCombine = false;
 
-	// Unconditional enemies to combine and Player.
-	if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION )
+	if( m_bPlacedByPlayer )
+	{
+		m_bMineLikesPlayer = true;
+		if (sk_mine_rel_player_citizens.GetFloat() == 1)
+		{
+			m_bMineLikesCitizens = true;
+			m_bMineLikesPlayerAllies = true;
+		}
+		else if (sk_mine_rel_player_citizens.GetFloat() == 0)
+		{
+			m_bMineLikesCitizens = false;
+			m_bMineLikesPlayerAllies = false;
+		}
+		if (sk_mine_rel_player_combine.GetFloat() == 1)
+		{
+			m_bMineLikesCombine = true;
+		}
+		else if (sk_mine_rel_player_combine.GetFloat() == 0)
+		{
+			m_bMineLikesCombine = false;
+		}
+		if (sk_mine_rel_player_zombies.GetFloat() == 1)
+		{
+			m_bMineLikesZombies = true;
+		}
+		else if (sk_mine_rel_player_zombies.GetFloat() == 0)
+		{
+			m_bMineLikesZombies = false;
+		}
+		if (sk_mine_rel_player_antlions.GetFloat() == 1)
+		{
+			m_bMineLikesAntlions = true;
+		}
+		else if (sk_mine_rel_player_antlions.GetFloat() == 0)
+		{
+			m_bMineLikesAntlions = false;
+		}
+	}
+
+	if ( classify == CLASS_PLAYER && m_bMineLikesPlayer == true )
+	{
+		return true;
+	}
+	else if ( ( classify == CLASS_PLAYER_ALLY || classify == CLASS_PLAYER_ALLY_VITAL ) && m_bMineLikesPlayerAllies == true )
+	{
+		return true;
+	}
+	else if ( ( classify == CLASS_CITIZEN_PASSIVE || classify == CLASS_CITIZEN_REBEL ) && m_bMineLikesCitizens == true )
+	{
+		return true;
+	}
+	else if ( ( classify == CLASS_METROPOLICE || classify == CLASS_COMBINE || classify == CLASS_MILITARY || classify == CLASS_COMBINE_HUNTER || classify == CLASS_SCANNER || classify == CLASS_STALKER ) && m_bMineLikesCombine == true )
+	{
+		return true;
+	}
+	else if ( ( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB ) && m_bMineLikesZombies == true )
+	{
+		return true;
+	}
+	else if ( classify == CLASS_ANTLION && m_bMineLikesAntlions == true )
+	{
+		return true;
+	}
+	else
 	{
 		return false;
 	}
 
-  	if( classify == CLASS_METROPOLICE || 
-  		classify == CLASS_COMBINE ||
-  		classify == CLASS_MILITARY ||
-  		classify == CLASS_COMBINE_HUNTER ||
-  		classify == CLASS_SCANNER )
-	{
-		bIsCombine = true;
-	}
+	// Unconditional enemies to combine and Player.
+	//*************************************
+	//bool bIsCombine = false;
+	//if( classify == CLASS_ZOMBIE || classify == CLASS_HEADCRAB || classify == CLASS_ANTLION )
+	//{
+	//	return false;
+	//}
 
-	if( m_bPlacedByPlayer )
-	{
-		return !bIsCombine;
-	}
-	else
-	{
-		return bIsCombine;
-	}
+  	//if( classify == CLASS_METROPOLICE || 
+  	//	classify == CLASS_COMBINE ||
+  	//	classify == CLASS_MILITARY ||
+  	//	classify == CLASS_COMBINE_HUNTER ||
+  	//	classify == CLASS_SCANNER )
+	//{
+	//	bIsCombine = true;
+	//}
+
+	//if( m_bPlacedByPlayer )
+	//{
+	//	return !bIsCombine;
+	//}
+	//else
+	//{
+	//	return bIsCombine;
+	//}
+	
 }
 
 //---------------------------------------------------------
@@ -1150,7 +1247,7 @@ void CBounceBomb::CloseHooks()
 void CBounceBomb::InputDisarm( inputdata_t &inputdata )
 {
 	// Only affect a mine that's armed and not placed by player.
-	if( !m_bPlacedByPlayer && m_iMineState == MINE_STATE_ARMED )
+	if( m_iMineState == MINE_STATE_ARMED )
 	{
 		if( m_pConstraint )
 		{
@@ -1159,9 +1256,36 @@ void CBounceBomb::InputDisarm( inputdata_t &inputdata )
 		}
 
 		m_bDisarmed = true;
-		OpenHooks(false);
+
+		OpenHooks();
 
 		SetMineState(MINE_STATE_DORMANT);
+	}
+}
+
+void CBounceBomb::InputArm( inputdata_t &inputdata )
+{
+	// Only affect a mine that's not armed and not placed by player.
+	if( m_iMineState == MINE_STATE_DORMANT )
+	{
+		m_bDisarmed = false;
+		OpenHooks();
+		m_iFlipAttempts = 0;
+		SetTouch( NULL );
+		SetThink( &CBounceBomb::SettleThink );
+		SetNextThink( gpGlobals->curtime + 0.1);
+		Wake( false );
+
+		SetMineState(MINE_STATE_DEPLOY);
+	}
+}
+
+void CBounceBomb::InputLaunch( inputdata_t &inputdata )
+{
+	// Only affect a mine that's not armed and not placed by player.
+	if( m_iMineState == MINE_STATE_ARMED )
+	{
+		SetMineState(MINE_STATE_TRIGGERED);
 	}
 }
 
