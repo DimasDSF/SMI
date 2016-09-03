@@ -4404,7 +4404,7 @@ bool CAI_BaseNPC::IsInterruptable()
 		}
 	}
 	
-	if ((IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) || IsCurSchedule(SCHED_INVESTIGATE_SOUND)) && (!HasCondition(COND_NEW_ENEMY) && !HasCondition(COND_SEE_FEAR) && !HasCondition(COND_SEE_ENEMY) && !HasCondition(COND_LIGHT_DAMAGE) && !HasCondition(COND_HEAVY_DAMAGE)))
+	if ((IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) || IsCurSchedule(SCHED_INVESTIGATE_SOUND)) && (!HasCondition(COND_TASK_FAILED) && !HasCondition(COND_NEW_ENEMY) && !HasCondition(COND_SEE_FEAR) && !HasCondition(COND_SEE_ENEMY) && !HasCondition(COND_LIGHT_DAMAGE) && !HasCondition(COND_HEAVY_DAMAGE)))
 	{
 		if( m_SIILast + 10 < gpGlobals->curtime )
 		{
