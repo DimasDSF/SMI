@@ -24,10 +24,15 @@ public:
 	void	Activate( void );
 
 	void InputTeleport( inputdata_t &inputdata );
+	void InputSetEntity( inputdata_t &inputdata );
+	void InputResetEntity( inputdata_t &inputdata );
+	COutputEvent m_OnSetTarget;
 
 private:
 	
+	bool	bSetTargetInputFired;
 	bool	EntityMayTeleport( CBaseEntity *pTarget );
+	EHANDLE m_InputTarget;
 
 	Vector m_vSaveOrigin;
 	QAngle m_vSaveAngles;
@@ -45,6 +50,10 @@ BEGIN_DATADESC( CPointTeleport )
 	DEFINE_FIELD( m_vSaveAngles, FIELD_VECTOR ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Teleport", InputTeleport ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "SetTarget", InputSetEntity ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ResetTarget", InputResetEntity ),
+
+	DEFINE_OUTPUT( m_OnSetTarget, "OnSetTarget" ),
 
 END_DATADESC()
 
@@ -98,8 +107,8 @@ void CPointTeleport::Activate( void )
 		}
 		else
 		{
-			Warning("ERROR: (%s) target '%s' not found. Deleting.\n", GetDebugName(), STRING(m_target));
-			UTIL_Remove( this );
+			//Warning("ERROR: (%s) target '%s' not found. Deleting.\n", GetDebugName(), STRING(m_target));
+			//UTIL_Remove( this );
 			return;
 		}
 	}
@@ -111,37 +120,83 @@ void CPointTeleport::Activate( void )
 // Purpose:
 //------------------------------------------------------------------------------
 void CPointTeleport::InputTeleport( inputdata_t &inputdata )
-{
-	// Attempt to find the entity in question
-	CBaseEntity *pTarget = gEntList.FindEntityByName( NULL, m_target, this, inputdata.pActivator, inputdata.pCaller );
-	if ( pTarget == NULL )
-		return;
-
-	// If teleport object is in a movement hierarchy, remove it first
-	if ( EntityMayTeleport( pTarget ) == false )
+{	
+	if ( bSetTargetInputFired == true && m_InputTarget != NULL )
 	{
-		Warning("ERROR: (%s) can't teleport object (%s) as it has a parent (%s)!\n",GetDebugName(),pTarget->GetDebugName(),pTarget->GetMoveParent()->GetDebugName());
+		#ifdef HL2_EPISODIC
+			if ( (m_spawnflags & SF_TELEPORT_INTO_DUCK) && m_InputTarget->IsPlayer() ) 
+			{
+				CBasePlayer *pPlayer = ToBasePlayer( m_InputTarget );
+				if ( pPlayer != NULL )
+				{
+					pPlayer->m_nButtons |= IN_DUCK;
+					pPlayer->AddFlag( FL_DUCKING );
+					pPlayer->m_Local.m_bDucked = true;
+					pPlayer->m_Local.m_bDucking = true;
+					pPlayer->m_Local.m_flDucktime = 0.0f;
+					pPlayer->SetViewOffset( VEC_DUCK_VIEW_SCALED( pPlayer ) );
+					pPlayer->SetCollisionBounds( VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX );
+				}
+			}		
+		#endif
+		m_InputTarget->Teleport( &m_vSaveOrigin, &m_vSaveAngles, NULL );
+	}
+	else
+	{
+		// Attempt to find the entity in question
+		CBaseEntity *pTarget = gEntList.FindEntityByName( NULL, m_target, this, inputdata.pActivator, inputdata.pCaller );
+		if ( pTarget == NULL )
+			return;
+
+		// If teleport object is in a movement hierarchy, remove it first
+		if ( EntityMayTeleport( pTarget ) == false )
+		{
+			Warning("ERROR: (%s) can't teleport object (%s) as it has a parent (%s)!\n",GetDebugName(),pTarget->GetDebugName(),pTarget->GetMoveParent()->GetDebugName());
+			return;
+		}
+
+		// in episodic, we have a special spawn flag that forces Gordon into a duck
+	#ifdef HL2_EPISODIC
+		if ( (m_spawnflags & SF_TELEPORT_INTO_DUCK) && pTarget->IsPlayer() ) 
+		{
+			CBasePlayer *pPlayer = ToBasePlayer( pTarget );
+			if ( pPlayer != NULL )
+			{
+				pPlayer->m_nButtons |= IN_DUCK;
+				pPlayer->AddFlag( FL_DUCKING );
+				pPlayer->m_Local.m_bDucked = true;
+				pPlayer->m_Local.m_bDucking = true;
+				pPlayer->m_Local.m_flDucktime = 0.0f;
+				pPlayer->SetViewOffset( VEC_DUCK_VIEW_SCALED( pPlayer ) );
+				pPlayer->SetCollisionBounds( VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX );
+			}
+		}		
+	#endif
+		pTarget->Teleport( &m_vSaveOrigin, &m_vSaveAngles, NULL );
+	}
+}
+
+void CPointTeleport::InputSetEntity( inputdata_t &inputdata )
+{
+	CBaseEntity *pTarget = gEntList.FindEntityByName( NULL, inputdata.value.String(), NULL, inputdata.pActivator, inputdata.pCaller );
+	if ( pTarget == NULL )
+	{
+		m_InputTarget = NULL;
+		bSetTargetInputFired = false;
+		Warning("ERROR: (%s) target '%s' not found. Reset to default. \n", GetDebugName(), inputdata.value.String());
 		return;
 	}
-
-	// in episodic, we have a special spawn flag that forces Gordon into a duck
-#ifdef HL2_EPISODIC
-	if ( (m_spawnflags & SF_TELEPORT_INTO_DUCK) && pTarget->IsPlayer() ) 
+	else
 	{
-		CBasePlayer *pPlayer = ToBasePlayer( pTarget );
-		if ( pPlayer != NULL )
-		{
-			pPlayer->m_nButtons |= IN_DUCK;
-			pPlayer->AddFlag( FL_DUCKING );
-			pPlayer->m_Local.m_bDucked = true;
-			pPlayer->m_Local.m_bDucking = true;
-			pPlayer->m_Local.m_flDucktime = 0.0f;
-			pPlayer->SetViewOffset( VEC_DUCK_VIEW_SCALED( pPlayer ) );
-			pPlayer->SetCollisionBounds( VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX );
-		}
-	}		
-#endif
+		bSetTargetInputFired = true;
+		m_InputTarget = pTarget;
+		m_OnSetTarget.FireOutput( inputdata.pActivator, this );
+	}
+}
 
-	pTarget->Teleport( &m_vSaveOrigin, &m_vSaveAngles, NULL );
+void CPointTeleport::InputResetEntity( inputdata_t &inputdata )
+{
+	m_InputTarget = NULL;
+	bSetTargetInputFired = false;
 }
 

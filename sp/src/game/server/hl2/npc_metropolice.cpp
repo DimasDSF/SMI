@@ -4399,11 +4399,11 @@ int CNPC_MetroPolice::TranslateSchedule( int scheduleType )
 	case SCHED_METROPOLICE_ADVANCE:
 		if ( m_NextChargeTimer.Expired() && metropolice_charge.GetBool() )
 		{	
-			if ( Weapon_OwnsThisType( "weapon_pistol" ) )
+			if ( Weapon_OwnsThisType( "weapon_pistol" ) || Weapon_OwnsThisType( "weapon_smg1" ) )
 			{
 				if (  GetEnemy() && GetEnemy()->GetAbsOrigin().DistToSqr( GetAbsOrigin() ) > 300*300 )
 				{
-					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_pistol")))))
+					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
 					{
 						return SCHED_RANGE_ATTACK1;
 					}
