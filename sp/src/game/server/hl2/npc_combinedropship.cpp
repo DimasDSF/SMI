@@ -241,6 +241,7 @@ public:
 	void	SpawnTroop( void );
 	void	DropMine( void );
 	void	UpdateContainerGunFacing( Vector &vecMuzzle, Vector &vecToTarget, Vector &vecAimDir, float *flTargetRange );
+	void	ResetContainerGunFacing();
 	bool	FireCannonRound( void );
 	void	DoImpactEffect( trace_t &tr, int nDamageType );
 	void	StartCannon( void );
@@ -396,8 +397,11 @@ void	CNPC_CombineDropship::PopulatePoseParameters( void )
 		m_poseBody_Sway			= LookupPoseParameter( "body_sway" );
 		m_poseCargo_Body_Accel  = LookupPoseParameter( "cargo_body_accel" );
 		m_poseCargo_Body_Sway   = LookupPoseParameter( "cargo_body_sway" );
-		m_poseWeapon_Pitch		= LookupPoseParameter( "weapon_pitch" );
-		m_poseWeapon_Yaw		= LookupPoseParameter( "weapon_yaw" );
+		if( m_hContainer )
+		{
+			m_poseWeapon_Pitch		= m_hContainer->LookupPoseParameter( "weapon_pitch" );
+			m_poseWeapon_Yaw		= m_hContainer->LookupPoseParameter( "weapon_yaw" );
+		}
 
 		m_sbStaticPoseParamsLoaded = true;
 	}
@@ -912,6 +916,8 @@ void CNPC_CombineDropship::Spawn( void )
 			m_hContainer->SetMoveType( MOVETYPE_PUSH );
 			m_hContainer->SetGroundEntity( NULL );
 
+
+
 			// Cache off container's attachment points
 			m_iAttachmentTroopDeploy = m_hContainer->LookupAttachment( "deploy_landpoint" );
 			m_iAttachmentDeployStart = m_hContainer->LookupAttachment( "Deploy_Start" );
@@ -919,6 +925,9 @@ void CNPC_CombineDropship::Spawn( void )
 			m_iMachineGunBaseAttachment = m_hContainer->LookupAttachment( "gun_base" );
 			// NOTE: gun_ref must have the same position as gun_base, but rotates with the gun
 			m_iMachineGunRefAttachment = m_hContainer->LookupAttachment( "gun_ref" );
+			//Container mounted gun pitch/yaw setup
+			m_poseWeapon_Pitch      = m_hContainer->LookupPoseParameter( "weapon_pitch" );
+			m_poseWeapon_Yaw        = m_hContainer->LookupPoseParameter( "weapon_yaw" );
 		}
 		break;
 
@@ -1026,6 +1035,8 @@ void CNPC_CombineDropship::Spawn( void )
 
 	InitBoneControllers();
 	InitCustomSchedules();
+
+	m_fHelicopterFlags = BITS_HELICOPTER_GUN_ON;
 
 	m_flMaxSpeed = DROPSHIP_MAX_SPEED;
 	m_flMaxSpeedFiring = BASECHOPPER_MAX_FIRING_SPEED;
@@ -1911,29 +1922,6 @@ void CNPC_CombineDropship::SetLandingState( LandingState_t landingState )
 	if ( landingState == m_iLandState )
 		return;
 
-	if( landingState == LANDING_HOVER_TOUCHDOWN || landingState == LANDING_TOUCHDOWN)
-	{
-		if( m_hContainer )
-			{
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
-			}
-	}
-	else if( landingState == LANDING_LIFTOFF )
-	{
-		if( m_hContainer && !m_bSetCloseSeq)
-			{
-				m_bSetCloseSeq = true;
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("close") );
-			}
-	}
-	else if( landingState == LANDING_NO )
-	{
-		if( m_hContainer )
-		{
-			m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
-		}
-	}
-
 	if ( m_pDescendingWarningSound )
 	{
 		CSoundEnvelopeController &controller = CSoundEnvelopeController::GetController();
@@ -2064,6 +2052,12 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				SetActivity( (Activity)ACT_DROPSHIP_DESCEND_IDLE );
 			}
 			*/
+
+			if( m_hContainer && !m_bSetOpenSeq )
+			{
+				m_bSetOpenSeq = true;
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("open") );
+			}
 
 			if( IsHovering() && m_hLandTarget != NULL )
 			{
@@ -2199,6 +2193,11 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			}
 			*/
 
+			if( m_hContainer )
+			{
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
+			}
+
 			// Wait here if we're supposed to wait for the dropoff input
 			if ( m_bWaitForDropoffInput )
 				return;
@@ -2266,7 +2265,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 				if( gpGlobals->curtime > m_flTimeTakeOff && !m_bWaitingForTakeoff )
 				{
 					SetLandingState( LANDING_LIFTOFF );
-					SetActivity( (Activity)ACT_DROPSHIP_LIFTOFF );
+					SetActivity( (Activity)ACT_DROPSHIP_FLY_IDLE_CARGO );
 					m_engineThrust = 1.0f;			// ensure max volume once we're airborne
 					if ( m_bIsFiring )
 					{
@@ -2311,12 +2310,20 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 
 	case LANDING_LIFTOFF:
 		{
+			//close the door
+			if( m_hContainer && !m_bSetCloseSeq)
+			{
+				m_bSetCloseSeq = true;
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("close") );
+			}
 			// Once we're off the ground, start flying again
 			if ( flAltitude > 120 )		
 			{
+				m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
 				SetLandingState( LANDING_NO );
 				m_hLandTarget = NULL;
 				m_bHasDroppedOff = true;
+				m_bSetOpenSeq = false;
 				m_OnTakeoff.FireOutput( this, this );
 			}
 		}
@@ -2834,13 +2841,23 @@ void CNPC_CombineDropship::DoCombatStuff( void )
 		}
 	}
 
-	// Handle guns
 	bool bStopGun = true;
-	if ( GetEnemy() )
+	// Handle guns
+	if( m_fHelicopterFlags & BITS_HELICOPTER_GUN_ON )
 	{
-		bStopGun = !FireCannonRound();
+		if ( GetEnemy() )
+		{
+			bStopGun = !FireCannonRound();
+		}
+		else
+		{
+			ResetContainerGunFacing();
+		}
 	}
-
+	else
+	{
+		ResetContainerGunFacing();
+	}
 	if ( bStopGun && m_bIsFiring )
 	{
 		StopCannon();
@@ -2909,6 +2926,69 @@ void CNPC_CombineDropship::UpdateContainerGunFacing( Vector &vecMuzzle, Vector &
 	AngleVectors( vecAngles, &vecAimDir );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Update the container's gun to face the enemy. 
+// Input  : &vecMuzzle - The gun's muzzle/firing point
+//			&vecAimDir - The gun's current aim direction
+//-----------------------------------------------------------------------------
+void CNPC_CombineDropship::ResetContainerGunFacing()
+{
+	Assert( m_hContainer );
+
+	Vector vecToTargetReset, vecMuzzleReset;
+	// Get the desired aim vector
+	if( !GetEnemy() || !(m_fHelicopterFlags & BITS_HELICOPTER_GUN_ON) )
+	{
+		Vector forw, gunbaseorigin;
+		GetAttachment( LookupAttachment("Gun_Base"), gunbaseorigin, &forw);
+		VectorScale(forw, 1000, vecToTargetReset);
+	}
+
+	Vector vecBarrelPos, vecWorldBarrelPos;
+	QAngle worldBarrelAngle, vecAngles;
+	matrix3x4_t matRefToWorld;
+	m_hContainer->GetAttachment( m_iMuzzleAttachment, vecMuzzleReset, vecAngles );
+	vecWorldBarrelPos = vecMuzzleReset;
+	worldBarrelAngle = vecAngles;
+	m_hContainer->GetAttachment( m_iMachineGunRefAttachment, matRefToWorld );
+	VectorITransform( vecWorldBarrelPos, matRefToWorld, vecBarrelPos );
+
+	EntityMatrix parentMatrix;
+	parentMatrix.InitFromEntity( m_hContainer, m_iMachineGunBaseAttachment );
+	Vector target = parentMatrix.WorldToLocal( vecToTargetReset ); 
+
+	float quadTarget = target.LengthSqr();
+	float quadTargetXY = target.x*target.x + target.y*target.y;
+
+	// Target is too close!  Can't aim at it
+	if ( quadTarget > vecBarrelPos.LengthSqr() )
+	{
+		// We're trying to aim the offset barrel at an arbitrary point.
+		// To calculate this, I think of the target as being on a sphere with 
+		// it's center at the origin of the gun.
+		// The rotation we need is the opposite of the rotation that moves the target 
+		// along the surface of that sphere to intersect with the gun's shooting direction
+		// To calculate that rotation, we simply calculate the intersection of the ray 
+		// coming out of the barrel with the target sphere (that's the new target position)
+		// and use atan2() to get angles
+
+		// angles from target pos to center
+		float targetToCenterYaw = atan2( target.y, target.x );
+		float centerToGunYaw = atan2( vecBarrelPos.y, sqrt( quadTarget - (vecBarrelPos.y*vecBarrelPos.y) ) );
+
+		float targetToCenterPitch = atan2( target.z, sqrt( quadTargetXY ) );
+		float centerToGunPitch = atan2( -vecBarrelPos.z, sqrt( quadTarget - (vecBarrelPos.z*vecBarrelPos.z) ) );
+
+		QAngle angles;
+		angles.Init( RAD2DEG(targetToCenterPitch+centerToGunPitch), RAD2DEG( targetToCenterYaw + centerToGunYaw ), 0 );
+
+		float flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.x, m_hContainer->GetPoseParameter(m_poseWeapon_Pitch), DROPSHIP_GUN_SPEED/5));
+		m_hContainer->SetPoseParameter( m_poseWeapon_Pitch, flNewAngle );
+		flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.y, m_hContainer->GetPoseParameter(m_poseWeapon_Yaw), DROPSHIP_GUN_SPEED/5));
+		m_hContainer->SetPoseParameter( m_poseWeapon_Yaw, flNewAngle );
+		m_hContainer->StudioFrameAdvance();
+	}
+}
 
 //------------------------------------------------------------------------------
 // Purpose: Fire a round from the cannon

@@ -1974,7 +1974,7 @@ int CNPC_Combine::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 			// the other memebers of the squad will hog all of the attack slots and pick schedules to move to establish line of
 			// fire. During this time, the shotgunner is prevented from attacking. If he also cannot find cover (the fallback case)
 			// he will stand around like an idiot, right in front of you. Instead of this, we have him run up to you for a melee attack.
-			if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))))
+			if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
 			{
 				return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
 			}
@@ -2023,7 +2023,7 @@ int CNPC_Combine::SelectScheduleAttack()
 	// Kick attack?
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
 	{
-		if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine") || (!GetEnemy()->IsPlayer() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))) && (FClassnameIs(GetActiveWeapon(), "weapon_smg1") || FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))))
+		if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
 		{
 			return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
 		}
