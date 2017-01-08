@@ -107,6 +107,7 @@ public:
 	float		m_flAssaultDelay;
 	int			m_iPriority;
 	int			m_iStrictness;
+	bool		m_bAssaultWalk;
 	bool		m_bForceCrouch;
 	bool		m_bIsUrgent;
 	short		m_sExclusivity;
@@ -159,6 +160,7 @@ public:
 	float			m_flAllowDiversionRadius;
 	bool			m_bNeverTimeout;
 	int				m_iStrictness;
+	bool			m_bAssaultWalk;
 	bool			m_bForceCrouch;
 	bool			m_bIsUrgent;
 	bool			m_bInputForcedClear;
@@ -233,9 +235,11 @@ public:
 	enum
 	{
 		SCHED_MOVE_TO_RALLY_POINT = BaseClass::NEXT_SCHEDULE,		// Try to get out of the player's way
+		SCHED_MOVE_TO_RALLY_POINT_WALK,
 		SCHED_ASSAULT_FAILED_TO_MOVE,
 		SCHED_FAIL_MOVE_TO_RALLY_POINT,
 		SCHED_MOVE_TO_ASSAULT_POINT,
+		SCHED_MOVE_TO_ASSAULT_POINT_WALK,
 		SCHED_AT_ASSAULT_POINT,
 		SCHED_HOLD_RALLY_POINT,
 		SCHED_HOLD_ASSAULT_POINT,

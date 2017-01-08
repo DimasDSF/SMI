@@ -3933,7 +3933,7 @@ void CFuncTankMortar::Fire( int bulletCount, const Vector &barrelEnd, const Vect
 	vecSpot.z = GetAbsOrigin().z;
 	
 	// Trace up to find the fake 'apex' of the shell. The skybox or 1024 units, whichever comes first. 
-	UTIL_TraceLine( vecSpot, vecSpot + Vector(0, 0, 2048), MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
+	UTIL_TraceLine( vecSpot, vecSpot + Vector(0, 0, 4096), MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
 	vecSpot = tr.endpos;
 
 	//NDebugOverlay::Line( tr.startpos, tr.endpos, 0,255,0, false, 5 );

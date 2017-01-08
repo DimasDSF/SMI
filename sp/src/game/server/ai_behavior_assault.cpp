@@ -20,6 +20,7 @@ BEGIN_DATADESC( CRallyPoint )
 	DEFINE_KEYFIELD( m_flAssaultDelay, FIELD_FLOAT, "assaultdelay" ),
 	DEFINE_KEYFIELD( m_iPriority, FIELD_INTEGER, "priority" ),
 	DEFINE_KEYFIELD( m_iStrictness, FIELD_INTEGER, "strict" ),
+	DEFINE_KEYFIELD( m_bAssaultWalk, FIELD_BOOLEAN, "walk" ),
 	DEFINE_KEYFIELD( m_bForceCrouch, FIELD_BOOLEAN, "forcecrouch" ),
 	DEFINE_KEYFIELD( m_bIsUrgent, FIELD_BOOLEAN, "urgent" ),
 	DEFINE_FIELD( m_hLockedBy, FIELD_EHANDLE ),
@@ -140,6 +141,7 @@ BEGIN_DATADESC( CAssaultPoint )
 	DEFINE_KEYFIELD( m_flAllowDiversionRadius, FIELD_FLOAT, "allowdiversionradius" ),
 	DEFINE_KEYFIELD( m_bNeverTimeout, FIELD_BOOLEAN, "nevertimeout" ),
 	DEFINE_KEYFIELD( m_iStrictness, FIELD_INTEGER, "strict" ),
+	DEFINE_KEYFIELD( m_bAssaultWalk, FIELD_BOOLEAN, "walk" ),
 	DEFINE_KEYFIELD( m_bForceCrouch, FIELD_BOOLEAN, "forcecrouch" ),
 	DEFINE_KEYFIELD( m_bIsUrgent, FIELD_BOOLEAN, "urgent" ),
 	DEFINE_FIELD( m_bInputForcedClear, FIELD_BOOLEAN ),
@@ -405,7 +407,7 @@ void CAI_AssaultBehavior::GatherConditions( void )
 	//		b) Is flagged to Clear On Arrival,
 	// then hit and clear the assault point (fire all entity I/O) and move on to the next one without
 	// interrupting the NPC's schedule. This provides a more fluid movement from point to point.
-	if( IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT ) && hl2_episodic.GetBool() )
+	if( (IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT ) || IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT_WALK )) && hl2_episodic.GetBool() )
 	{
 		if( m_hAssaultPoint && m_hAssaultPoint->HasSpawnFlags(SF_ASSAULTPOINT_CLEARONARRIVAL) && m_hAssaultPoint->m_NextAssaultPointName != NULL_STRING )
 		{
@@ -687,12 +689,12 @@ void CAI_AssaultBehavior::RunTask( const Task_t *pTask )
 	case TASK_WAIT_FOR_MOVEMENT:
 		if ( ai_debug_assault.GetBool() )
 		{
-			if ( IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT ) )
+			if ( IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT ) || IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT_WALK ) )
 			{
 				NDebugOverlay::Line( WorldSpaceCenter(), GetNavigator()->GetGoalPos(), 255,0,0, true,0.1);
 				NDebugOverlay::Box( GetNavigator()->GetGoalPos(), -Vector(10,10,10), Vector(10,10,10), 255,0,0, 8, 0.1 );
 			}
-			else if ( IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT ) )
+			else if ( IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT ) || IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT_WALK ) )
 			{
 				NDebugOverlay::Line( WorldSpaceCenter(), GetNavigator()->GetGoalPos(), 0,255,0, true,0.1);
 				NDebugOverlay::Box( GetNavigator()->GetGoalPos(), -Vector(10,10,10), Vector(10,10,10), 0,255,0, 8, 0.1 );
@@ -1252,7 +1254,14 @@ int CAI_AssaultBehavior::TranslateSchedule( int scheduleType )
 		}
 		else
 		{
-			return SCHED_MOVE_TO_ASSAULT_POINT;
+			if ( m_hAssaultPoint->m_bAssaultWalk )
+			{
+				return SCHED_MOVE_TO_ASSAULT_POINT_WALK;
+			}
+			else
+			{
+				return SCHED_MOVE_TO_ASSAULT_POINT;
+			}
 		}
 		break;
 
@@ -1264,6 +1273,14 @@ int CAI_AssaultBehavior::TranslateSchedule( int scheduleType )
 		break;
 
 	case SCHED_MOVE_TO_ASSAULT_POINT:
+		{
+		float flDist = ( m_hAssaultPoint->GetAbsOrigin() - GetAbsOrigin() ).Length();
+		if ( flDist <= 12.0f )
+			return SCHED_AT_ASSAULT_POINT;
+		}
+		break;
+
+	case SCHED_MOVE_TO_ASSAULT_POINT_WALK:
 		{
 		float flDist = ( m_hAssaultPoint->GetAbsOrigin() - GetAbsOrigin() ).Length();
 		if ( flDist <= 12.0f )
@@ -1334,7 +1351,9 @@ void CAI_AssaultBehavior::BuildScheduleTestBits()
 	if ( IsAllowedToDivert() )
 	{
 		if ( IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT ) ||
-			IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT ) || 
+			IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT ) ||
+			IsCurSchedule( SCHED_MOVE_TO_ASSAULT_POINT_WALK ) ||
+			IsCurSchedule( SCHED_MOVE_TO_RALLY_POINT_WALK ) ||
 			IsCurSchedule( SCHED_HOLD_RALLY_POINT ) )
 		{
 			GetOuter()->SetCustomInterruptCondition( COND_NEW_ENEMY );
@@ -1416,7 +1435,14 @@ int CAI_AssaultBehavior::SelectSchedule()
 	if( !m_bHitRallyPoint && !AssaultHasBegun() )
 	{
 		GetOuter()->SpeakSentence( ASSAULT_SENTENCE_SQUAD_ADVANCE_TO_RALLY );
-		return SCHED_MOVE_TO_RALLY_POINT;
+		if ( m_hRallyPoint->m_bAssaultWalk )
+		{
+			return SCHED_MOVE_TO_RALLY_POINT_WALK;
+		}
+		else
+		{
+			return SCHED_MOVE_TO_RALLY_POINT;
+		}
 	}
 
 	if( !m_bHitAssaultPoint )
@@ -1437,7 +1463,14 @@ int CAI_AssaultBehavior::SelectSchedule()
 				GetOuter()->ClearForceCrouch();
 			}
 
-			return SCHED_MOVE_TO_ASSAULT_POINT;
+			if ( m_hAssaultPoint->m_bAssaultWalk )
+			{
+				return SCHED_MOVE_TO_ASSAULT_POINT_WALK;
+			}
+			else
+			{
+				return SCHED_MOVE_TO_ASSAULT_POINT;
+			}
 		}
 		else if( HasCondition( COND_CAN_RANGE_ATTACK1 ) )
 		{
@@ -1651,6 +1684,29 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER(CAI_AssaultBehavior)
 
 	//=========================================================
 	//=========================================================
+	DEFINE_SCHEDULE 
+	(
+		SCHED_MOVE_TO_RALLY_POINT_WALK,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE					SCHEDULE:SCHED_ASSAULT_FAILED_TO_MOVE"
+		"		TASK_GET_PATH_TO_RALLY_POINT			0"
+		"		TASK_WALK_PATH							0"
+		"		TASK_WAIT_FOR_MOVEMENT					0"
+		"		TASK_STOP_MOVING						0"
+		"		TASK_FACE_RALLY_POINT					0"
+		"		TASK_HIT_RALLY_POINT					0"
+		"		TASK_SET_SCHEDULE						SCHEDULE:SCHED_HOLD_RALLY_POINT"
+		"	"
+		"	Interrupts"
+		"		COND_HEAR_DANGER"
+		"		COND_PROVOKED"
+		"		COND_NO_PRIMARY_AMMO"
+		"		COND_PLAYER_PUSHING"
+	)
+
+	//=========================================================
+	//=========================================================
 	DEFINE_SCHEDULE
 	(
 		SCHED_ASSAULT_FAILED_TO_MOVE,
@@ -1761,6 +1817,26 @@ AI_BEGIN_CUSTOM_SCHEDULE_PROVIDER(CAI_AssaultBehavior)
 		"		TASK_GATHER_CONDITIONS					0"
 		"		TASK_GET_PATH_TO_ASSAULT_POINT			0"
 		"		TASK_RUN_PATH							0"
+		"		TASK_WAIT_FOR_MOVEMENT					0"
+		"		TASK_FACE_ASSAULT_POINT					0"
+		"		TASK_HIT_ASSAULT_POINT					0"
+		"	"
+		"	Interrupts"
+		"		COND_NO_PRIMARY_AMMO"
+		"		COND_HEAR_DANGER"
+	)
+
+	//=========================================================
+	//=========================================================
+	DEFINE_SCHEDULE 
+	(
+		SCHED_MOVE_TO_ASSAULT_POINT_WALK,
+
+		"	Tasks"
+		"		TASK_SET_FAIL_SCHEDULE					SCHEDULE:SCHED_ASSAULT_FAILED_TO_MOVE"
+		"		TASK_GATHER_CONDITIONS					0"
+		"		TASK_GET_PATH_TO_ASSAULT_POINT			0"
+		"		TASK_WALK_PATH							0"
 		"		TASK_WAIT_FOR_MOVEMENT					0"
 		"		TASK_FACE_ASSAULT_POINT					0"
 		"		TASK_HIT_ASSAULT_POINT					0"

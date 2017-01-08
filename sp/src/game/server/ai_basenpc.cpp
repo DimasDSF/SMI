@@ -9537,6 +9537,10 @@ Vector CAI_BaseNPC::GetShootEnemyDir( const Vector &shootOrigin, bool bNoisy )
 	{
 		Vector vecEnemyLKP = GetEnemyLKP();
 
+		if ( pEnemy->Classify() == CLASS_ZOMBIE && (GetAbsOrigin() - pEnemy->GetAbsOrigin()).Length2D() < 30)
+		{
+			Vector vecEnemyOffset = pEnemy->HeadTarget( shootOrigin ) - pEnemy->GetAbsOrigin();
+		}
 		Vector vecEnemyOffset = pEnemy->BodyTarget( shootOrigin, bNoisy ) - pEnemy->GetAbsOrigin();
 
 #ifdef PORTAL

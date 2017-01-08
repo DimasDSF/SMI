@@ -34,6 +34,7 @@ typedef enum
 	ACT_SCRIPT_CUSTOM_MOVE,
 	ACT_RANGE_ATTACK1,
 	ACT_RANGE_ATTACK2,
+	ACT_RANGE_ATTACK1_SMGANIM,
 	ACT_RANGE_ATTACK1_LOW,		// FIXME: not used yet, crouched versions of the range attack
 	ACT_RANGE_ATTACK2_LOW,		// FIXME: not used yet, crouched versions of the range attack
 	ACT_DIESIMPLE,
@@ -84,6 +85,7 @@ typedef enum
 	ACT_MELEE_ATTACK1,
 	ACT_MELEE_ATTACK2,
 	ACT_RELOAD,
+	ACT_RELOAD_SMGANIM,
 	ACT_RELOAD_START,
 	ACT_RELOAD_FINISH,
 	ACT_RELOAD_LOW,
@@ -94,6 +96,7 @@ typedef enum
 	ACT_PICKUP_GROUND,		// pick up something in front of you on the ground
 	ACT_PICKUP_RACK,		// pick up something from a rack or shelf in front of you.
 	ACT_IDLE_ANGRY,			// FIXME: being used as an combat ready idle?  alternate idle animation in which the monster is clearly agitated. (loop)
+	ACT_IDLE_ANGRY_SMGANIM,
 	ACT_RUN_PASSIVE,
 	ACT_WALK_PASSIVE,
 
@@ -171,6 +174,7 @@ typedef enum
 	ACT_STEP_FORE,
 
 	ACT_GESTURE_RANGE_ATTACK1,
+	ACT_GESTURE_RANGE_ATTACK1_SMG,
 	ACT_GESTURE_RANGE_ATTACK2,
 	ACT_GESTURE_MELEE_ATTACK1,
 	ACT_GESTURE_MELEE_ATTACK2,

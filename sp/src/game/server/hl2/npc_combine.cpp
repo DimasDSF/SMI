@@ -1642,7 +1642,10 @@ int CNPC_Combine::SelectCombatSchedule()
 			{
 				if( GetEnemy() && random->RandomFloat( 0, 100 ) < 50 && CouldShootIfCrouching( GetEnemy() ) )
 				{
-					Crouch();
+					if (GetEnemy()->Classify() != CLASS_ZOMBIE)
+					{
+						Crouch();
+					}
 				}
 				else
 				{

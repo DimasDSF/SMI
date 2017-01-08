@@ -3105,6 +3105,17 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 			return ACT_MELEE_ATTACK1;
 	}
 
+	//FixHacking the weapon animations
+	if ( GetActiveWeapon() && newActivity == ACT_RANGE_ATTACK1 && (FClassnameIs(GetActiveWeapon(), "weapon_ar2") || FClassnameIs(GetActiveWeapon(), "weapon_shotgun")))
+	{
+		return ACT_RANGE_ATTACK1_SMGANIM;
+	}
+
+	if ( GetActiveWeapon() && newActivity == ACT_RELOAD && FClassnameIs(GetActiveWeapon(), "weapon_shotgun"))
+	{
+		return ACT_RELOAD_SMGANIM;
+	}
+
 	newActivity = BaseClass::NPC_TranslateActivity( newActivity );
 
 	// This will put him into an angry idle, which will then be translated
@@ -3112,6 +3123,11 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 	if ( m_fWeaponDrawn && newActivity == ACT_IDLE && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
 	{
 		newActivity = ACT_IDLE_ANGRY;
+	}
+
+	if (GetActiveWeapon() && newActivity == ACT_IDLE_ANGRY && FClassnameIs(GetActiveWeapon(), "weapon_shotgun"))
+	{
+		newActivity = ACT_IDLE_ANGRY_SMGANIM;
 	}
 
 	if ( !m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
@@ -4230,7 +4246,12 @@ int CNPC_MetroPolice::SelectSchedule( void )
 	// This will cause the cops to run backwards + shoot at the same time
 	if ( !bHighHealth && !HasBaton() )
 	{
-		if ( GetActiveWeapon() && (GetActiveWeapon()->m_iClip1 <= 5) )
+		if ( GetActiveWeapon() && !FClassnameIs(GetActiveWeapon(), "weapon_shotgun") && (GetActiveWeapon()->m_iClip1 <= 5) )
+		{
+			m_Sentences.Speak( "METROPOLICE_COVER_LOW_AMMO" );
+			return SCHED_HIDE_AND_RELOAD;
+		}
+		else if( GetActiveWeapon() && FClassnameIs(GetActiveWeapon(), "weapon_shotgun") && (GetActiveWeapon()->m_iClip1 <= 1) )
 		{
 			m_Sentences.Speak( "METROPOLICE_COVER_LOW_AMMO" );
 			return SCHED_HIDE_AND_RELOAD;
@@ -4399,11 +4420,11 @@ int CNPC_MetroPolice::TranslateSchedule( int scheduleType )
 	case SCHED_METROPOLICE_ADVANCE:
 		if ( m_NextChargeTimer.Expired() && metropolice_charge.GetBool() )
 		{	
-			if ( Weapon_OwnsThisType( "weapon_pistol" ) || Weapon_OwnsThisType( "weapon_smg1" ) )
+			if ( Weapon_OwnsThisType( "weapon_pistol" ) || Weapon_OwnsThisType( "weapon_smg1" ) || Weapon_OwnsThisType( "weapon_shotgun" ) || Weapon_OwnsThisType( "weapon_ar2" ) )
 			{
 				if (  GetEnemy() && GetEnemy()->GetAbsOrigin().DistToSqr( GetAbsOrigin() ) > 300*300 )
 				{
-					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
+					if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || FClassnameIs(GetEnemy(), "npc_headcrab") || FClassnameIs(GetEnemy(), "npc_headcrab_poison") || FClassnameIs(GetEnemy(), "npc_headcrab_black") || FClassnameIs(GetEnemy(), "npc_headcrab_fast") || FClassnameIs(GetEnemy(), "npc_zombie_torso") || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
 					{
 						return SCHED_RANGE_ATTACK1;
 					}
@@ -5080,6 +5101,16 @@ WeaponProficiency_t CNPC_MetroPolice::CalcWeaponProficiency( CBaseCombatWeapon *
 	if( FClassnameIs( pWeapon, "weapon_smg1" ) )
 	{
 		return WEAPON_PROFICIENCY_VERY_GOOD;
+	}
+
+	if( FClassnameIs( pWeapon, "weapon_ar2" ) )
+	{
+		return WEAPON_PROFICIENCY_GOOD;
+	}
+
+	if( FClassnameIs( pWeapon, "weapon_shotgun" ) )
+	{
+		return WEAPON_PROFICIENCY_GOOD;
 	}
 
 	return BaseClass::CalcWeaponProficiency( pWeapon );

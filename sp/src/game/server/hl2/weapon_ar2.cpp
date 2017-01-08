@@ -55,6 +55,7 @@ PRECACHE_WEAPON_REGISTER(weapon_ar2);
 acttable_t	CWeaponAR2::m_acttable[] = 
 {
 	{ ACT_RANGE_ATTACK1,			ACT_RANGE_ATTACK_AR2,			true },
+	{ ACT_RANGE_ATTACK1_SMGANIM,	ACT_RANGE_ATTACK_SMG1,			true },
 	{ ACT_RELOAD,					ACT_RELOAD_SMG1,				true },		// FIXME: hook to AR2 unique
 	{ ACT_IDLE,						ACT_IDLE_SMG1,					true },		// FIXME: hook to AR2 unique
 	{ ACT_IDLE_ANGRY,				ACT_IDLE_ANGRY_SMG1,			true },		// FIXME: hook to AR2 unique
@@ -96,6 +97,7 @@ acttable_t	CWeaponAR2::m_acttable[] =
 	{ ACT_RUN_CROUCH,				ACT_RUN_CROUCH_RIFLE,			true },
 	{ ACT_RUN_CROUCH_AIM,			ACT_RUN_CROUCH_AIM_RIFLE,		true },
 	{ ACT_GESTURE_RANGE_ATTACK1,	ACT_GESTURE_RANGE_ATTACK_AR2,	false },
+	{ ACT_GESTURE_RANGE_ATTACK1_SMG,	ACT_GESTURE_RANGE_ATTACK_SMG1,	false },
 	{ ACT_COVER_LOW,				ACT_COVER_SMG1_LOW,				false },		// FIXME: hook to AR2 unique
 	{ ACT_RANGE_AIM_LOW,			ACT_RANGE_AIM_AR2_LOW,			false },
 	{ ACT_RANGE_ATTACK1_LOW,		ACT_RANGE_ATTACK_SMG1_LOW,		true },		// FIXME: hook to AR2 unique

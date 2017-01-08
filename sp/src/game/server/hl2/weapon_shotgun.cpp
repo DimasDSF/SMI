@@ -109,9 +109,12 @@ acttable_t	CWeaponShotgun::m_acttable[] =
 	{ ACT_IDLE,						ACT_IDLE_SMG1,					true },	// FIXME: hook to shotgun unique
 
 	{ ACT_RANGE_ATTACK1,			ACT_RANGE_ATTACK_SHOTGUN,			true },
+	{ ACT_RANGE_ATTACK1_SMGANIM,	ACT_RANGE_ATTACK_SMG1,				true },
 	{ ACT_RELOAD,					ACT_RELOAD_SHOTGUN,					false },
+	{ ACT_RELOAD_SMGANIM,			ACT_RELOAD_SMG1,					true },
 	{ ACT_WALK,						ACT_WALK_RIFLE,						true },
 	{ ACT_IDLE_ANGRY,				ACT_IDLE_ANGRY_SHOTGUN,				true },
+	{ ACT_IDLE_ANGRY_SMGANIM,		ACT_IDLE_ANGRY_SMG1,				true },
 
 // Readiness activities (not aiming)
 	{ ACT_IDLE_RELAXED,				ACT_IDLE_SHOTGUN_RELAXED,		false },//never aims
@@ -239,6 +242,11 @@ float CWeaponShotgun::GetMinRestTime()
 	{
 		return 1.2f;
 	}
+
+	if ( FClassnameIs( GetOwner(), "npc_metropolice"))
+	{
+		return 1.9f;
+	}
 	
 	return BaseClass::GetMinRestTime();
 }
@@ -250,6 +258,11 @@ float CWeaponShotgun::GetMaxRestTime()
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 	{
 		return 1.5f;
+	}
+
+	if ( FClassnameIs( GetOwner(), "npc_metropolice"))
+	{
+		return 2.5f;
 	}
 
 	return BaseClass::GetMaxRestTime();
@@ -264,6 +277,11 @@ float CWeaponShotgun::GetFireRate()
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 	{
 		return 0.8f;
+	}
+
+	if ( FClassnameIs( GetOwner(), "npc_metropolice"))
+	{
+		return 1.2f;
 	}
 
 	return 0.7;
