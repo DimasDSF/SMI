@@ -2293,7 +2293,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 							pPhysicsObject->RemoveShadowController();
 							pPhysicsObject->SetVelocity( &vecAbsVelocity, &vec3_origin );
 						}
-
+						m_fHelicopterFlags &= ~BITS_HELICOPTER_GUN_ON;
 						m_hContainer = NULL;
 						UTIL_SetSize( this, DROPSHIP_BBOX_MIN, DROPSHIP_BBOX_MAX );
 					}
@@ -2319,7 +2319,10 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			// Once we're off the ground, start flying again
 			if ( flAltitude > 120 )		
 			{
-				m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
+				if ( m_hContainer )
+				{
+					m_hContainer->SetSequence( m_hContainer->LookupSequence("close_idle") );
+				}
 				SetLandingState( LANDING_NO );
 				m_hLandTarget = NULL;
 				m_bHasDroppedOff = true;
@@ -2843,20 +2846,23 @@ void CNPC_CombineDropship::DoCombatStuff( void )
 
 	bool bStopGun = true;
 	// Handle guns
-	if( m_fHelicopterFlags & BITS_HELICOPTER_GUN_ON )
+	if (m_hContainer && m_iCrateType == 1)
 	{
-		if ( GetEnemy() )
+		if( m_fHelicopterFlags & BITS_HELICOPTER_GUN_ON )
 		{
-			bStopGun = !FireCannonRound();
+			if ( GetEnemy() )
+			{
+				bStopGun = !FireCannonRound();
+			}
+			else
+			{
+				ResetContainerGunFacing();
+			}
 		}
 		else
 		{
 			ResetContainerGunFacing();
 		}
-	}
-	else
-	{
-		ResetContainerGunFacing();
 	}
 	if ( bStopGun && m_bIsFiring )
 	{
@@ -2927,23 +2933,12 @@ void CNPC_CombineDropship::UpdateContainerGunFacing( Vector &vecMuzzle, Vector &
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Update the container's gun to face the enemy. 
-// Input  : &vecMuzzle - The gun's muzzle/firing point
-//			&vecAimDir - The gun's current aim direction
+// Purpose: Update the container's gun to face forward. 
 //-----------------------------------------------------------------------------
 void CNPC_CombineDropship::ResetContainerGunFacing()
 {
 	Assert( m_hContainer );
-
-	Vector vecToTargetReset, vecMuzzleReset;
-	// Get the desired aim vector
-	if( !GetEnemy() || !(m_fHelicopterFlags & BITS_HELICOPTER_GUN_ON) )
-	{
-		Vector forw, gunbaseorigin;
-		GetAttachment( LookupAttachment("Gun_Base"), gunbaseorigin, &forw);
-		VectorScale(forw, 1000, vecToTargetReset);
-	}
-
+	/*
 	Vector vecBarrelPos, vecWorldBarrelPos;
 	QAngle worldBarrelAngle, vecAngles;
 	matrix3x4_t matRefToWorld;
@@ -2978,16 +2973,16 @@ void CNPC_CombineDropship::ResetContainerGunFacing()
 
 		float targetToCenterPitch = atan2( target.z, sqrt( quadTargetXY ) );
 		float centerToGunPitch = atan2( -vecBarrelPos.z, sqrt( quadTarget - (vecBarrelPos.z*vecBarrelPos.z) ) );
+		*/
+	QAngle angles;
+	angles.Init( 0, 0, 0 );
 
-		QAngle angles;
-		angles.Init( RAD2DEG(targetToCenterPitch+centerToGunPitch), RAD2DEG( targetToCenterYaw + centerToGunYaw ), 0 );
-
-		float flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.x, m_hContainer->GetPoseParameter(m_poseWeapon_Pitch), DROPSHIP_GUN_SPEED/5));
-		m_hContainer->SetPoseParameter( m_poseWeapon_Pitch, flNewAngle );
-		flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.y, m_hContainer->GetPoseParameter(m_poseWeapon_Yaw), DROPSHIP_GUN_SPEED/5));
-		m_hContainer->SetPoseParameter( m_poseWeapon_Yaw, flNewAngle );
-		m_hContainer->StudioFrameAdvance();
-	}
+	float flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.x, m_hContainer->GetPoseParameter(m_poseWeapon_Pitch), DROPSHIP_GUN_SPEED/5));
+	m_hContainer->SetPoseParameter( m_poseWeapon_Pitch, flNewAngle );
+	flNewAngle = AngleNormalize( UTIL_ApproachAngle( angles.y, m_hContainer->GetPoseParameter(m_poseWeapon_Yaw), DROPSHIP_GUN_SPEED/5));
+	m_hContainer->SetPoseParameter( m_poseWeapon_Yaw, flNewAngle );
+	m_hContainer->StudioFrameAdvance();
+	//}
 }
 
 //------------------------------------------------------------------------------
