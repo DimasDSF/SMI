@@ -2053,7 +2053,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			}
 			*/
 
-			if( m_hContainer && !m_bSetOpenSeq )
+			if( m_hContainer && m_iCrateType == 1 && !m_bSetOpenSeq )
 			{
 				m_bSetOpenSeq = true;
 				m_hContainer->SetSequence( m_hContainer->LookupSequence("open") );
@@ -2193,7 +2193,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 			}
 			*/
 
-			if( m_hContainer )
+			if( m_hContainer && m_iCrateType == 1 )
 			{
 				m_hContainer->SetSequence( m_hContainer->LookupSequence("open_idle") );
 			}
@@ -2311,7 +2311,7 @@ void CNPC_CombineDropship::PrescheduleThink( void )
 	case LANDING_LIFTOFF:
 		{
 			//close the door
-			if( m_hContainer && !m_bSetCloseSeq)
+			if( m_hContainer && m_iCrateType == 1 && !m_bSetCloseSeq)
 			{
 				m_bSetCloseSeq = true;
 				m_hContainer->SetSequence( m_hContainer->LookupSequence("close") );

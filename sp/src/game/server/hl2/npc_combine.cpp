@@ -375,15 +375,15 @@ bool CNPC_Combine::CreateBehaviors()
 //-----------------------------------------------------------------------------
 void CNPC_Combine::PostNPCInit()
 {
-	if( IsElite() )
+	/*if( IsElite() )
 	{
 		// Give a warning if a Combine Soldier is equipped with anything other than
 		// an AR2. 
 		if( !GetActiveWeapon() || !FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) )
 		{
-			//DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
+			DevWarning("**Combine Elite Soldier MUST be equipped with AR2\n");
 		}
-	}
+	}*/
 
 	BaseClass::PostNPCInit();
 }
@@ -1757,7 +1757,7 @@ int CNPC_Combine::SelectSchedule( void )
 		{
 			Vector vecTarget = m_hForcedGrenadeTarget->WorldSpaceCenter();
 
-			if ( IsElite() )
+			if ( IsElite() && FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) )
 			{
 				if ( FVisible( m_hForcedGrenadeTarget ) )
 				{
@@ -3021,6 +3021,10 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 	if (!IsElite() )
 		return false;
 
+	//Disabling SMG Altfire here.
+	if (!FClassnameIs( GetActiveWeapon(), "weapon_ar2" ))
+		return false;
+
 	if (IsCrouching())
 		return false;
 
@@ -3113,7 +3117,7 @@ bool CNPC_Combine::CanAltFireEnemy( bool bUseFreeKnowledge )
 //-----------------------------------------------------------------------------
 bool CNPC_Combine::CanGrenadeEnemy( bool bUseFreeKnowledge )
 {
-	if( IsElite() )
+	if( IsElite() && FClassnameIs( GetActiveWeapon(), "weapon_ar2" ) )
 		return false;
 
 	CBaseEntity *pEnemy = GetEnemy();
