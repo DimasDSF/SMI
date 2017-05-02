@@ -250,6 +250,9 @@ void CBaseHelicopter::Spawn( void )
 	AddSolidFlags( FSOLID_CUSTOMRAYTEST | FSOLID_CUSTOMBOXTEST );
 	m_flRandomOffsetTime = -1.0f;
 	m_vecRandomOffset.Init( 0, 0, 0 );
+
+	m_nRocketAttachment1 = LookupAttachment( "damage0" );
+	m_nRocketAttachment2 = LookupAttachment( "damage3" );
 }
 
 void CBaseHelicopter::Activate( void )
