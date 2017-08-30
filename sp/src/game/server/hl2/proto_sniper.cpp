@@ -51,8 +51,6 @@ ConVar showsniperdist("showsniperdist", "0" );
 ConVar sniperspeak( "sniperspeak", "1" );
 ConVar sniper_xbox_delay( "sniper_xbox_delay", "1" );
 ConVar sk_sniper_health( "sk_sniper_health", "100" );
-ConVar sniper_aim_speed_pitch( "sniper_aim_speed_pitch", "0.0" );
-ConVar sniper_aim_speed_yaw( "sniper_aim_speed_yaw", "0.0" );
 
 // Moved to HL2_SharedGameRules because these are referenced by shared AmmoDef functions
 extern ConVar sk_dmg_sniper_penetrate_plr;
