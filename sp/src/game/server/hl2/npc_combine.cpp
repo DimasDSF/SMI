@@ -47,6 +47,7 @@ int g_fCombineQuestion;				// true if an idle grunt asked a question. Cleared wh
 
 #define COMBINE_LIMP_HEALTH				20
 #define	COMBINE_MIN_GRENADE_CLEAR_DIST	250
+int m_iGrenadeRadius = cvar->FindVar("sk_fraggrenade_radius")->GetInt();
 
 #define COMBINE_EYE_STANDING_POSITION	Vector( 0, 0, 66 )
 #define COMBINE_GUN_STANDING_POSITION	Vector( 0, 0, 57 )
@@ -1834,7 +1835,7 @@ int CNPC_Combine::SelectSchedule( void )
 						if ( pSoundOwner )
 						{
 							CBaseGrenade *pGrenade = dynamic_cast<CBaseGrenade *>(pSoundOwner);
-							if ( pGrenade && pGrenade->GetThrower() )
+							if ( pGrenade && pGrenade->GetThrower())
 							{
 								if ( IRelationType( pGrenade->GetThrower() ) != D_LI )
 								{
@@ -1977,7 +1978,7 @@ int CNPC_Combine::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 			// the other memebers of the squad will hog all of the attack slots and pick schedules to move to establish line of
 			// fire. During this time, the shotgunner is prevented from attacking. If he also cannot find cover (the fallback case)
 			// he will stand around like an idiot, right in front of you. Instead of this, we have him run up to you for a melee attack.
-			if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
+			if ((GetEnemies()->NumEnemies() >= 3 || IsEnemyMelee()) && !HasCondition(COND_BACK_RAYTRACE_HIT_WALL))
 			{
 				return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
 			}
@@ -1986,16 +1987,23 @@ int CNPC_Combine::SelectFailSchedule( int failedSchedule, int failedTask, AI_Tas
 				return SCHED_COMBINE_MOVE_TO_MELEE;
 			}
 		}
-	}
-	if ( failedSchedule == SCHED_BACK_AWAY_FROM_MELEE_ENEMY )
-	{
-		if (random->RandomInt(1,10) >= 4)
+		else
 		{
-			return SCHED_COMBINE_MOVE_TO_MELEE;
+			if(HasCondition(COND_BACK_RAYTRACE_HIT_WALL) && HasCondition(COND_SEE_ENEMY))
+			{
+				return SCHED_COMBINE_MOVE_TO_MELEE;
+			}
+		}
+	}
+	if(HasCondition(COND_BACK_RAYTRACE_HIT_WALL) && failedSchedule == SCHED_BACK_AWAY_FROM_MELEE_ENEMY)
+	{
+		if(HasCondition(COND_CAN_MELEE_ATTACK1))
+		{
+			return SCHED_MELEE_ATTACK1;
 		}
 		else
 		{
-			return SCHED_COMBINE_TAKE_COVER1;
+			return SCHED_COMBINE_MOVE_TO_MELEE;
 		}
 	}
 
@@ -2024,11 +2032,64 @@ int CNPC_Combine::SelectScheduleAttack()
 		return SCHED_COMBINE_DROP_GRENADE;
 
 	// Kick attack?
+	if(
+		IsEnemyMelee() 
+		&& (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() > 64 
+		&& (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() <= 200
+		&& GetEnemy()->GetHealth() < m_nKickDamage
+		)
+	{
+		return SCHED_COMBINE_MOVE_TO_MELEE;
+	}
+
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
 	{
-		if (GetEnemies()->NumEnemies() >= 3 || ( (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))))
+		//Gathering Conditions
+			float healthperc = (float)GetHealth()/(float)GetMaxHealth();
+			float enemyhealthperc = 0;
+			
+			if (GetEnemy())
+			{
+				enemyhealthperc = (float)GetEnemy()->GetHealth()/(float)GetEnemy()->GetMaxHealth();
+			}
+			int m_iSquadMembersNearby = 0;
+			if (IsInSquad() && GetSquad()->NumMembers() > 1)
+			{
+				for ( int i = 0; i < GetSquad()->m_SquadMembers.Count(); i++ )
+				{
+					if (
+						(GetSquad()->m_SquadMembers[i] != this) 
+						&& (GetSquad()->m_SquadMembers[i]->GetAbsOrigin() - GetAbsOrigin()).Length2D() <= 450
+						)
+					{
+						m_iSquadMembersNearby++;
+					}
+				}
+			}
+		//---
+		if (IsEnemyMelee() && !HasCondition(COND_BACK_RAYTRACE_HIT_WALL))
 		{
-			return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+			if(
+				(GetEnemy()->GetHealth() <= m_nKickDamage && healthperc > 0.6) 
+				|| m_iSquadMembersNearby >= GetEnemies()->NumEnemies())
+			{
+				return SCHED_MELEE_ATTACK1;
+			}
+			else
+			{
+				return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+			}
+		}
+		else if (IsEnemyMelee() && HasCondition(COND_BACK_RAYTRACE_HIT_WALL))
+		{
+			if(enemyhealthperc <= 0.30 && healthperc > 0.4 && m_iSquadMembersNearby >= GetEnemies()->NumEnemies())
+			{
+				return SCHED_MELEE_ATTACK1;
+			}
+			else
+			{
+				return SCHED_BACK_AWAY_FROM_MELEE_ENEMY;
+			}
 		}
 		else
 		{
@@ -2951,13 +3012,13 @@ bool CNPC_Combine::CanThrowGrenade( const Vector &vecTarget )
 	// ---------------------------------------------------------------------
 	if ( m_pSquad )
 	{
-		if (m_pSquad->SquadMemberInRange( vecTarget, COMBINE_MIN_GRENADE_CLEAR_DIST ))
+		if (m_pSquad->SquadMemberInRange( vecTarget, m_iGrenadeRadius*0.9 ))
 		{
 			// crap, I might blow my own guy up. Don't throw a grenade and don't check again for a while.
 			m_flNextGrenadeCheck = gpGlobals->curtime + 1; // one full second.
 
 			// Tell my squad members to clear out so I can get a grenade in
-			CSoundEnt::InsertSound( SOUND_MOVE_AWAY | SOUND_CONTEXT_COMBINE_ONLY, vecTarget, COMBINE_MIN_GRENADE_CLEAR_DIST, 0.1 );
+			CSoundEnt::InsertSound( SOUND_MOVE_AWAY | SOUND_CONTEXT_COMBINE_ONLY, vecTarget, m_iGrenadeRadius*0.9, 0.1 );
 			return false;
 		}
 	}
@@ -3159,6 +3220,21 @@ int CNPC_Combine::MeleeAttack1Conditions ( float flDot, float flDist )
 	else
 	{
 		ClearCondition( COND_ESCAPED_MELEE );
+	}
+
+	trace_t backtr;
+	Vector vecBack, vecUp;
+
+	AngleVectors(GetAbsAngles(), &vecBack, NULL, &vecUp);
+	vecBack.Negate();
+	UTIL_TraceLine(GetAbsOrigin() + 25*vecUp, GetAbsOrigin() + 25*vecUp + 70*vecBack, MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &backtr);
+	if (backtr.fraction != 1.0)
+	{
+		SetCondition( COND_BACK_RAYTRACE_HIT_WALL );
+	}
+	else
+	{
+		ClearCondition( COND_BACK_RAYTRACE_HIT_WALL );
 	}
 
 	if (flDist > 64)
@@ -4189,6 +4265,7 @@ DEFINE_SCHEDULE
 
  "	Tasks"
  "		TASK_STOP_MOVING					0"
+ "		TASK_ANNOUNCE_ATTACK				2"
  "		TASK_PLAY_SEQUENCE					ACTIVITY:ACT_SPECIAL_ATTACK2"
  "		TASK_FIND_COVER_FROM_ENEMY			99"
  "		TASK_FIND_FAR_NODE_COVER_FROM_ENEMY	384"

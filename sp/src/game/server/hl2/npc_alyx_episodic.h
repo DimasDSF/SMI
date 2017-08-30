@@ -146,6 +146,8 @@ public:
 	void InputVehiclePunted( inputdata_t &inputdata );
 	void InputOutsideTransition( inputdata_t &inputdata );
 	void InputZapTarget( inputdata_t &inputdata );
+	void InputEnableAutoHolster( inputdata_t &inputdata ) { m_bAutoHolsterEnabled = true; }
+	void InputDisableAutoHolster( inputdata_t &inputdata ) { m_bAutoHolsterEnabled = false; }
 
 	virtual void	OnGivenWeapon( CBaseCombatWeapon *pNewWeapon );
 	virtual void	OnChangeActiveWeapon( CBaseCombatWeapon *pOldWeapon, CBaseCombatWeapon *pNewWeapon );
@@ -195,6 +197,7 @@ private:
 	float   m_fCombatStartTime;
 	float	m_fCombatEndTime;
 	float	m_flNextCrouchTime;
+	bool	m_bAutoHolsterEnabled;
 
 	CSoundPatch		*m_sndDarknessBreathing;
 
