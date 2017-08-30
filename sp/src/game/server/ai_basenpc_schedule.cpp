@@ -2229,7 +2229,7 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			{
 				//AI_NavGoal_t goal;
 				//GOALTYPE_LOCATION
-				int node = GetNavigator()->GetNetwork()->NearestNodeToPoint( this, GetSquad()->GetLeader()->GetAbsOrigin(), false );
+				int node = GetNavigator()->GetNetwork()->NearestNodeToPoint( this, GetSquad()->GetLeader()->GetAbsOrigin() + Vector(RandomInt( -300, 300 ), RandomInt( -300, 300 ), 0), false );
 				CAI_Node *pNode = GetNavigator()->GetNetwork()->GetNode( node );
 				
 				if( !pNode )
@@ -2239,14 +2239,15 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 				}
 
 				Vector vecNodePos;
-				vecNodePos = pNode->GetPosition( GetHullType() );
+				vecNodePos = pNode->GetPosition( GetHullType() ) + Vector( RandomInt(-75, 75), RandomInt(-75, 75), 0);
 
 				AI_NavGoal_t goal( vecNodePos );
-				goal.type = GOALTYPE_LOCATION_NEAREST_NODE;
+				goal.type = GOALTYPE_LOCATION;
+				//GOALTYPE_LOCATION_NEAREST_NODE;
 				//goal.dest = GetSquad()->GetLeader()->WorldSpaceCenter();
 				//goal.pTarget = GetSquad()->GetLeader();
 
-				GetNavigator()->SetArrivalDistance( 150 );
+				GetNavigator()->SetArrivalDistance( 400 );
 				GetNavigator()->SetGoal( goal );
 			}
 			else
@@ -2256,6 +2257,36 @@ void CAI_BaseNPC::StartTask( const Task_t *pTask )
 			break;
 		}
 
+	case TASK_GET_PATH_TO_PRECOMBATPOS:
+	{
+		if (m_vCombatInitPos != vec3_invalid)
+		{
+			//AI_NavGoal_t goal;
+			//GOALTYPE_LOCATION
+			int node = GetNavigator()->GetNetwork()->NearestNodeToPoint( this, m_vCombatInitPos + Vector(RandomInt( -100, 100 ), RandomInt( -100, 100 ), 0), false );
+			CAI_Node *pNode = GetNavigator()->GetNetwork()->GetNode( node );
+				
+			if( !pNode )
+			{
+				TaskFail( FAIL_NO_ROUTE );
+				break;
+			}
+
+			Vector vecNodePos;
+			vecNodePos = pNode->GetPosition( GetHullType() ) + Vector( RandomInt(-25, 25), RandomInt(-25, 25), 0);
+
+			AI_NavGoal_t goal( vecNodePos );
+			goal.type = GOALTYPE_LOCATION;
+
+			GetNavigator()->SetArrivalDistance( 100 );
+			GetNavigator()->SetGoal( goal );
+		}
+		else
+		{
+			TaskFail( FAIL_NO_TARGET );
+		}
+		break;
+	}
 
 	case TASK_GET_PATH_TO_SAVEPOSITION_LOS:
 	{
@@ -4444,23 +4475,42 @@ int CAI_BaseNPC::SelectIdleSchedule()
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
-	if ((m_iLastInvestigation + 80 < gpGlobals->curtime) && m_iNumInvestigations != 0)
+	if ((m_iLastInvestigation + 80 < gpGlobals->curtime) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND) && m_iNumInvestigations != 0)
 	{
 		m_iNumInvestigations = 0;
 		//DevWarning( 2, "%i < %i , Resetting m_iNumInvestigations to 0\n", m_iLastInvestigation + 80 , gpGlobals->curtime );
 	}
 	
+	if ((!GetSquad() || GetSquad()->NumMembers() == 1 || GetSquad() && GetSquad()->GetLeader() == this) && m_bReturnToPreCombatPosEnabled)
+	{
+		if (m_vCombatInitPos != vec3_invalid && m_iTimeLostEnemy + 20 < gpGlobals->curtime)
+		{
+			if ((GetLocalOrigin() - m_vCombatInitPos).Length2D() > 1500)
+			{
+				return SCHED_RETURN_TO_PRECOMBAT_POS_RUN;
+			}
+			else if ((GetLocalOrigin() - m_vCombatInitPos).Length2D() <= 1500 && (GetLocalOrigin() - m_vCombatInitPos).Length2D() > 150)
+			{
+				return SCHED_RETURN_TO_PRECOMBAT_POS_WALK;
+			}
+			else
+			{
+				m_vCombatInitPos = vec3_invalid;
+			}
+		}
+	}
+
 	if (GetSquad() && (GetSquad()->NumMembers() > 1) && m_bShouldMoveToRVSquadLeader && (GetSquad()->GetLeader() != this) )
 	{
-		if ( !m_bMovedToRVSquadLeader )
+		if ( !m_bMovedToRVSquadLeader && !GetSquad()->GetLeader()->IsCurSchedule(SCHED_INVESTIGATE_SOUND_WALK) && !GetSquad()->GetLeader()->IsCurSchedule(SCHED_INVESTIGATE_SOUND) )
 		{
-			if ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 1200)
+			if ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 1500)
 			{
 				m_bShouldMoveToRVSquadLeader = false;
 				m_bMovedToRVSquadLeader = true;
 				return SCHED_RUN_TO_SQUADLEADER;
 			}
-			else if ( ((GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() <= 1200) && ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250) )
+			else if ( ((GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() <= 1500) && ( (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 450) )
 			{
 				m_bShouldMoveToRVSquadLeader = false;
 				m_bMovedToRVSquadLeader = true;
@@ -4470,7 +4520,6 @@ int CAI_BaseNPC::SelectIdleSchedule()
 			{
 				m_bShouldMoveToRVSquadLeader = false;
 				m_bMovedToRVSquadLeader = true;
-				return SCHED_IDLE_STAND;
 			}
 		}
 	}
@@ -4543,6 +4592,24 @@ if ( (m_NPCState != NPC_STATE_COMBAT) && !IsCurSchedule(SCHED_INVESTIGATE_SOUND_
 //-----------------------------------------------------------------------------
 int CAI_BaseNPC::SelectAlertSchedule()
 {
+	if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion") || FClassnameIs( this, "npc_antlionguard") || FClassnameIs( this, "npc_clawscanner") || FClassnameIs( this, "npc_cscanner"))
+	{
+		if ((m_vCombatInitPos == NULL || m_vCombatInitPos == vec3_invalid) && m_bReturnToPreCombatPosEnabled)
+		{
+			if (!GetSquad() || GetSquad() && GetSquad()->NumMembers() == 1 || GetSquad() && GetSquad()->GetLeader() == this )
+			{
+				m_vCombatInitPos = GetLocalOrigin();
+			}
+			else if(GetSquad() && GetSquad()->GetLeader() != this)
+			{
+				if (GetSquad()->GetLeader()->m_vCombatInitPos != vec3_invalid)
+				{
+					m_vCombatInitPos = GetSquad()->GetLeader()->m_vCombatInitPos;
+				}
+			}
+		}
+	}
+
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
@@ -4613,6 +4680,24 @@ int CAI_BaseNPC::SelectAlertSchedule()
 //-----------------------------------------------------------------------------
 int CAI_BaseNPC::SelectCombatSchedule()
 {
+	if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion") || FClassnameIs( this, "npc_antlionguard") || FClassnameIs( this, "npc_clawscanner") || FClassnameIs( this, "npc_cscanner"))
+	{
+		if ((m_vCombatInitPos == NULL || m_vCombatInitPos == vec3_invalid) && m_bReturnToPreCombatPosEnabled)
+		{
+			if (!GetSquad() || GetSquad() && GetSquad()->NumMembers() == 1 || GetSquad() && GetSquad()->GetLeader() == this )
+			{
+				m_vCombatInitPos = GetLocalOrigin();
+			}
+			else if(GetSquad() && GetSquad()->GetLeader() != this)
+			{
+				if (GetSquad()->GetLeader()->m_vCombatInitPos != vec3_invalid)
+				{
+					m_vCombatInitPos = GetSquad()->GetLeader()->m_vCombatInitPos;
+				}
+			}
+		}
+	}
+
 	if ( m_hForcedInteractionPartner )
 		return SelectInteractionSchedule();
 
@@ -4641,7 +4726,10 @@ int CAI_BaseNPC::SelectCombatSchedule()
 	}
 	
 	// If I'm scared of this enemy run away
-	if ( IRelationType( GetEnemy() ) == D_FR )
+	if ( 
+		IRelationType( GetEnemy() ) == D_FR 
+		|| (!GetActiveWeapon() && !(CapabilitiesGet() & (bits_CAP_INNATE_MELEE_ATTACK1|bits_CAP_INNATE_MELEE_ATTACK2|bits_CAP_INNATE_RANGE_ATTACK1|bits_CAP_INNATE_RANGE_ATTACK2)))
+		)
 	{
 		if (HasCondition( COND_SEE_ENEMY )	|| 
 			HasCondition( COND_LIGHT_DAMAGE )|| 

@@ -47,7 +47,7 @@
 extern ConVar sk_healthkit;
 extern ConVar sk_healthvial;
 
-const int MAX_PLAYER_SQUAD = 4;
+const int MAX_PLAYER_SQUAD = 8;
 
 ConVar	sk_citizen_health				( "sk_citizen_health",					"0");
 ConVar	sk_citizen_heal_player			( "sk_citizen_heal_player",				"25");

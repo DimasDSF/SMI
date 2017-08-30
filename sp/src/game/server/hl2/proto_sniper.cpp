@@ -253,6 +253,8 @@ public:
 
 	Vector GetBulletOrigin( void );
 
+	Vector GetAttachmentPosition( bool bLaser );
+
 	virtual int Restore( IRestore &restore );
 
 	virtual void OnScheduleChange( void );
@@ -701,7 +703,15 @@ void CProtoSniper::LaserOn( const Vector &vecTarget, const Vector &vecDeviance )
 	
 	// The beam is backwards, sortof. The endpoint is the sniper. This is
 	// so that the beam can be tapered to very thin where it emits from the sniper.
-	m_pBeam->PointsInit( vecInitialAim, GetBulletOrigin() );
+	if (GetActiveWeapon())
+	{
+		m_pBeam->PointEntInit( vecInitialAim, GetActiveWeapon() );
+		m_pBeam->SetEndAttachment(GetActiveWeapon()->LookupAttachment("laser"));
+	}
+	else
+	{
+		m_pBeam->PointsInit( vecInitialAim, GetAttachmentPosition( true ));
+	}
 	m_pBeam->SetBrightness( 255 );
 	m_pBeam->SetNoise( 0 );
 	m_pBeam->SetWidth( 1.0f );
@@ -710,6 +720,8 @@ void CProtoSniper::LaserOn( const Vector &vecTarget, const Vector &vecDeviance )
 	m_pBeam->SetFadeLength( 0 );
 	m_pBeam->SetHaloTexture( sHaloSprite );
 	m_pBeam->SetHaloScale( 4.0f );
+
+
 
 	m_vecPaintStart = vecInitialAim;
 
@@ -762,7 +774,7 @@ void CProtoSniper::GetPaintAim( const Vector &vecStart, const Vector &vecGoal, f
 	QAngle vecIdealAngles;
 	QAngle vecCurrentAngles;
 	Vector vecCurrentDir;
-	Vector vecBulletOrigin = GetBulletOrigin();
+	Vector vecBulletOrigin = GetAttachmentPosition( true );
 
 	// vecIdealDir is where the gun should be aimed when the painting
 	// time is up. This can be approximate. This is only for drawing the
@@ -808,7 +820,7 @@ void CProtoSniper::PaintTarget( const Vector &vecTarget, float flPaintTime )
 	Vector vecStart;
 
 	// vecStart is the barrel of the gun (or the laser sight)
-	vecStart = GetBulletOrigin();
+	vecStart = GetAttachmentPosition( true );
 
 	float P;
 
@@ -852,6 +864,25 @@ void CProtoSniper::PaintTarget( const Vector &vecTarget, float flPaintTime )
 	vecCurrentDir.y += flNoiseScale * ( sin( 2 * M_PI * gpGlobals->curtime + 0.5 * M_PI ) * 0.0006 );
 	vecCurrentDir.z += flNoiseScale * ( sin( 1.5 * M_PI * gpGlobals->curtime + M_PI ) * 0.0006 );
 #endif
+
+	//------------------------
+	//Model Pitch-Yaw Setup
+	//------------------------
+	QAngle angDir;
+	VectorAngles( vecCurrentDir, angDir );
+
+	float newPitch = UTIL_AngleDiff( angDir.x, GetAbsAngles().x );
+	float newYaw = UTIL_AngleDiff( angDir.y, GetAbsAngles().y );
+
+	newPitch = AngleNormalize( newPitch - 10 );
+	newYaw = AngleNormalize( newYaw - 8 );
+
+	newPitch = clamp(newPitch, -81.2, 50.0);
+	newYaw = clamp(newYaw, -60.0, 60.0);
+
+	SetPoseParameter( m_poseAim_Pitch, newPitch );
+	SetPoseParameter( m_poseAim_Yaw, newYaw );
+	//ENDREALAIM
 
 	trace_t tr;
 
@@ -1021,7 +1052,7 @@ void CProtoSniper::Spawn( void )
 
 	//test start (CAP_Weapon)
 	CapabilitiesAdd( bits_CAP_USE_WEAPONS );
-	CapabilitiesAdd( bits_CAP_AIM_GUN );
+	//CapabilitiesAdd( bits_CAP_AIM_GUN );
 	//test end
 
 	m_HackedGunPos = Vector ( 0, 0, 0 );
@@ -1046,7 +1077,7 @@ void CProtoSniper::Spawn( void )
 	// first sweep of the laser doesn't look weird.
 	Vector vecForward;
 	AngleVectors( GetLocalAngles(), &vecForward );
-	m_vecPaintCursor = GetBulletOrigin() + vecForward * 1024;
+	m_vecPaintCursor = GetAttachmentPosition( true ) + vecForward * 1024;
 
 	m_fWeaponLoaded = true;
 
@@ -1255,6 +1286,38 @@ Class_T	CProtoSniper::Classify( void )
 }
 
 
+Vector CProtoSniper::GetAttachmentPosition( bool bLaser )
+{
+	if( m_spawnflags & SF_SNIPER_HIDDEN )
+	{
+		return GetAbsOrigin();
+	}
+	else
+	{
+		if(GetActiveWeapon() && FClassnameIs(GetActiveWeapon(), "weapon_crossbow"))
+		{
+			if (!bLaser)
+			{
+				Vector vecMuzzle;
+				GetActiveWeapon()->GetAttachment("muzzle", vecMuzzle, NULL );
+				return vecMuzzle;
+			}
+			else
+			{
+				Vector vecLaser;
+				GetActiveWeapon()->GetAttachment("laser", vecLaser, NULL );
+				return vecLaser;
+			}
+		}
+		else
+		{
+			Vector vecForward, vecRight, vecUp;
+			AngleVectors( GetLocalAngles(), &vecForward, &vecRight, &vecUp );
+			return WorldSpaceCenter() + vecForward * 25 + (vecUp * 9.5);
+		}
+	}
+}
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 Vector CProtoSniper::GetBulletOrigin( void )
@@ -1400,6 +1463,11 @@ void CProtoSniper::Event_Killed( const CTakeDamageInfo &info )
 		
 		float flForce = random->RandomFloat( 500, 700 ) * 10;
 
+		if ( m_bIsShotVulnerable == true )
+		{
+			flForce = random->RandomFloat( 500, 700 );
+		}
+
 		AngleVectors( GetLocalAngles(), &vecForward );
 		
 		float flFadeTime = 0.0;
@@ -1453,6 +1521,13 @@ void CProtoSniper::UpdateOnRemove( void )
 //---------------------------------------------------------
 int CProtoSniper::SelectSchedule ( void )
 {
+	if(GetActiveWeapon() && m_pBeam)
+	{
+		DevMsg("Sniper: SetAttachment");
+		m_pBeam->SetEndEntity(GetActiveWeapon());
+		m_pBeam->SetEndAttachment(GetActiveWeapon()->LookupAttachment( "laser" ));
+	}
+
 	if( HasCondition(COND_ENEMY_DEAD) && m_bSniperSpeaks )
 	{
 		//EmitSound( "NPC_Sniper.TargetDestroyed" );
@@ -1756,7 +1831,7 @@ bool CProtoSniper::FindDecoyObject( void )
 		Vector vecDirToDecoy;
 		Vector vecBulletOrigin;
 
-		vecBulletOrigin = GetBulletOrigin();
+		vecBulletOrigin = GetAttachmentPosition( false );
 		pProspect->CollisionProp()->RandomPointInBounds( Vector( .1, .1, .1 ), Vector( .6, .6, .6 ), &vecDecoyTarget );
 
 		// When trying to trace to an object using its absmin + some fraction of its size, it's best 
@@ -1818,7 +1893,7 @@ bool CProtoSniper::VerifyShot( CBaseEntity *pTarget )
 	trace_t tr;
 
 	Vector vecTarget = DesiredBodyTarget( pTarget );
-	UTIL_TraceLine( GetBulletOrigin(), vecTarget, MASK_SHOT, pTarget, COLLISION_GROUP_NONE, &tr );
+	UTIL_TraceLine( GetAttachmentPosition( false ), vecTarget, MASK_SHOT, pTarget, COLLISION_GROUP_NONE, &tr );
 
 	if( tr.fraction != 1.0 )
 	{
@@ -1827,7 +1902,7 @@ bool CProtoSniper::VerifyShot( CBaseEntity *pTarget )
 			// if the target is the player, do another trace to see if we can shoot his eyeposition. This should help 
 			// improve sniper responsiveness in cases where the player is hiding his chest from the sniper with his 
 			// head in full view.
-			UTIL_TraceLine( GetBulletOrigin(), pTarget->EyePosition(), MASK_SHOT, pTarget, COLLISION_GROUP_NONE, &tr );
+			UTIL_TraceLine( GetAttachmentPosition( false ), pTarget->EyePosition(), MASK_SHOT, pTarget, COLLISION_GROUP_NONE, &tr );
 
 			if( tr.fraction == 1.0 )
 			{
@@ -1980,9 +2055,9 @@ bool CProtoSniper::FireBullet( const Vector &vecTarget, bool bDirectShot )
 	CSniperBullet	*pBullet;
 	Vector			vecBulletOrigin;
 
-	vecBulletOrigin = GetBulletOrigin();
+	vecBulletOrigin = GetAttachmentPosition( false );
 
-	pBullet = (CSniperBullet *)Create( "sniperbullet", GetBulletOrigin(), GetLocalAngles(), NULL );
+	pBullet = (CSniperBullet *)Create( "sniperbullet", GetAttachmentPosition( false ), GetLocalAngles(), NULL );
 
 	Assert( pBullet != NULL );
 
@@ -2543,12 +2618,12 @@ Vector CProtoSniper::DesiredBodyTarget( CBaseEntity *pTarget )
 		{
 			if( flTimeSinceLastMiss > 0.0f && flTimeSinceLastMiss < 4.0f && hl2_episodic.GetBool() )
 			{
-				vecTarget = pTarget->BodyTarget( GetBulletOrigin(), false );
+				vecTarget = pTarget->BodyTarget( GetAttachmentPosition( false ), false );
 			}
 			else
 			{
 				// Shoot zombies in the headcrab
-				vecTarget = pTarget->HeadTarget( GetBulletOrigin() );
+				vecTarget = pTarget->HeadTarget( GetAttachmentPosition( false ) );
 			}
 		}
 		else if( pTarget->Classify() == CLASS_ANTLION )
@@ -2603,7 +2678,7 @@ Vector CProtoSniper::LeadTarget( CBaseEntity *pTarget )
 	vecTarget = DesiredBodyTarget( pTarget );
 
 	// Get bullet time to target
-	targetDist = (vecTarget - GetBulletOrigin() ).Length();
+	targetDist = (vecTarget - GetAttachmentPosition( false ) ).Length();
 	targetTime = targetDist / GetBulletSpeed();
 	
 	// project target's velocity over that time. 
@@ -2678,7 +2753,7 @@ Vector CProtoSniper::LeadTarget( CBaseEntity *pTarget )
 	if( sniperLines.GetFloat() == 1.0f )
 	{
 		Vector vecBulletOrigin;
-		vecBulletOrigin = GetBulletOrigin();
+		vecBulletOrigin = GetAttachmentPosition( false );
 		CPVSFilter filter( GetLocalOrigin() );
 		te->ShowLine( filter, 0.0, &vecBulletOrigin, &vecAdjustedShot );
 	}

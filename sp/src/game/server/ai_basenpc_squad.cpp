@@ -36,8 +36,40 @@ bool CAI_BaseNPC::OccupyStrategySlot( int squadSlotID )
 
 bool CAI_BaseNPC::OccupyStrategySlotRange( int slotIDStart, int slotIDEnd )
 {
+	if (!m_pSquad )
+	{
+		return true;
+	}
+
+	if ( slotIDStart == SQUAD_SLOT_ATTACK1 )
+	{
+		if ( m_pSquad->NumMembers() >= 6 && m_pSquad->NumMembers() < 12 )
+		{
+			return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, SQUAD_SLOT_ATTACK3, &m_iMySquadSlot );
+		}
+		else if( m_pSquad->NumMembers() >= 12 && m_pSquad->NumMembers() < 18 )
+		{
+			return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, SQUAD_SLOT_ATTACK4, &m_iMySquadSlot );
+		}
+		else if( m_pSquad->NumMembers() >= 18 && m_pSquad->NumMembers() < 24 )
+		{
+			return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, SQUAD_SLOT_ATTACK5, &m_iMySquadSlot );
+		}
+		else if( m_pSquad->NumMembers() >= 24 )
+		{
+			return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, SQUAD_SLOT_ATTACK6, &m_iMySquadSlot );
+		}
+		else
+		{
+			return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, slotIDEnd, &m_iMySquadSlot );
+		}
+	}
+	else
+	{
+		return m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, slotIDEnd, &m_iMySquadSlot );
+	}
 	// If I'm not in a squad a I don't fill slots
-	return ( !m_pSquad || m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, slotIDEnd, &m_iMySquadSlot ) );
+	//return ( !m_pSquad || m_pSquad->OccupyStrategySlotRange( GetEnemy(), slotIDStart, slotIDEnd, &m_iMySquadSlot ) );
 
 }
 

@@ -229,6 +229,9 @@ enum sharedtasks_e
 		// Get path to squad leader
 		TASK_GET_PATH_TO_SQUADLEADER,
 
+		//Get path to squad leaders precombatpos
+		TASK_GET_PATH_TO_PRECOMBATPOS,
+
 		// Run the current path
 		TASK_RUN_PATH,	
 
