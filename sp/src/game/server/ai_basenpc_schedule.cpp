@@ -4726,7 +4726,10 @@ int CAI_BaseNPC::SelectCombatSchedule()
 	}
 	
 	// If I'm scared of this enemy run away
-	if ( IRelationType( GetEnemy() ) == D_FR || (!GetActiveWeapon() && !(CapabilitiesGet() & (bits_CAP_INNATE_MELEE_ATTACK1|bits_CAP_INNATE_MELEE_ATTACK2))) )
+	if ( 
+		IRelationType( GetEnemy() ) == D_FR 
+		|| (!GetActiveWeapon() && !(CapabilitiesGet() & (bits_CAP_INNATE_MELEE_ATTACK1|bits_CAP_INNATE_MELEE_ATTACK2|bits_CAP_INNATE_RANGE_ATTACK1|bits_CAP_INNATE_RANGE_ATTACK2)))
+		)
 	{
 		if (HasCondition( COND_SEE_ENEMY )	|| 
 			HasCondition( COND_LIGHT_DAMAGE )|| 

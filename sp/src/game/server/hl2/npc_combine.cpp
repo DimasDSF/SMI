@@ -47,7 +47,6 @@ int g_fCombineQuestion;				// true if an idle grunt asked a question. Cleared wh
 
 #define COMBINE_LIMP_HEALTH				20
 #define	COMBINE_MIN_GRENADE_CLEAR_DIST	250
-int m_iGrenadeRadius = cvar->FindVar("sk_fraggrenade_radius")->GetInt();
 
 #define COMBINE_EYE_STANDING_POSITION	Vector( 0, 0, 66 )
 #define COMBINE_GUN_STANDING_POSITION	Vector( 0, 0, 57 )
@@ -2968,6 +2967,7 @@ int	CNPC_Combine::RangeAttack2Conditions( float flDot, float flDist )
 //-----------------------------------------------------------------------------
 bool CNPC_Combine::CanThrowGrenade( const Vector &vecTarget )
 {
+	int m_iGrenadeRadius = cvar->FindVar("sk_fraggrenade_radius")->GetInt();
 	if( m_iNumGrenades < 1 )
 	{
 		// Out of grenades!
@@ -2983,7 +2983,7 @@ bool CNPC_Combine::CanThrowGrenade( const Vector &vecTarget )
 	float flDist;
 	flDist = ( vecTarget - GetAbsOrigin() ).Length();
 
-	if( flDist > 1024 || flDist < 128 )
+	if( flDist > 1024 || flDist < m_iGrenadeRadius )
 	{
 		// Too close or too far!
 		m_flNextGrenadeCheck = gpGlobals->curtime + 1; // one full second.
@@ -3012,13 +3012,13 @@ bool CNPC_Combine::CanThrowGrenade( const Vector &vecTarget )
 	// ---------------------------------------------------------------------
 	if ( m_pSquad )
 	{
-		if (m_pSquad->SquadMemberInRange( vecTarget, m_iGrenadeRadius*0.9 ))
+		if (m_pSquad->SquadMemberInRange( vecTarget, m_iGrenadeRadius ))
 		{
 			// crap, I might blow my own guy up. Don't throw a grenade and don't check again for a while.
-			m_flNextGrenadeCheck = gpGlobals->curtime + 1; // one full second.
+			m_flNextGrenadeCheck = gpGlobals->curtime + 4; // one full second.
 
 			// Tell my squad members to clear out so I can get a grenade in
-			CSoundEnt::InsertSound( SOUND_MOVE_AWAY | SOUND_CONTEXT_COMBINE_ONLY, vecTarget, m_iGrenadeRadius*0.9, 0.1 );
+			CSoundEnt::InsertSound( SOUND_MOVE_AWAY | SOUND_CONTEXT_COMBINE_ONLY, vecTarget, m_iGrenadeRadius, 0.1 );
 			return false;
 		}
 	}
