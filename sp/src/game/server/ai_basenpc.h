@@ -905,8 +905,10 @@ public:
 	NPC_STATE			m_NPCState;				// npc's current state
 	float				m_flLastStateChangeTime;
 	int					m_iTimeLostEnemy;
+	bool				m_bMoveToRVSquadLeaderEnabled;
 	bool				m_bShouldMoveToRVSquadLeader;
 	bool				m_bMovedToRVSquadLeader;
+	bool				m_bReturnToPreCombatPosEnabled;
 	int m_iNumInvestigations;
 	int m_iLastInvestigation;
 
@@ -921,6 +923,7 @@ private:
 	float				m_flWakeRadius;
 	bool				m_bWakeSquad;
 	int					m_nWakeTick;
+	Vector				m_vCombatInitPos;
 
 public:
 	//-----------------------------------------------------
@@ -1029,6 +1032,7 @@ public:
 	void				MarkEnemyAsEluded();
 	void				ClearEnemyMemory();
 	bool				EnemyHasEludedMe() const;
+	bool				IsEnemyMelee();
 	
 	virtual CBaseEntity *BestEnemy();		// returns best enemy in memory list
 	virtual	bool		IsValidEnemy( CBaseEntity *pEnemy );
@@ -1463,6 +1467,11 @@ public:
 
 	void				InputGagEnable( inputdata_t &inputdata ) { AddSpawnFlags(SF_NPC_GAG); }
 	void				InputGagDisable( inputdata_t &inputdata ) { RemoveSpawnFlags(SF_NPC_GAG); }
+
+	void				InputDisableSLFollow( inputdata_t &inputdata ) { m_bMoveToRVSquadLeaderEnabled = false; }
+	void				InputEnableSLFollow( inputdata_t &inputdata ) { m_bMoveToRVSquadLeaderEnabled = true; }
+	void				InputEnableReturnToPreCombat( inputdata_t &inputdata) { m_bReturnToPreCombatPosEnabled = true; }
+	void				InputDisableReturnToPreCombat( inputdata_t &inputdata) { m_bReturnToPreCombatPosEnabled = false; }
 
 	bool				HandleInteraction(int interactionType, void *data, CBaseCombatCharacter* sourceEnt);
 

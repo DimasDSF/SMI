@@ -4752,14 +4752,14 @@ void CAI_BaseNPC::GatherConditions( void )
 			ClearSenseConditions();
 		}
 
-		if ( m_NPCState == NPC_STATE_IDLE && m_iTimeLostEnemy + 20 < gpGlobals->curtime )
+		if ( ((m_NPCState == NPC_STATE_IDLE && m_iTimeLostEnemy + 30 < gpGlobals->curtime) || ( m_NPCState == NPC_STATE_ALERT && m_iTimeLostEnemy + 60 < gpGlobals->curtime )) && m_bMoveToRVSquadLeaderEnabled )
 		{
 			if (FClassnameIs( this, "npc_combine_s") || FClassnameIs( this, "npc_metropolice") || FClassnameIs( this, "npc_strider") || FClassnameIs( this, "npc_hunter") || FClassnameIs( this, "npc_citizen") || FClassnameIs( this, "npc_rollermine") || FClassnameIs( this, "npc_antlion") || FClassnameIs( this, "npc_antlionguard") || FClassnameIs( this, "npc_clawscanner") || FClassnameIs( this, "npc_cscanner"))
 			{
 				if (GetSquad() && (GetSquad()->NumMembers() > 1))
 				{
 					m_bShouldMoveToRVSquadLeader = true;
-					if (!IsMoving() && (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 250)
+					if (!IsMoving() && (GetLocalOrigin() - GetSquad()->GetLeader()->GetLocalOrigin()).Length2D() > 450)
 					{
 						m_bMovedToRVSquadLeader = false;
 					}
@@ -8354,10 +8354,10 @@ void CAI_BaseNPC::HandleAnimEvent( animevent_t *pEvent )
 				{
 					TaskFail( "Weapon doesn't exist" );
 				}
-				else if (!Weapon_CanUse( pWeapon ))
+				/*else if (!Weapon_CanUse( pWeapon ))
 				{
 					TaskFail( "Can't use this weapon type" );
-				}
+				}*/
 				else
 				{
 					PickupWeapon( pWeapon );
@@ -8981,6 +8981,7 @@ void CAI_BaseNPC::DrawDebugGeometryOverlays(void)
 int CAI_BaseNPC::DrawDebugTextOverlays(void)
 {
 	int text_offset = 0;
+	static const char *pStateNames[] = { "None", "Idle", "Alert", "Combat", "Scripted", "PlayDead", "Dead" };
 
 	// ---------------------
 	// Print Baseclass text
@@ -8994,6 +8995,16 @@ int CAI_BaseNPC::DrawDebugTextOverlays(void)
 		Q_snprintf(tempstr,sizeof(tempstr),"Health: %i",m_iHealth.Get());
 		EntityText(text_offset,tempstr,0);
 		text_offset++;
+
+		// --------------
+		// Print State
+		// --------------
+		if ( (int)m_NPCState < ARRAYSIZE(pStateNames) )
+		{
+			Q_snprintf(tempstr,sizeof(tempstr),"Stat: %s, ", pStateNames[m_NPCState] );
+			EntityText(text_offset,tempstr,0);
+			text_offset++;
+		}
 
 		// Print squad name
 		Q_strncpy(tempstr,"Squad: ",sizeof(tempstr));
@@ -9037,6 +9048,30 @@ int CAI_BaseNPC::DrawDebugTextOverlays(void)
 		EntityText(text_offset,tempstr,0);
 		text_offset++;
 
+		// --------------
+		// Print Schedule
+		// --------------
+		if ( GetCurSchedule() )
+		{
+			CAI_BehaviorBase *pBehavior = GetRunningBehavior();
+			if ( pBehavior )
+			{
+				Q_snprintf(tempstr,sizeof(tempstr),"Behv: %s, ", pBehavior->GetName() );
+				EntityText(text_offset,tempstr,0);
+				text_offset++;
+			}
+
+			const char *pName = NULL;
+			pName = GetCurSchedule()->GetName();
+			if ( !pName )
+			{
+				pName = "Unknown";
+			}
+			Q_snprintf(tempstr,sizeof(tempstr),"Schd: %s, ", pName );
+			EntityText(text_offset,tempstr,0);
+			text_offset++;
+		}
+
 		// Print slot
 		Q_snprintf(tempstr,sizeof(tempstr),"Slot:  %s (%d)\n",
 			SquadSlotName(m_iMySquadSlot), m_iMySquadSlot);
@@ -9058,7 +9093,6 @@ int CAI_BaseNPC::DrawDebugTextOverlays(void)
 		// --------------
 		// Print State
 		// --------------
-		static const char *pStateNames[] = { "None", "Idle", "Alert", "Combat", "Scripted", "PlayDead", "Dead" };
 		if ( (int)m_NPCState < ARRAYSIZE(pStateNames) )
 		{
 			Q_snprintf(tempstr,sizeof(tempstr),"Stat: %s, ", pStateNames[m_NPCState] );
@@ -10757,7 +10791,10 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_FIELD( m_iSpeedModRadius,			FIELD_INTEGER ),
 	DEFINE_FIELD( m_iSpeedModSpeed,				FIELD_INTEGER ),
 	DEFINE_FIELD( m_hEnemyFilter,				FIELD_EHANDLE ),
+	DEFINE_FIELD( m_vCombatInitPos,				FIELD_VECTOR ),
 	DEFINE_KEYFIELD( m_iszEnemyFilterName,		FIELD_STRING, "enemyfilter" ),
+	DEFINE_KEYFIELD( m_bMoveToRVSquadLeaderEnabled,	FIELD_BOOLEAN, "followleaderenabled" ),
+	DEFINE_KEYFIELD( m_bReturnToPreCombatPosEnabled, FIELD_BOOLEAN, "returntoprecombatenabled" ),
 	DEFINE_FIELD( m_bImportanRagdoll,			FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bPlayerAvoidState,			FIELD_BOOLEAN ),
 
@@ -10819,6 +10856,10 @@ BEGIN_DATADESC( CAI_BaseNPC )
 	DEFINE_INPUTFUNC( FIELD_VOID,	"StopScripting",	InputStopScripting ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"GagEnable",	InputGagEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"GagDisable",	InputGagDisable ),
+	DEFINE_INPUTFUNC( FIELD_VOID,	"DisableSquadLeaderFollow",	InputDisableSLFollow ),
+	DEFINE_INPUTFUNC( FIELD_VOID,	"EnableSquadLeaderFollow",	InputEnableSLFollow ),
+	DEFINE_INPUTFUNC( FIELD_VOID,	"EnableReturnToPreCombatPos", InputEnableReturnToPreCombat ),
+	DEFINE_INPUTFUNC( FIELD_VOID,	"DisableReturnToPreCombatPos", InputDisableReturnToPreCombat ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"InsideTransition",	InputInsideTransition ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"OutsideTransition",	InputOutsideTransition ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"ActivateSpeedModifier", InputActivateSpeedModifier ),
@@ -11406,6 +11447,7 @@ CAI_BaseNPC::CAI_BaseNPC(void)
 	m_bIgnoreUnseenEnemies		= false;
 	m_flEyeIntegRate			= 0.95;
 	SetTarget( NULL );
+	m_iTimeLostEnemy			= 0;
 
 	m_pSquad					= NULL;
 
@@ -11416,6 +11458,12 @@ CAI_BaseNPC::CAI_BaseNPC(void)
 	m_bHintGroupNavLimiting		= false;
 
 	m_fNoDamageDecal			= false;
+
+	m_bMoveToRVSquadLeaderEnabled = true;
+
+	m_bReturnToPreCombatPosEnabled = true;
+
+	m_vCombatInitPos = vec3_invalid;
 
 	SetInAScript( false );
 
@@ -11816,6 +11864,23 @@ bool CAI_BaseNPC::HandleInteraction(int interactionType, void *data, CBaseCombat
 #endif // HL2_DLL
 
 	return BaseClass::HandleInteraction( interactionType, data, sourceEnt );
+}
+
+bool CAI_BaseNPC::IsEnemyMelee( void )
+{
+	//(FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))))
+	if (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_fastzombie_torso") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine"))
+	{
+		return true;
+	}
+	else if ((FClassnameIs(GetEnemy(), "npc_citizen") || FClassnameIs(GetEnemy(), "npc_metropolice") || FClassnameIs(GetEnemy(), "npc_alyx") || FClassnameIs(GetEnemy(), "npc_barney") || FClassnameIs(GetEnemy(), "npc_monk")) && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 CAI_BaseNPC *CAI_BaseNPC::GetInteractionPartner( void )

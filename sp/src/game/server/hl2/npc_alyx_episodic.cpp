@@ -101,6 +101,7 @@ BEGIN_DATADESC( CNPC_Alyx )
 	DEFINE_FIELD( m_flNextCrouchTime, FIELD_TIME ),
 	DEFINE_FIELD( m_WeaponType, FIELD_INTEGER ),
 	DEFINE_KEYFIELD( m_bShouldHaveEMP, FIELD_BOOLEAN, "ShouldHaveEMP" ),
+	DEFINE_KEYFIELD( m_bAutoHolsterEnabled, FIELD_BOOLEAN, "AutoHolsterEnabled" ),
 	
 	DEFINE_SOUNDPATCH( m_sndDarknessBreathing ),
 
@@ -121,6 +122,8 @@ BEGIN_DATADESC( CNPC_Alyx )
 	DEFINE_INPUTFUNC( FIELD_VOID,		"OutsideTransition",	InputOutsideTransition ),
 	DEFINE_INPUTFUNC( FIELD_STRING,		"SetModel",				InputSetModel ),
 	DEFINE_INPUTFUNC( FIELD_STRING,		"ZapTarget",			InputZapTarget ),
+	DEFINE_INPUTFUNC( FIELD_VOID,		"EnableAutoHolster",	InputEnableAutoHolster ),
+	DEFINE_INPUTFUNC( FIELD_VOID,		"DisableAutoHolster",	InputDisableAutoHolster ),
 
 	DEFINE_OUTPUT( m_OnFinishInteractWithObject, "OnFinishInteractWithObject" ),
 	DEFINE_OUTPUT( m_OnPlayerUse, "OnPlayerUse" ),
@@ -352,6 +355,8 @@ void CNPC_Alyx::Spawn()
 	m_bDontPickupWeapons = true;
 
 	m_bDarknessSpeechAllowed = true;
+
+	m_bAutoHolsterEnabled = false;
 		
 	m_fCombatStartTime = 0.0f;
 	m_fCombatEndTime   = 0.0f;
@@ -460,16 +465,11 @@ void CNPC_Alyx::InputSetModel(inputdata_t &inputdata)
 	const char *s_sAlyxModel = inputdata.value.String();
 	SetModelName( AllocPooledString( s_sAlyxModel ) );
 	PrecacheModel( STRING( GetModelName() ) );
-	UTIL_SetModel( this, STRING(GetModelName()) );
-	if (!GetMoveParent())
-	{
-		SetupAlyxWithoutParent();
-		SetupVPhysicsHull();
-	}
+	SetModel( STRING( GetModelName() ) );
+
 	SetHullType(HULL_HUMAN);
 	SetHullSizeNormal();
 	UTIL_SetSize(this, NAI_Hull::Mins(HULL_HUMAN), NAI_Hull::Maxs(HULL_HUMAN));
-	//SetModel( STRING( GetModelName() ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -792,7 +792,6 @@ void CNPC_Alyx::GatherConditions()
 			m_bPlayerFlashlightState = bFlashlightState;
 		}
 	}
-
 
 	if ( m_NPCState == NPC_STATE_COMBAT )
 	{
@@ -1732,7 +1731,23 @@ bool CNPC_Alyx::ShouldBehaviorSelectSchedule( CAI_BehaviorBase *pBehavior )
 //-----------------------------------------------------------------------------
 int CNPC_Alyx::SelectSchedule( void )
 {
-    // If we're in darkness mode, and the player has the flashlight off, and we hear a zombie footstep,
+    //----
+	//AutoHolsterUnHolsterSystem
+	//----
+	if (m_bAutoHolsterEnabled && GetActiveWeapon())
+	{
+		if (!GetEnemy() && (( m_NPCState == NPC_STATE_ALERT && GetReadinessLevel() == AIRL_RELAXED /*m_iTimeLostEnemy + 40 < gpGlobals->curtime*/) || ( m_NPCState == NPC_STATE_IDLE && GetReadinessLevel() == AIRL_RELAXED && m_iTimeLostEnemy + 20 < gpGlobals->curtime)))
+		{
+			SetDesiredWeaponState( DESIREDWEAPONSTATE_HOLSTERED );
+		}
+		else if( m_NPCState == NPC_STATE_COMBAT || ( m_NPCState == NPC_STATE_ALERT && GetReadinessLevel() > AIRL_RELAXED ) )
+		{
+			SetDesiredWeaponState( DESIREDWEAPONSTATE_UNHOLSTERED );
+		}
+	}
+	//----
+	
+	// If we're in darkness mode, and the player has the flashlight off, and we hear a zombie footstep,
 	// and the player isn't nearby, deliberately turn away from the zombie to let the zombie grab me.
 	if ( HL2GameRules()->IsAlyxInDarknessMode() && m_NPCState == NPC_STATE_ALERT )
 	{

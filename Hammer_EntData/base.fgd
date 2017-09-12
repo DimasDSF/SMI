@@ -463,6 +463,18 @@
 
 	enemyfilter(target_destination) : "Enemy Filter" : "" : "Filter by which to filter potential enemies"
 	
+	followleaderenabled(choices) : "Enable Following Squad Leader" : 1 : "If enabled this NPC will try to follow squad leader in Idle mode" =
+	[
+		0 : "Disable"
+		1 : "Enable"
+	]
+	
+	returntoprecombatenabled(choices) : "Enable Returning to pre-combat position" : 1 : "If enabled and the NPC is a squad leader or doesnt have a squad, this NPC will remember the position on entering combat and will try to return to it on exiting combat" =
+	[
+		0 : "Disable"
+		1 : "Enable"
+	]
+	
 	ignoreunseenenemies(choices) : "Ignore unseen enemies" : 0 : "Prefer visible enemies, regardless of distance or relationship priority" = 
 	[
 		0 : "No"
@@ -513,6 +525,10 @@
 	input ForgetEntity(string) : "Clears out the NPC's knowledge of a named entity."
 	input GagEnable(void) : "Turn on the NPC Gag flag. NPC won't speak outside of choreographed scenes."
 	input GagDisable(void) : "Turn off the NPC Gag flag."
+	input EnableSquadLeaderFollow(void) : "Enables NPC following his squadleader."
+	input DisableSquadLeaderFollow(void) : "Disables NPC following his squadleader."
+	input EnableReturnToPreCombatPos(void) : "Enables NPC returning to pre-combat position."
+	input DisableReturnToPreCombatPos(void) : "Disables NPC returning to pre-combat position."
 	input IgnoreDangerSounds(float) : "Ignore danger sounds for the specified number of seconds."
 	input HolsterWeapon(void) : "Force the NPC to holster their weapon. Ignored if the NPC is scripting, if the NPC's weapon is already holstered, or if the NPC doesn't use weapons."
 	input HolsterAndDestroyWeapon(void) : "Identical to HolsterWeapon, except the weapon is destroyed once it has been holstered and concealed."

@@ -958,7 +958,7 @@ void CBaseHelicopter::FireRocket( void )
 	// Trace to ground to see if its intelligent to fire downward
 	UTIL_TraceLine( vecRocketOrigin, vecRocketOrigin+Vector(0,0,-1024), (MASK_SOLID_BRUSHONLY|CONTENTS_WATER), NULL, COLLISION_GROUP_NONE, &tr );
 	
-	if ( m_bRocketDownward && (tr.startpos - tr.endpos).Length() > 180)
+	if ( m_bRocketDownward && (tr.startpos - tr.endpos).Length() > 350)
 		{
 			m_flRocketVecZ = -1.0;
 			m_flForwardMult = 2.0;
