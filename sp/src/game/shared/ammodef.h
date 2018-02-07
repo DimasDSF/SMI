@@ -22,6 +22,8 @@ struct Ammo_t
 	int					nDamageType;
 	int					eTracerType;
 	float				physicsForceImpulse;
+	float				bulletSpeed;
+	float				penetrationFactor;
 	int					nMinSplashSize;
 	int					nMaxSplashSize;
 
@@ -81,10 +83,23 @@ public:
 	float				DamageForce(int nAmmoIndex);
 	int					MinSplashSize(int nAmmoIndex);
 	int					MaxSplashSize(int nAmmoIndex);
+	float				PenetrationFactor(int nAmmoIndex);
 	int					Flags(int nAmmoIndex);
 
-	void				AddAmmoType(char const* name, int damageType, int tracerType, int plr_dmg, int npc_dmg, int carry, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
-	void				AddAmmoType(char const* name, int damageType, int tracerType, char const* plr_cvar, char const* npc_var, char const* carry_cvar, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
+	//void				AddAmmoType(char const* name, int damageType, int tracerType, int plr_dmg, int npc_dmg, int carry, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
+	//void				AddAmmoType(char const* name, int damageType, int tracerType, char const* plr_cvar, char const* npc_var, char const* carry_cvar, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
+	void				AddAmmoType(char const* name, int damageType, int tracerType,
+							int plr_dmg, int npc_dmg, int carry,
+							float bulletSpeed, float physicsForceImpulse,
+							float penetrationFactor, int nFlags, 
+							int minSplashSize = 4,	int maxSplashSize = 8 );
+ 
+	void				AddAmmoType(char const* name, int damageType, int tracerType,
+							char const* plr_cvar, char const* npc_var,
+							char const* carry_cvar, float bulletSpeed,
+							float physicsForceImpulse, float penetrationFactor,
+							int nFlags,	int minSplashSize = 4,
+							int maxSplashSize = 8 );
 
 	CAmmoDef(void);
 	virtual ~CAmmoDef( void );

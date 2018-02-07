@@ -1790,6 +1790,9 @@
     <ClInclude Include="item_ammo.h">
       <Filter>Source Files\HL2 DLL</Filter>
     </ClInclude>
+    <ClInclude Include="..\shared\bullet_manager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gamedll_replay.cpp">
@@ -3515,6 +3518,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="info_target_redirect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\bullet_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -18,6 +18,7 @@
 #include "mapentities_shared.h"
 #include "debugoverlay_shared.h"
 #include "coordsize.h"
+#include "bullet_manager.h"
 #include "vphysics/performance.h"
 
 #ifdef CLIENT_DLL
@@ -1595,6 +1596,101 @@ typedef CTraceFilterSimpleList CBulletsTraceFilter;
 
 void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 {
+	// Make sure given a valid bullet type
+	if (info.m_iAmmoType == -1)
+	{
+		DevMsg("ERROR: Undefined ammo type!\n");
+		return;
+	}
+	static int	tracerCount;
+	//trace_t		tr;
+	CAmmoDef*	pAmmoDef	= GetAmmoDef();
+	int			nDamageType	= pAmmoDef->DamageType(info.m_iAmmoType);
+	int			nAmmoFlags	= pAmmoDef->Flags(info.m_iAmmoType);
+ 
+ 
+	int iPlayerDamage = info.m_iPlayerDamage;
+	if ( iPlayerDamage == 0 )
+	{
+		if ( nAmmoFlags & AMMO_INTERPRET_PLRDAMAGE_AS_DAMAGE_TO_PLAYER )
+		{
+			iPlayerDamage = pAmmoDef->PlrDamage( info.m_iAmmoType );
+		}
+	}
+ 
+	// the default attacker is ourselves
+	CBaseEntity *pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+ 
+	// Make sure we don't have a dangling damage target from a recursive call
+	if ( g_MultiDamage.GetTarget() != NULL )
+	{
+		ApplyMultiDamage();
+	}
+ 
+	ClearMultiDamage();
+	g_MultiDamage.SetDamageType( nDamageType | DMG_NEVERGIB );
+ 
+ 
+	// Prediction is only usable on players
+	int iSeed = 0;
+	if ( IsPlayer() )
+	{
+		iSeed = CBaseEntity::GetPredictionRandomSeed() & 255;
+	}
+ 
+	//-----------------------------------------------------
+	// Set up our shot manipulator.
+	//-----------------------------------------------------
+	CShotManipulator Manipulator( info.m_vecDirShooting );
+ 
+	for (int iShot = 0; iShot < info.m_iShots; iShot++)
+	{
+		Vector vecDir;
+ 
+		// Prediction is only usable on players
+		if ( IsPlayer() )
+		{
+			RandomSeed( iSeed );	// init random system with this seed
+		}
+ 
+		// If we're firing multiple shots, and the first shot has to be bang on target, ignore spread
+		if ( iShot == 0 && info.m_iShots > 1 && (info.m_nFlags & FIRE_BULLETS_FIRST_SHOT_ACCURATE) )
+		{
+			vecDir = Manipulator.GetShotDirection();
+		}
+		else
+		{
+ 
+			// Don't run the biasing code for the player at the moment.
+			vecDir = Manipulator.ApplySpread( info.m_vecSpread );
+		}
+ 
+		Vector vecSrc(info.m_vecSrc);
+		bool bTraceHull = ( IsPlayer() && info.m_iShots > 1 && iShot % 2 );
+ 
+		CSimulatedBullet *pBullet = new CSimulatedBullet(info,vecDir,pAttacker,info.m_pAdditionalIgnoreEnt, bTraceHull
+#ifndef CLIENT_DLL
+			,this
+#endif
+			);
+ 
+		BulletManager()->AddBullet(pBullet);
+ 
+		iSeed++;
+	}
+ 
+#if defined( HL2MP ) && defined( GAME_DLL )
+	if ( bDoServerEffects == false )
+	{
+		// For now it doesn't work
+		//TE_HL2MPFireBullets( entindex(), tr.startpos, info.m_vecDirShooting, info.m_iAmmoType, iEffectSeed, info.m_iShots, info.m_vecSpread.x, bDoTracers, bDoImpacts );
+	}
+#endif
+	ApplyMultiDamage();
+}
+
+/*void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
+{
 	static int	tracerCount;
 	trace_t		tr;
 	CAmmoDef*	pAmmoDef	= GetAmmoDef();
@@ -2031,7 +2127,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 		gamestats->Event_WeaponHit( pPlayer, info.m_bPrimaryAttack, pPlayer->GetActiveWeapon()->GetClassname(), dmgInfo );
 	}
 #endif
-}
+}*/
 
 
 //-----------------------------------------------------------------------------

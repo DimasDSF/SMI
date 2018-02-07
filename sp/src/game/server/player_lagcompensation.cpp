@@ -319,6 +319,58 @@ void CLagCompensationManager::FrameUpdatePostEntityThink()
 	m_pCurrentPlayer = NULL;
 }
 
+int GetTargetTick(CBasePlayer *player,CUserCmd *cmd)
+{
+	static CBasePlayer *lastPlayer;
+	static int lastTarget;
+	if(player==NULL)
+	{
+		lastPlayer = NULL;
+		lastTarget = 0;
+	}
+	if(player==lastPlayer)
+		return lastTarget;
+	// Get true latency
+	lastTarget = 0;
+ 
+	// correct is the amout of time we have to correct game time
+	float correct = 0.0f;
+ 
+	INetChannelInfo *nci = engine->GetPlayerNetInfo( player->entindex() ); 
+ 
+	if ( nci )
+	{
+		// add network latency
+		correct+= nci->GetLatency( FLOW_OUTGOING );
+	}
+ 
+	// calc number of view interpolation ticks - 1
+	int lerpTicks = TIME_TO_TICKS( player->m_fLerpTime );
+ 
+	// add view interpolation latency see C_BaseEntity::GetInterpolationAmount()
+	correct += TICKS_TO_TIME( lerpTicks );
+ 
+	// check bouns [0,sv_maxunlag]
+	correct = clamp( correct, 0.0f, sv_maxunlag.GetFloat() );
+ 
+	// correct tick send by player 
+	int targettick = cmd->tick_count - lerpTicks;
+ 
+	// calc difference between tick send by player and our latency based tick
+	float deltaTime =  correct - TICKS_TO_TIME(gpGlobals->tickcount - targettick);
+ 
+	if ( fabs( deltaTime ) > 0.2f )
+	{
+		// difference between cmd time and latency is too big > 200ms, use time correction based on latency
+		// DevMsg("StartLagCompensation: delta too big (%.3f)\n", deltaTime );
+		targettick = gpGlobals->tickcount - TIME_TO_TICKS( correct );
+	}
+	lastPlayer = player;
+	lastTarget = targettick;
+	//int timeRetrieved = gpGlobals->tickcount;
+	return targettick;
+}
+
 // Called during player movement to set up/restore after lag compensation
 void CLagCompensationManager::StartLagCompensation( CBasePlayer *player, CUserCmd *cmd )
 {
@@ -350,7 +402,7 @@ void CLagCompensationManager::StartLagCompensation( CBasePlayer *player, CUserCm
 	Q_memset( m_RestoreData, 0, sizeof( m_RestoreData ) );
 	Q_memset( m_ChangeData, 0, sizeof( m_ChangeData ) );
 
-	// Get true latency
+	/*// Get true latency
 
 	// correct is the amout of time we have to correct game time
 	float correct = 0.0f;
@@ -383,7 +435,9 @@ void CLagCompensationManager::StartLagCompensation( CBasePlayer *player, CUserCm
 		// difference between cmd time and latency is too big > 200ms, use time correction based on latency
 		// DevMsg("StartLagCompensation: delta too big (%.3f)\n", deltaTime );
 		targettick = gpGlobals->tickcount - TIME_TO_TICKS( correct );
-	}
+	}*/
+
+	int targettick = GetTargetTick(player, cmd);
 	
 	// Iterate all active players
 	const CBitVec<MAX_EDICTS> *pEntityTransmitBits = engine->GetEntityTransmitBitsForClient( player->entindex() - 1 );
