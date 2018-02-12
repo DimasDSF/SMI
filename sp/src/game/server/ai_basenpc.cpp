@@ -11869,7 +11869,12 @@ bool CAI_BaseNPC::HandleInteraction(int interactionType, void *data, CBaseCombat
 bool CAI_BaseNPC::IsEnemyMelee( void )
 {
 	//(FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))))
-	if (!GetEnemy())
+	if (!GetEnemy() || GetEnemy() == NULL)
+	{
+		return false;
+	}
+
+	if (!GetEnemy()->IsPlayer() && !GetEnemy()->IsNPC())
 	{
 		return false;
 	}
@@ -11883,14 +11888,21 @@ bool CAI_BaseNPC::IsEnemyMelee( void )
 	{
 		return true;
 	}
-	else if ((FClassnameIs(GetEnemy(), "npc_citizen") || FClassnameIs(GetEnemy(), "npc_metropolice") || FClassnameIs(GetEnemy(), "npc_alyx") || FClassnameIs(GetEnemy(), "npc_barney") || FClassnameIs(GetEnemy(), "npc_monk")) && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")))
+	else if (FClassnameIs(GetEnemy(), "npc_citizen") || FClassnameIs(GetEnemy(), "npc_metropolice") || FClassnameIs(GetEnemy(), "npc_alyx") || FClassnameIs(GetEnemy(), "npc_barney") || FClassnameIs(GetEnemy(), "npc_monk"))
 	{
-		return true;
+		if(GetEnemy()->MyNPCPointer()->GetActiveWeapon())
+		{
+			if(FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))
+			{
+				return true;
+			}
+		}
+		else
+		{
+			return true;
+		}
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
 CAI_BaseNPC *CAI_BaseNPC::GetInteractionPartner( void )
