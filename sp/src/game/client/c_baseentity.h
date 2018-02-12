@@ -194,7 +194,7 @@ public:
 	virtual void					ModifyFireBulletsDamage( CTakeDamageInfo* dmgInfo ) {}
 	virtual bool					ShouldDrawUnderwaterBulletBubbles();
 	virtual bool					ShouldDrawWaterImpacts( void ) { return true; }
-	virtual bool					HandleShotImpactingWater( const FireBulletsInfo_t &info, 
+	virtual bool					HandleShotImpactingWater( const FireBulletsInfo_t &info, const Vector &vecStart, 
 		const Vector &vecEnd, ITraceFilter *pTraceFilter, Vector *pVecTracerDest );
 	virtual ITraceFilter*			GetBeamTraceFilter( void );
 	virtual void					DispatchTraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator = NULL );

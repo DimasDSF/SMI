@@ -2032,7 +2032,8 @@ int CNPC_Combine::SelectScheduleAttack()
 
 	// Kick attack?
 	if(
-		IsEnemyMelee() 
+		GetEnemy()
+		&& IsEnemyMelee() 
 		&& (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() > 64 
 		&& (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() <= 200
 		&& GetEnemy()->GetHealth() < m_nKickDamage

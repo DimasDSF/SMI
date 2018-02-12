@@ -78,6 +78,8 @@ float k_flMaxEntitySpinRate = k_flMaxAngularVelocity * 10.0f;
 ConVar	ai_shot_bias_min( "ai_shot_bias_min", "-1.0", FCVAR_REPLICATED );
 ConVar	ai_shot_bias_max( "ai_shot_bias_max", "1.0", FCVAR_REPLICATED );
 ConVar	ai_debug_shoot_positions( "ai_debug_shoot_positions", "0", FCVAR_REPLICATED | FCVAR_CHEAT );
+ConVar	sv_player_bullet_offset_y( "sv_player_bullet_offset_y", "2.0");
+ConVar	sv_player_bullet_offset_z( "sv_player_bullet_offset_z", "-1.5");
 
 // Utility func to throttle rate at which the "reasonable position" spew goes out
 static double s_LastEntityReasonableEmitTime;
@@ -1601,6 +1603,8 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	int			nDamageType	= pAmmoDef->DamageType(info.m_iAmmoType);
 	int			nAmmoFlags	= pAmmoDef->Flags(info.m_iAmmoType);
 	
+	Vector m_vecShotSrc = info.m_vecSrc;
+
 	bool bDoServerEffects = true;
 
 #if defined( HL2MP ) && defined( GAME_DLL )
@@ -1611,6 +1615,10 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	if( IsPlayer() )
 	{
 		CBasePlayer *pPlayer = dynamic_cast<CBasePlayer*>(this);
+
+		Vector right, up;
+		AngleVectors(pPlayer->EyeAngles(),NULL,&right,&up);
+		m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
 
 		int rumbleEffect = pPlayer->GetActiveWeapon()->GetRumbleEffect();
 
@@ -1672,7 +1680,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	bool bStartedInWater = false;
 	if ( bUnderwaterBullets )
 	{
-		bStartedInWater = ( enginetrace->GetPointContents( info.m_vecSrc ) & (CONTENTS_WATER|CONTENTS_SLIME) ) != 0;
+		bStartedInWater = ( enginetrace->GetPointContents( m_vecShotSrc ) & (CONTENTS_WATER|CONTENTS_SLIME) ) != 0;
 	}
 
 	// Prediction is only usable on players
@@ -1718,7 +1726,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 			vecDir = Manipulator.ApplySpread( info.m_vecSpread );
 		}
 
-		vecEnd = info.m_vecSrc + vecDir * info.m_flDistance;
+		vecEnd = m_vecShotSrc + vecDir * info.m_flDistance;
 
 #ifdef PORTAL
 		CProp_Portal *pShootThroughPortal = NULL;
@@ -1738,7 +1746,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 				pShootThroughPortal = NULL;
 			}
 #else
-			AI_TraceHull( info.m_vecSrc, vecEnd, Vector( -3, -3, -3 ), Vector( 3, 3, 3 ), MASK_SHOT, &traceFilter, &tr );
+			AI_TraceHull( m_vecShotSrc, vecEnd, Vector( -3, -3, -3 ), Vector( 3, 3, 3 ), MASK_SHOT, &traceFilter, &tr );
 #endif //#ifdef PORTAL
 		}
 		else
@@ -1763,7 +1771,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 				AI_TraceLine(info.m_vecSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
 			}
 #else
-			AI_TraceLine(info.m_vecSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
+			AI_TraceLine(m_vecShotSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
 #endif //#ifdef PORTAL
 		}
 
@@ -1789,13 +1797,13 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 
 #ifdef GAME_DLL
 		if ( ai_debug_shoot_positions.GetBool() )
-			NDebugOverlay::Line(info.m_vecSrc, vecEnd, 255, 255, 255, false, .1 );
+			NDebugOverlay::Line(m_vecShotSrc, vecEnd, 255, 255, 255, false, .1 );
 #endif
 
 		if ( bStartedInWater )
 		{
 #ifdef GAME_DLL
-			Vector vBubbleStart = info.m_vecSrc;
+			Vector vBubbleStart = m_vecShotSrc;
 			Vector vBubbleEnd = tr.endpos;
 
 #ifdef PORTAL
@@ -1855,7 +1863,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 			// See if the bullet ended up underwater + started out of the water
 			if ( !bHitWater && ( enginetrace->GetPointContents( tr.endpos ) & (CONTENTS_WATER|CONTENTS_SLIME) ) )
 			{
-				bHitWater = HandleShotImpactingWater( info, vecEnd, &traceFilter, &vecTracerDest );
+				bHitWater = HandleShotImpactingWater( info, m_vecShotSrc, vecEnd, &traceFilter, &vecTracerDest );
 			}
 
 			float flActualDamage = info.m_flDamage;
@@ -1957,7 +1965,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 			if ( bDoServerEffects == true )
 			{
 				Vector vecTracerSrc = vec3_origin;
-				ComputeTracerStartPosition( info.m_vecSrc, &vecTracerSrc );
+				ComputeTracerStartPosition( m_vecShotSrc, &vecTracerSrc );
 
 				trace_t Tracer;
 				Tracer = tr;
@@ -2051,13 +2059,13 @@ bool CBaseEntity::ShouldDrawUnderwaterBulletBubbles()
 //-----------------------------------------------------------------------------
 // Handle shot entering water
 //-----------------------------------------------------------------------------
-bool CBaseEntity::HandleShotImpactingWater( const FireBulletsInfo_t &info, 
+bool CBaseEntity::HandleShotImpactingWater( const FireBulletsInfo_t &info, const Vector &vecStart, 
 	const Vector &vecEnd, ITraceFilter *pTraceFilter, Vector *pVecTracerDest )
 {
 	trace_t	waterTrace;
 
 	// Trace again with water enabled
-	AI_TraceLine( info.m_vecSrc, vecEnd, (MASK_SHOT|CONTENTS_WATER|CONTENTS_SLIME), pTraceFilter, &waterTrace );
+	AI_TraceLine( vecStart, vecEnd, (MASK_SHOT|CONTENTS_WATER|CONTENTS_SLIME), pTraceFilter, &waterTrace );
 	
 	// See if this is the point we entered
 	if ( ( enginetrace->GetPointContents( waterTrace.endpos - Vector(0,0,0.1f) ) & (CONTENTS_WATER|CONTENTS_SLIME) ) == 0 )

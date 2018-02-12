@@ -1559,7 +1559,7 @@ private:
 	void UpdateShotStatistics( const trace_t &tr );
 
 	// Handle shot entering water
-	bool HandleShotImpactingWater( const FireBulletsInfo_t &info, const Vector &vecEnd, ITraceFilter *pTraceFilter, Vector *pVecTracerDest );
+	bool HandleShotImpactingWater( const FireBulletsInfo_t &info, const Vector &vecStart, const Vector &vecEnd, ITraceFilter *pTraceFilter, Vector *pVecTracerDest );
 
 	// Handle shot entering water
 	void HandleShotImpactingGlass( const FireBulletsInfo_t &info, const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter );

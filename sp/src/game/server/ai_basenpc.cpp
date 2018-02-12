@@ -11869,6 +11869,16 @@ bool CAI_BaseNPC::HandleInteraction(int interactionType, void *data, CBaseCombat
 bool CAI_BaseNPC::IsEnemyMelee( void )
 {
 	//(FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine")) || (FClassnameIs(GetEnemy(), "npc_citizen") && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick"))))
+	if (!GetEnemy())
+	{
+		return false;
+	}
+
+	if (GetEnemy() && !GetEnemy()->IsAlive())
+	{
+		return false;
+	}
+
 	if (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_fastzombie_torso") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine"))
 	{
 		return true;
