@@ -1994,6 +1994,7 @@ CAmmoDef *GetAmmoDef()
 		def.AddAmmoType("Hopwire",			DMG_BLAST,					TRACER_NONE,			"sk_plr_dmg_grenade",		"sk_npc_dmg_grenade",		"sk_max_hopwire",		0, 0);
 		def.AddAmmoType("CombineHeavyCannon",	DMG_BULLET,				TRACER_LINE,			40,	40, NULL, 10 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED ); // hit like a 10 kg weight at 750 ft/s
 		def.AddAmmoType("ammo_proto1",			DMG_BULLET,				TRACER_LINE,			0, 0, 10, 0, 0 );
+		def.AddAmmoType("GrenadeShrapnel",	DMG_BULLET,					TRACER_NONE,			"sk_plr_dmg_grenade_shrapnel", "sk_npc_dmg_grenade_shrapnel",	"sk_max_smg1", 0.15 * 750 * 12, AMMO_FORCE_DROP_IF_CARRIED );
 #endif // HL2_EPISODIC
 	}
 

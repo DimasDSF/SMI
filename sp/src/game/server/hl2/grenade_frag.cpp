@@ -8,6 +8,7 @@
 #include "cbase.h"
 #include "basegrenade_shared.h"
 #include "grenade_frag.h"
+#include "ammodef.h"
 #include "Sprite.h"
 #include "SpriteTrail.h"
 #include "soundent.h"
@@ -26,6 +27,13 @@ const float GRENADE_COEFFICIENT_OF_RESTITUTION = 0.2f;
 ConVar sk_plr_dmg_fraggrenade	( "sk_plr_dmg_fraggrenade","0");
 ConVar sk_npc_dmg_fraggrenade	( "sk_npc_dmg_fraggrenade","0");
 ConVar sk_fraggrenade_radius	( "sk_fraggrenade_radius", "0");
+ConVar sk_fraggrenade_shrapnel	( "sk_fraggrenade_shrapnel", "30");
+ConVar sk_fraggrenade_shrapnel_cone_x ( "sk_fraggrenade_shrapnel_cone_x", "7");
+ConVar sk_fraggrenade_shrapnel_cone_y ( "sk_fraggrenade_shrapnel_cone_y", "7");
+ConVar sk_fraggrenade_shrapnel_cone_z ( "sk_fraggrenade_shrapnel_cone_z", "7");
+ConVar sk_fraggrenade_shrapnel_max_dist ( "sk_fraggrenade_shrapnel_max_dist", "400");
+ConVar	sk_plr_dmg_grenade_shrapnel	( "sk_plr_dmg_grenade_shrapnel", "30", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_grenade_shrapnel	( "sk_npc_dmg_grenade_shrapnel", "30", FCVAR_REPLICATED );
 
 #define GRENADE_MODEL "models/Weapons/w_grenade.mdl"
 
@@ -72,6 +80,7 @@ protected:
 	bool	m_inSolid;
 	bool	m_combineSpawned;
 	bool	m_punted;
+	float	m_flShrapnelDamage;
 };
 
 LINK_ENTITY_TO_CLASS( npc_grenade_frag, CGrenadeFrag );
@@ -112,11 +121,13 @@ void CGrenadeFrag::Spawn( void )
 	{
 		m_flDamage		= sk_plr_dmg_fraggrenade.GetFloat();
 		m_DmgRadius		= sk_fraggrenade_radius.GetFloat();
+		m_flShrapnelDamage = sk_plr_dmg_grenade_shrapnel.GetFloat();
 	}
 	else
 	{
 		m_flDamage		= sk_npc_dmg_fraggrenade.GetFloat();
 		m_DmgRadius		= sk_fraggrenade_radius.GetFloat();
+		m_flShrapnelDamage = sk_npc_dmg_grenade_shrapnel.GetFloat();
 	}
 
 	m_takedamage	= DAMAGE_YES;
@@ -326,6 +337,10 @@ void CGrenadeFrag::DelayThink()
 {
 	if( gpGlobals->curtime > m_flDetonateTime )
 	{
+		FireBulletsInfo_t info( sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5), GetAbsOrigin(), Vector(0,0,1), Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()), sk_fraggrenade_shrapnel_max_dist.GetFloat(), GetAmmoDef()->Index( "GrenadeShrapnel" ) );
+		info.m_pAttacker = GetOwnerEntity();
+		NDebugOverlay::Line( GetAbsOrigin(), GetAbsOrigin() + Vector(0,0,1) * sk_fraggrenade_shrapnel_max_dist.GetFloat(), 0, 0, 255, true, 10.0f );
+		FireBullets(info);
 		Detonate();
 		return;
 	}

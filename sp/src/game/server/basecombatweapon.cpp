@@ -302,6 +302,14 @@ bool CBaseCombatWeapon::WeaponLOSCondition( const Vector &ownerPos, const Vector
 		return true;
 	}
 
+	/*if (npcOwner->GetEnemy())
+	{
+		if (FVisible( npcOwner->GetEnemy(), MASK_BLOCKLOS, NULL ))
+		{
+			return true;
+		}
+	}*/
+
 	CBaseEntity	*pHitEnt = tr.m_pEnt;
 
 	CBasePlayer *pEnemyPlayer = ToBasePlayer( npcOwner->GetEnemy() );

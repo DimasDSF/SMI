@@ -1602,6 +1602,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	CAmmoDef*	pAmmoDef	= GetAmmoDef();
 	int			nDamageType	= pAmmoDef->DamageType(info.m_iAmmoType);
 	int			nAmmoFlags	= pAmmoDef->Flags(info.m_iAmmoType);
+	bool		bIsGrenadeShrapnel = pAmmoDef->Index("GrenadeShrapnel") == info.m_iAmmoType;
 	
 	Vector m_vecShotSrc = info.m_vecSrc;
 
@@ -1618,7 +1619,10 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 
 		Vector right, up;
 		AngleVectors(pPlayer->EyeAngles(),NULL,&right,&up);
-		m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
+		if (bIsGrenadeShrapnel == false)
+		{
+			m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
+		}
 
 		int rumbleEffect = pPlayer->GetActiveWeapon()->GetRumbleEffect();
 
@@ -1855,9 +1859,21 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 			UpdateShotStatistics( tr );
 
 			// For shots that don't need persistance
-			int soundEntChannel = ( info.m_nFlags&FIRE_BULLETS_TEMPORARY_DANGER_SOUND ) ? SOUNDENT_CHANNEL_BULLET_IMPACT : SOUNDENT_CHANNEL_UNSPECIFIED;
-
-			CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 200, 0.5, this, soundEntChannel );
+			
+			
+			if (bIsGrenadeShrapnel == false)
+			{
+				int soundEntChannel = ( info.m_nFlags&FIRE_BULLETS_TEMPORARY_DANGER_SOUND ) ? SOUNDENT_CHANNEL_BULLET_IMPACT : SOUNDENT_CHANNEL_UNSPECIFIED;
+				CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 200, 0.5, this, soundEntChannel );
+			}
+			else
+			{
+				if (info.m_iShots > 1 && iShot % 2)
+				{
+					int soundEntChannel = ( info.m_nFlags&FIRE_BULLETS_TEMPORARY_DANGER_SOUND ) ? SOUNDENT_CHANNEL_BULLET_IMPACT : SOUNDENT_CHANNEL_UNSPECIFIED;
+					CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 50, 0.5, this, soundEntChannel );
+				}
+			}
 #endif
 
 			// See if the bullet ended up underwater + started out of the water
@@ -1931,7 +1947,10 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 					data.m_vOrigin = tr.endpos;
 					data.m_nDamageType = nDamageType;
 					
-					DispatchEffect( "RagdollImpact", data );
+					if(!bIsGrenadeShrapnel)
+					{
+						DispatchEffect( "RagdollImpact", data );
+					}
 				}
 	
 #ifdef GAME_DLL
