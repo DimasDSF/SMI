@@ -151,6 +151,7 @@ ConVar	ai_frametime_limit( "ai_frametime_limit", "50", FCVAR_NONE, "frametime li
 ConVar	ai_use_think_optimizations( "ai_use_think_optimizations", "1" );
 
 ConVar	ai_test_moveprobe_ignoresmall( "ai_test_moveprobe_ignoresmall", "0" );
+ConVar g_debug_bullets( "g_debug_bullets", "0", FCVAR_CHEAT, "Debug of bullet simulation\nThe white line shows the bullet trail.\nThe red line shows not passed penetration test.\nThe green line shows passed penetration test. Turn developer mode for more information." );
 
 #ifdef HL2_EPISODIC
 extern ConVar ai_vehicle_avoidance;
@@ -1545,6 +1546,207 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 	FireBullets( behindGlassInfo );
 }
 
+//-----------------------------------------------------------------------------
+// Handle Generic Shot Impact, Penetration, and Ricochet
+//-----------------------------------------------------------------------------
+void CBaseEntity::HandleGenericShotImpact( const FireBulletsInfo_t &info, const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter )
+{
+	Vector m_vecEntryPosition = tr.endpos;
+	if(g_debug_bullets.GetBool())
+	{
+		NDebugOverlay::Box( tr.endpos, Vector( -1, -1, -1 ), Vector( 1, 1, 1 ), 255, 0, 0, 128, 10.0f);
+	}
+	if(FStrEq(tr.surface.name,"tools/toolsblockbullets") || (tr.surface.flags&SURF_SKY))
+	{
+		return;
+	}
+	if(tr.m_pEnt != NULL)
+	{
+		if(tr.m_pEnt->IsPlayer() || tr.m_pEnt->IsNPC())
+		{
+			if(g_debug_bullets.GetBool())
+			{
+				if(tr.m_pEnt->IsPlayer())
+				{
+					DevMsg(1, "BulletHit: Hit Player \n");
+				}
+				else
+				{
+					DevMsg(1, "BulletHit: Hit NPC: %s \n", tr.m_pEnt->MyNPCPointer()->GetDebugName());
+				}
+			}
+			return;
+		}
+	}
+	CAmmoDef*	pAmmoDef	= GetAmmoDef();
+	if(pAmmoDef->DamageType(info.m_iAmmoType) & DMG_SNIPER)
+	{
+		return;
+	}
+	if(pAmmoDef->Index("GrenadeShrapnel") == info.m_iAmmoType && g_debug_bullets.GetBool())
+	{
+		DevMsg(1, "BulletHit: Bullet type is GrenadeShrapnel \n");
+	}
+	//int initialBulletSpeed = pAmmoDef->InitialBulletSpeed(info.m_iAmmoType);
+	int bulletSpeed;
+	if (info.m_iBulletSpeed != 0)
+	{
+		bulletSpeed = max(1,info.m_iBulletSpeed);
+	}
+	else
+	{
+		bulletSpeed = pAmmoDef->InitialBulletSpeed(info.m_iAmmoType);
+	}
+	int bulletMass = pAmmoDef->BulletMass(info.m_iAmmoType) * 0.0647989;
+	float penetrationF = pAmmoDef->PenetrationF(info.m_iAmmoType);
+	float matDensity = 1000.0f;
+	surfacedata_t *p_penetrsurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+	switch (p_penetrsurf->game.material)
+	{
+		case CHAR_TEX_WOOD:
+			matDensity = 30.0f;
+			break;
+		case CHAR_TEX_GRATE:
+			matDensity = 38.0f;
+			break;
+		case CHAR_TEX_CONCRETE:
+			matDensity = 45.0f;
+			break;
+		case CHAR_TEX_TILE:
+			matDensity = 33.0f;
+			break;
+		case CHAR_TEX_COMPUTER:
+			matDensity = 31.0f;
+			break;
+		case CHAR_TEX_GLASS:
+			matDensity = 16.0f;
+			break;
+		case CHAR_TEX_VENT:
+			matDensity = 35.0f;
+			break;
+		case CHAR_TEX_METAL:
+			matDensity = 50.0f;
+			break;
+		case CHAR_TEX_PLASTIC:
+			matDensity = 30.0f;
+			break;
+		case CHAR_TEX_BLOODYFLESH:
+			matDensity = 20.0f;
+			break;
+		case CHAR_TEX_FLESH:
+			matDensity = 20.0f;
+			break;
+		case CHAR_TEX_SAND:
+			matDensity = 35.0f;
+			break;
+		case CHAR_TEX_DIRT:
+			matDensity = 35.0f;
+			break;
+	}
+	int hitSpeed = bulletSpeed * 16 * 0.01;
+	float DesiredDistance = (hitSpeed * bulletMass/(matDensity/penetrationF))/20;
+	if(g_debug_bullets.GetBool())
+	{
+		DevMsg(1, "BulletHit:\n bulletSpeed: %i \n bulletMass: %i \n bulletDamage: %f \n matDensity: %f \n hitSpeed: %i \n DesiredDistance: %f \n", bulletSpeed, bulletMass, info.m_flDamage, matDensity, hitSpeed, DesiredDistance);
+		NDebugOverlay::Line( tr.endpos, tr.endpos + vecDir * DesiredDistance, 255, 0, 255, true, 10.0f );
+	}
+	Vector testPos = tr.endpos + ( vecDir * DesiredDistance );
+	float flDot = vecDir.Dot(tr.plane.normal);
+	if (flDot == 0)
+	{
+		flDot = -0.01f;
+	}
+	bool bShouldRicochet = flDot > -0.15f;
+	if (bShouldRicochet)
+	{
+		Vector m_vecRicochetDir = info.m_vecDirShooting + ( tr.plane.normal * ( flDot * -2.0f ));
+		m_vecRicochetDir[0] += random->RandomFloat(flDot, -flDot);
+		m_vecRicochetDir[1] += random->RandomFloat(flDot, -flDot);
+		m_vecRicochetDir[2] += random->RandomFloat(flDot, -flDot);
+
+		int newBSpeed = max(0,bulletSpeed * (1.0f / -flDot) * random->RandomFloat(0.005,0.1));
+
+		FireBulletsInfo_t ricochetBulletInfo;
+		ricochetBulletInfo.m_iShots = 1;
+		ricochetBulletInfo.m_vecSrc = tr.endpos;
+		ricochetBulletInfo.m_vecDirShooting = m_vecRicochetDir;
+		ricochetBulletInfo.m_vecSpread = vec3_origin;
+		ricochetBulletInfo.m_flDistance = info.m_flDistance*( 1.0f - tr.fraction );
+		ricochetBulletInfo.m_iAmmoType = info.m_iAmmoType;
+		ricochetBulletInfo.m_iTracerFreq = info.m_iTracerFreq;
+		ricochetBulletInfo.m_flDamage = info.m_flDamage * (bulletSpeed / pAmmoDef->InitialBulletSpeed(info.m_iAmmoType));
+		ricochetBulletInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+		ricochetBulletInfo.m_nFlags = info.m_nFlags;
+		ricochetBulletInfo.m_bImpacted = true;
+		ricochetBulletInfo.m_iBulletSpeed = newBSpeed;
+
+		FireBullets( ricochetBulletInfo );
+		if(g_debug_bullets.GetBool())
+		{
+			NDebugOverlay::Line( tr.endpos, tr.endpos + m_vecRicochetDir * 10, 0, 0, 255, true, 10.0f );
+		}
+	}
+	else
+	{
+		trace_t	penetrationTrace;
+		UTIL_TraceLine( testPos, tr.endpos, MASK_SHOT, pTraceFilter, &penetrationTrace );
+		if ( penetrationTrace.startsolid || tr.fraction == 0.0f || penetrationTrace.fraction == 1.0f )
+		{
+			return;
+		}
+
+		if(p_penetrsurf->game.material == CHAR_TEX_GLASS)
+		{
+			CEffectData	data;
+			data.m_vNormal = tr.plane.normal;
+			data.m_vOrigin = tr.endpos;
+			DispatchEffect( "GlassImpact", data );
+
+			data.m_vNormal = penetrationTrace.plane.normal * 2;
+			data.m_vOrigin = penetrationTrace.endpos;
+			DispatchEffect( "GlassImpact", data );
+		}
+
+		Vector PenetratedDir = vecDir;
+		PenetratedDir[0] += (random->RandomFloat( -DesiredDistance, DesiredDistance ))*0.01;
+		PenetratedDir[1] += (random->RandomFloat( -DesiredDistance, DesiredDistance ))*0.01;
+		PenetratedDir[2] += (random->RandomFloat( -DesiredDistance, DesiredDistance ))*0.01;
+
+		int newBSpeed = max(0, bulletSpeed - ((penetrationTrace.startpos - penetrationTrace.endpos).Length() * matDensity));
+
+		/*if(pAmmoDef->Index("GrenadeShrapnel") == info.m_iAmmoType)
+		{
+			if(random->RandomInt(1,3) == 1)
+			{
+				DoImpactEffect( penetrationTrace, GetAmmoDef()->DamageType(info.m_iAmmoType) );
+			}
+		}
+		else
+		{*/
+		DoImpactEffect( penetrationTrace, GetAmmoDef()->DamageType(info.m_iAmmoType) );
+		//}
+
+		FireBulletsInfo_t behindImpactSurfInfo;
+		behindImpactSurfInfo.m_iShots = 1;
+		behindImpactSurfInfo.m_vecSrc = penetrationTrace.endpos;
+		behindImpactSurfInfo.m_vecDirShooting = PenetratedDir;
+		behindImpactSurfInfo.m_vecSpread = vec3_origin;
+		behindImpactSurfInfo.m_flDistance = info.m_flDistance*( 1.0f - tr.fraction );
+		behindImpactSurfInfo.m_iAmmoType = info.m_iAmmoType;
+		behindImpactSurfInfo.m_iTracerFreq = info.m_iTracerFreq;
+		behindImpactSurfInfo.m_flDamage = info.m_flDamage * (bulletSpeed / pAmmoDef->InitialBulletSpeed(info.m_iAmmoType));
+		behindImpactSurfInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+		behindImpactSurfInfo.m_nFlags = info.m_nFlags;
+		behindImpactSurfInfo.m_bImpacted = true;
+		behindImpactSurfInfo.m_iBulletSpeed = newBSpeed;
+
+		FireBullets( behindImpactSurfInfo );
+		if(g_debug_bullets.GetBool())
+		{
+			NDebugOverlay::Line( tr.endpos, tr.endpos + vecDir * 10, 0, 255, 0, true, 10.0f );
+		}
+	}
+}
 
 //-----------------------------------------------------------------------------
 // Computes the tracer start position

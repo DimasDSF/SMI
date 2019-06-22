@@ -1564,6 +1564,9 @@ private:
 	// Handle shot entering water
 	void HandleShotImpactingGlass( const FireBulletsInfo_t &info, const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter );
 
+	// Handle Generic Bullet Stuff
+	void HandleGenericShotImpact( const FireBulletsInfo_t &info, const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter );
+
 	// Should we draw bubbles underwater?
 	bool ShouldDrawUnderwaterBulletBubbles();
 

@@ -183,6 +183,30 @@ int	CAmmoDef::TracerType(int nAmmoIndex)
 	return m_AmmoType[nAmmoIndex].eTracerType;
 }
 
+int CAmmoDef::InitialBulletSpeed(int nAmmoIndex)
+{
+	if (nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex)
+		return 1;
+
+	return m_AmmoType[nAmmoIndex].iInitialSpeed;
+}
+
+int CAmmoDef::BulletMass(int nAmmoIndex)
+{
+	if (nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex)
+		return 1;
+
+	return m_AmmoType[nAmmoIndex].iBulletMass;
+}
+
+float CAmmoDef::PenetrationF(int nAmmoIndex)
+{
+	if (nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex)
+		return 1;
+
+	return m_AmmoType[nAmmoIndex].fPenetrationF;
+}
+
 float CAmmoDef::DamageForce(int nAmmoIndex)
 {
 	if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
@@ -196,7 +220,7 @@ float CAmmoDef::DamageForce(int nAmmoIndex)
 // Does not increment m_nAmmoIndex because the functions below do so and 
 //  are the only entry point.
 //-----------------------------------------------------------------------------
-bool CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int nFlags, int minSplashSize, int maxSplashSize )
+bool CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int initialSpeed, int bulletMass, float PenetrationF, int nFlags, int minSplashSize, int maxSplashSize )
 {
 	if (m_nAmmoIndex == MAX_AMMO_TYPES)
 		return false;
@@ -206,6 +230,9 @@ bool CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int
 	Q_strncpy(m_AmmoType[m_nAmmoIndex].pName, name,len+1);
 	m_AmmoType[m_nAmmoIndex].nDamageType	= damageType;
 	m_AmmoType[m_nAmmoIndex].eTracerType	= tracerType;
+	m_AmmoType[m_nAmmoIndex].iInitialSpeed	= initialSpeed;
+	m_AmmoType[m_nAmmoIndex].iBulletMass	= bulletMass;
+	m_AmmoType[m_nAmmoIndex].fPenetrationF	= PenetrationF;
 	m_AmmoType[m_nAmmoIndex].nMinSplashSize	= minSplashSize;
 	m_AmmoType[m_nAmmoIndex].nMaxSplashSize	= maxSplashSize;
 	m_AmmoType[m_nAmmoIndex].nFlags	= nFlags;
@@ -216,11 +243,11 @@ bool CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int
 //-----------------------------------------------------------------------------
 // Purpose: Add an ammo type with it's damage & carrying capability specified via cvars
 //-----------------------------------------------------------------------------
-void CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, 
+void CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int initialSpeed, int bulletMass, float PenetrationF,
 	char const* plr_cvar, char const* npc_cvar, char const* carry_cvar, 
 	float physicsForceImpulse, int nFlags, int minSplashSize, int maxSplashSize)
 {
-	if ( AddAmmoType( name, damageType, tracerType, nFlags, minSplashSize, maxSplashSize ) == false )
+	if ( AddAmmoType( name, damageType, tracerType, initialSpeed, bulletMass, PenetrationF, nFlags, minSplashSize, maxSplashSize ) == false )
 		return;
 
 	if (plr_cvar)
@@ -257,11 +284,11 @@ void CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType,
 //-----------------------------------------------------------------------------
 // Purpose: Add an ammo type with it's damage & carrying capability specified via integers
 //-----------------------------------------------------------------------------
-void CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, 
+void CAmmoDef::AddAmmoType(char const* name, int damageType, int tracerType, int initialSpeed, int bulletMass, float PenetrationF, 
 	int plr_dmg, int npc_dmg, int carry, float physicsForceImpulse, 
 	int nFlags, int minSplashSize, int maxSplashSize )
 {
-	if ( AddAmmoType( name, damageType, tracerType, nFlags, minSplashSize, maxSplashSize ) == false )
+	if ( AddAmmoType( name, damageType, tracerType, initialSpeed, bulletMass, PenetrationF, nFlags, minSplashSize, maxSplashSize ) == false )
 		return;
 
 	m_AmmoType[m_nAmmoIndex].pPlrDmg = plr_dmg;

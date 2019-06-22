@@ -681,6 +681,8 @@ struct FireBulletsInfo_t
 		m_nFlags = 0;
 		m_pAdditionalIgnoreEnt = NULL;
 		m_flDamageForceScale = 1.0f;
+		m_bImpacted = false;
+		m_iBulletSpeed = 0;
 
 #ifdef _DEBUG
 		m_iAmmoType = -1;
@@ -705,6 +707,8 @@ struct FireBulletsInfo_t
 		m_nFlags = 0;
 		m_pAdditionalIgnoreEnt = NULL;
 		m_flDamageForceScale = 1.0f;
+		m_bImpacted = false;
+		m_iBulletSpeed = 0;
 		m_bPrimaryAttack = bPrimaryAttack;
 	}
 
@@ -722,6 +726,8 @@ struct FireBulletsInfo_t
 	CBaseEntity *m_pAttacker;
 	CBaseEntity *m_pAdditionalIgnoreEnt;
 	bool m_bPrimaryAttack;
+	bool m_bImpacted;
+	int m_iBulletSpeed;
 };
 
 //-----------------------------------------------------------------------------

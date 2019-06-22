@@ -1602,7 +1602,8 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	CAmmoDef*	pAmmoDef	= GetAmmoDef();
 	int			nDamageType	= pAmmoDef->DamageType(info.m_iAmmoType);
 	int			nAmmoFlags	= pAmmoDef->Flags(info.m_iAmmoType);
-	
+	bool		bIsGrenadeShrapnel = pAmmoDef->Index("GrenadeShrapnel") == info.m_iAmmoType;
+
 	Vector m_vecShotSrc = info.m_vecSrc;
 
 	bool bDoServerEffects = true;
@@ -1616,9 +1617,12 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 	{
 		CBasePlayer *pPlayer = dynamic_cast<CBasePlayer*>(this);
 
-		Vector right, up;
-		AngleVectors(pPlayer->EyeAngles(),NULL,&right,&up);
-		m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
+		if (info.m_bImpacted == false && bIsGrenadeShrapnel == false)
+		{
+			Vector right, up;
+			AngleVectors(pPlayer->EyeAngles(),NULL,&right,&up);
+			m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
+		}
 
 		int rumbleEffect = pPlayer->GetActiveWeapon()->GetRumbleEffect();
 
@@ -1857,7 +1861,14 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 			// For shots that don't need persistance
 			int soundEntChannel = ( info.m_nFlags&FIRE_BULLETS_TEMPORARY_DANGER_SOUND ) ? SOUNDENT_CHANNEL_BULLET_IMPACT : SOUNDENT_CHANNEL_UNSPECIFIED;
 
-			CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 200, 0.5, this, soundEntChannel );
+			if (!bIsGrenadeShrapnel)
+			{
+				CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 200, 0.5, this, soundEntChannel );
+			}
+			else
+			{
+				CSoundEnt::InsertSound( SOUND_BULLET_IMPACT, tr.endpos, 50, 0.5, this, soundEntChannel );
+			}
 #endif
 
 			// See if the bullet ended up underwater + started out of the water
@@ -1931,7 +1942,10 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 					data.m_vOrigin = tr.endpos;
 					data.m_nDamageType = nDamageType;
 					
-					DispatchEffect( "RagdollImpact", data );
+					if(!bIsGrenadeShrapnel)
+					{
+						DispatchEffect( "RagdollImpact", data );
+					}
 				}
 	
 #ifdef GAME_DLL
@@ -2016,6 +2030,10 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 		if ( bHitGlass )
 		{
 			HandleShotImpactingGlass( info, tr, vecDir, &traceFilter );
+		}
+		else
+		{
+			HandleGenericShotImpact( info, tr, vecDir, &traceFilter );
 		}
 #endif
 
