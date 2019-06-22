@@ -2033,7 +2033,11 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 		}
 		else
 		{
-			HandleGenericShotImpact( info, tr, vecDir, &traceFilter );
+			surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+			if ( psurf != NULL )
+			{
+				HandleGenericShotImpact( info, tr, vecDir, &traceFilter );
+			}
 		}
 #endif
 

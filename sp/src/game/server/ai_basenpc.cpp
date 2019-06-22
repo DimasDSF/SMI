@@ -1601,6 +1601,10 @@ void CBaseEntity::HandleGenericShotImpact( const FireBulletsInfo_t &info, const 
 	float penetrationF = pAmmoDef->PenetrationF(info.m_iAmmoType);
 	float matDensity = 1000.0f;
 	surfacedata_t *p_penetrsurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+	if (p_penetrsurf == NULL)
+	{
+		return;
+	}
 	switch (p_penetrsurf->game.material)
 	{
 		case CHAR_TEX_WOOD:

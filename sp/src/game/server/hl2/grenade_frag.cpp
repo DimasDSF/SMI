@@ -31,6 +31,7 @@ ConVar sk_fraggrenade_shrapnel	( "sk_fraggrenade_shrapnel", "30");
 ConVar sk_fraggrenade_shrapnel_cone_x ( "sk_fraggrenade_shrapnel_cone_x", "7");
 ConVar sk_fraggrenade_shrapnel_cone_y ( "sk_fraggrenade_shrapnel_cone_y", "7");
 ConVar sk_fraggrenade_shrapnel_cone_z ( "sk_fraggrenade_shrapnel_cone_z", "7");
+ConVar sk_fraggrenade_shrapnel_max_dist ( "sk_fraggrenade_shrapnel_max_dist", "400");
 ConVar	sk_plr_dmg_grenade_shrapnel	( "sk_plr_dmg_grenade_shrapnel", "30", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_grenade_shrapnel	( "sk_npc_dmg_grenade_shrapnel", "30", FCVAR_REPLICATED );
 
@@ -337,7 +338,7 @@ void CGrenadeFrag::DelayThink()
 	if( gpGlobals->curtime > m_flDetonateTime )
 	{
 		//Firing Shrapnel to specific angles
-		FireBulletsInfo_t info( sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5), GetAbsOrigin(), Vector(0,0,1), Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()), MAX_TRACE_LENGTH, GetAmmoDef()->Index( "GrenadeShrapnel" ) );
+		FireBulletsInfo_t info( sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5), GetAbsOrigin(), Vector(0,0,1), Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()), sk_fraggrenade_shrapnel_max_dist.GetFloat(), GetAmmoDef()->Index( "GrenadeShrapnel" ) );
 		info.m_pAttacker = GetOwnerEntity();
 		FireBullets(info);
 		//FireBullets(sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5),GetAbsOrigin(),Vector(0,0,1),Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()),5000, GetAmmoDef()->Index( "GrenadeShrapnel" ),0);
