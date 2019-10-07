@@ -1622,15 +1622,8 @@ void CNPC_Barnacle::BitePrey( void )
 	// Kill the victim instantly
 	int iDamageType = DMG_SLASH | DMG_ALWAYSGIB;
 	int nDamage; 
-	if ( !pVictim->IsPlayer() )
-	{
-		iDamageType |= DMG_ALWAYSGIB;
-		nDamage = pVictim->m_iHealth; 
-	}
-	else
-	{
-		nDamage = BARNACLE_BITE_DAMAGE_TO_PLAYER; 
-	}
+	iDamageType |= DMG_ALWAYSGIB;
+	nDamage = pVictim->m_iHealth; 
 
 	if ( m_hRagdoll )
 	{

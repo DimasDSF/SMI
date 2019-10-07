@@ -45,8 +45,10 @@ public:
 	void	MissileTouch( CBaseEntity *pOther );
 	void	Explode( void );
 	void	ShotDown( void );
+	void	Jammed( void );
 	void	AccelerateThink( void );
 	void	AugerThink( void );
+	void	JammedThink( void );
 	void	IgniteThink( void );
 	void	SeekThink( void );
 	void	DumbFire( void );
@@ -82,6 +84,7 @@ protected:
 
 	CHandle<RocketTrail>	m_hRocketTrail;
 	float					m_flAugerTime;		// Amount of time to auger before blowing up anyway
+	float					m_flJamTime;		// Amount of time to be jammed before blowing up anyway
 	float					m_flMarkDeadTime;
 	float					m_flDamage;
 

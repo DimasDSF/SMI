@@ -1493,6 +1493,9 @@ void CBaseEntity::UpdateShotStatistics( const trace_t &tr )
 }
 
 
+ConVar sk_glass_penetration_dmg_per_unit ("sk_glass_penetration_dmg_per_unit", "1.0");
+ConVar sk_glass_penetration_max_depth ("sk_glass_penetration_max_depth", "30.0");
+
 //-----------------------------------------------------------------------------
 // Handle shot entering water
 //-----------------------------------------------------------------------------
@@ -1500,7 +1503,8 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 	const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter )
 {
 	// Move through the glass until we're at the other side
-	Vector	testPos = tr.endpos + ( vecDir * MAX_GLASS_PENETRATION_DEPTH );
+	float flBulletDamage = max(GetAmmoDef()->PlrDamage(info.m_iAmmoType), GetAmmoDef()->NPCDamage(info.m_iAmmoType));
+	Vector	testPos = tr.endpos + ( vecDir * min(sk_glass_penetration_max_depth.GetFloat(),ceil(flBulletDamage / max(sk_glass_penetration_dmg_per_unit.GetFloat(),0.01))));
 
 	CEffectData	data;
 
@@ -1524,7 +1528,7 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 	// Impact the other side (will look like an exit effect)
 	DoImpactEffect( penetrationTrace, GetAmmoDef()->DamageType(info.m_iAmmoType) );
 
-	data.m_vNormal = penetrationTrace.plane.normal;
+	data.m_vNormal = penetrationTrace.plane.normal * 2;
 	data.m_vOrigin = penetrationTrace.endpos;
 	
 	DispatchEffect( "GlassImpact", data );
@@ -1538,9 +1542,10 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 	behindGlassInfo.m_flDistance = info.m_flDistance*( 1.0f - tr.fraction );
 	behindGlassInfo.m_iAmmoType = info.m_iAmmoType;
 	behindGlassInfo.m_iTracerFreq = info.m_iTracerFreq;
-	behindGlassInfo.m_flDamage = info.m_flDamage;
+	behindGlassInfo.m_flDamage = info.m_flDamage * penetrationTrace.fraction;
 	behindGlassInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
 	behindGlassInfo.m_nFlags = info.m_nFlags;
+	behindGlassInfo.m_bFirstImpact = false;
 
 	FireBullets( behindGlassInfo );
 }

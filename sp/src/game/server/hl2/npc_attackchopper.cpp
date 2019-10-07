@@ -38,6 +38,7 @@
 #include "ai_memory.h"
 #include "npc_attackchopper.h"
 #include "combine_mine.h"
+#include "weapon_flaregun.h"
 
 #ifdef HL2_EPISODIC
 #include "physics_bone_follower.h"
@@ -122,6 +123,7 @@ static const char *s_pChunkModelName[CHOPPER_MAX_CHUNKS] =
 #define SF_HELICOPTER_AGGRESSIVE			0x00100000
 #define SF_HELICOPTER_LONG_SHADOW			0x00200000
 #define SF_HELICOPTER_CARRIER_MODEL			0x00400000
+#define SF_HELICOPTER_USES_FLARES			0x00800000
 
 #define CHOPPER_SLOW_BOMB_SPEED	250
 
@@ -149,6 +151,11 @@ ConVar sk_helicopter_num_bombs3("sk_helicopter_num_bombs3", "5");
 
 ConVar	sk_npc_dmg_helicopter_to_plr( "sk_npc_dmg_helicopter_to_plr","3", 0, "Damage helicopter shots deal to the player" );
 ConVar	sk_npc_dmg_helicopter( "sk_npc_dmg_helicopter","6", 0, "Damage helicopter shots deal to everything but the player" );
+
+ConVar	sk_helicopter_num_flares( "sk_helicopter_num_flares", "2");
+ConVar	sk_helicopter_flare_reload_time( "sk_helicopter_flare_reload_time", "8");
+ConVar	sk_helicopter_max_flare_distance( "sk_helicopter_max_flare_distance", "800");
+ConVar	sk_helicopter_enable_flare_use_by_default( "sk_helicopter_enable_flare_use_by_default", "1");
 
 ConVar	sk_helicopter_drone_speed( "sk_helicopter_drone_speed","450.0", 0, "How fast does the zapper drone move?" );
 
@@ -472,6 +479,8 @@ private:
 	void	InputGunOff( inputdata_t &inputdata );
 	void	InputDropMines( inputdata_t &inputdata );
 	void	InputSetMinesName( inputdata_t &inputdata );
+	void	InputEnableFlares( inputdata_t &inputdata );
+	void	InputDisableFlares( inputdata_t &inputdata );
 
 	// Vehicle attack modes
 	void	InputStartBombingVehicle( inputdata_t &inputdata );
@@ -565,6 +574,9 @@ private:
 	// Is it "fair" to drop this bomb?
 	bool IsBombDropFair( const Vector &vecBombStartPos, const Vector &vecVelocity );
 
+	//Create Flares for missile jamming
+	void CreateFlares();
+
 	// Actually drops the bomb
 	void CreateBomb( bool bCheckForFairness = true, Vector *pVecVelocity = NULL, bool bMegaBomb = false );
 	CGrenadeHelicopter *SpawnBombEntity( const Vector &vecPos, const Vector &vecVelocity ); // Spawns the bomb entity and sets it up
@@ -599,6 +611,9 @@ private:
 
 	// Become indestructible
 	void InputBecomeIndestructible( inputdata_t &inputdata );
+
+	// Shoot Flare
+	void FlareIncommingMissiles();
 
 	// Purpose :
 	float CreepTowardEnemy( float flSpeed, float flMinSpeed, float flMaxSpeed, float flMinDist, float flMaxDist );
@@ -727,6 +742,9 @@ private:
 	bool		m_bBombsExplodeOnContact;
 	bool		m_bNonCombat;
 	bool		m_bSpotlightOn;
+	float       m_flFlaresRechargeTime;
+	float		m_flNextFlareTime;
+	int			m_iFlaresRemaining;
 
 	int			m_nNearShots;
 	int			m_nMaxNearShots;
@@ -905,6 +923,8 @@ BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartLongCycleShooting", InputStartLongCycleShooting ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartContinuousShooting", InputStartContinuousShooting ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartFastShooting", InputStartFastShooting ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableFlares", InputEnableFlares ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableFlares", InputDisableFlares ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "GunOff", InputGunOff ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetHealthFraction", InputSetHealthFraction ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "StartBombExplodeOnContact", InputStartBombExplodeOnContact ),
@@ -1026,7 +1046,8 @@ void CNPC_AttackHelicopter::Precache( void )
 		{
 			ChopperCarrier_PrecacheChunks( this );
 		}
-		PrecacheModel("models/combine_soldier.mdl");
+		PrecacheModel("models/combinepilot/combinepilot.mdl");
+		UTIL_PrecacheOther( "env_flare" );
 	}
 
 	PrecacheScriptSound("NPC_AttackHelicopter.ChargeGun");
@@ -1038,6 +1059,7 @@ void CNPC_AttackHelicopter::Precache( void )
 	{
 		PrecacheScriptSound("NPC_AttackHelicopter.Rotors");
 	}
+	PrecacheScriptSound( "NPC_AttackHelicopterFlare.Fire" );
 	PrecacheScriptSound( "NPC_AttackHelicopter.DropMine" );
 	PrecacheScriptSound( "NPC_AttackHelicopter.BadlyDamagedAlert" );
 	PrecacheScriptSound( "NPC_AttackHelicopter.CrashingAlarm1" );
@@ -1120,6 +1142,14 @@ void CNPC_AttackHelicopter::Spawn( void )
 	else
 	{
 		SetModel( CHOPPER_DRONE_NAME );
+	}
+
+	if(sk_helicopter_enable_flare_use_by_default.GetBool())
+	{
+		if(!HasSpawnFlags( SF_HELICOPTER_USES_FLARES ))
+		{
+			AddSpawnFlags( SF_HELICOPTER_USES_FLARES );
+		}
 	}
 
 	ExtractBbox( SelectHeaviestSequence( ACT_IDLE ), m_cullBoxMins, m_cullBoxMaxs ); 
@@ -1539,6 +1569,28 @@ void CNPC_AttackHelicopter::InputEnableAlwaysTransition( inputdata_t &inputdata 
 void CNPC_AttackHelicopter::InputDisableAlwaysTransition( inputdata_t &inputdata )
 {
 	m_bAlwaysTransition = false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Start defending yourself from rockets
+//-----------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputEnableFlares( inputdata_t &inputdata )
+{
+	if (!HasSpawnFlags( SF_HELICOPTER_USES_FLARES ))
+	{
+		AddSpawnFlags( SF_HELICOPTER_USES_FLARES );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Stop defending yourself from rockets
+//-----------------------------------------------------------------------------
+void CNPC_AttackHelicopter::InputDisableFlares( inputdata_t &inputdata )
+{
+	if (HasSpawnFlags( SF_HELICOPTER_USES_FLARES ))
+	{
+		RemoveSpawnFlags( SF_HELICOPTER_USES_FLARES );
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -3078,6 +3130,59 @@ CBounceBomb *CNPC_AttackHelicopter::SpawnMineEntity( const Vector &vecPos, const
 	return pGrenade;
 }
 
+void CNPC_AttackHelicopter::CreateFlares()
+{
+	Vector vTipPos;
+	GetAttachment( m_nBombAttachment, vTipPos );
+	vTipPos = vTipPos + Vector(0, 0, -30);
+	Vector vecActualVelocity;
+	Vector vecAcross;
+	vecActualVelocity = GetAbsVelocity();
+	CrossProduct( vecActualVelocity, Vector( 0, 0, 1 ), vecAcross );
+	VectorNormalize( vecAcross );
+	vecAcross *= random->RandomFloat( 10.0f, 30.0f );
+	vecAcross *= random->RandomFloat( 0.0f, 1.0f ) < 0.5f ? 1.0f : -1.0f;
+
+	// Blat out z component of velocity if it's moving upward....
+	if ( vecActualVelocity.z > 0 )
+	{
+		vecActualVelocity.z = -1.0f;
+	}
+	Vector vRVec;
+	GetVectors(NULL, &vRVec, NULL);
+	vecActualVelocity += vecAcross;
+	EmitSound( "NPC_AttackHelicopterFlare.Fire" );
+	for ( int i = random->RandomInt(5,10); --i >= 0;)
+	{
+		vecAcross *= vRVec*(i%2==0 ? 1.0f : -1.0f);
+		VectorNormalize( vecAcross );
+		CFlare *pFlare = (CFlare *) CreateEntityByName( "env_flare" );
+		UTIL_SetOrigin( pFlare, vTipPos );
+		pFlare->SetOwnerEntity(this);
+		pFlare->m_flDuration = 10;
+		pFlare->SetNextThink( gpGlobals->curtime + 0.5f );
+		//Burn out time
+		pFlare->m_flTimeBurnOut = gpGlobals->curtime + 10;
+		DispatchSpawn(pFlare);
+
+		physfollower_t *pFollower = m_BoneFollowerManager.GetBoneFollower( 0 );
+		if ( pFollower )
+		{
+			CBaseEntity *pBoneFollower = pFollower->hFollower;
+			PhysDisableEntityCollisions( pBoneFollower, pFlare );
+		}
+
+		pFlare->AddSolidFlags( FSOLID_NOT_SOLID );
+		//Start up the flare
+		pFlare->Launch( vecAcross, random->RandomFloat(100, 300) );
+		
+		//pFlare->AddSolidFlags( FSOLID_NOT_STANDABLE );
+		
+
+		pFlare->SetMoveType( MOVETYPE_FLYGRAVITY, MOVECOLLIDE_FLY_BOUNCE );
+	}
+}
+
 //------------------------------------------------------------------------------
 // Actually drops the bomb
 //------------------------------------------------------------------------------
@@ -3839,7 +3944,7 @@ void CNPC_AttackHelicopter::DropCorpse( int nDamage )
 	vecForceVector.z = 0.5;
 	vecForceVector *= forceScale;
 
-	CBaseEntity *pGib = CreateRagGib( "models/combine_soldier.mdl", GetAbsOrigin(), GetAbsAngles(), vecForceVector );
+	CBaseEntity *pGib = CreateRagGib( "models/combinepilot/combinepilot.mdl", GetAbsOrigin(), GetAbsAngles(), vecForceVector );
 	if ( pGib )
 	{
 		pGib->SetOwnerEntity( this );
@@ -5150,6 +5255,41 @@ void CNPC_AttackHelicopter::SetTransmit( CCheckTransmitInfo *pInfo, bool bAlways
 }
 
 //------------------------------------------------------------------------------
+// Purpose : Find closest missile, fire a flare, make the missile jam
+//------------------------------------------------------------------------------
+void CNPC_AttackHelicopter::FlareIncommingMissiles( void )
+{
+	if ( GetEnemy() != NULL && GetEnemy()->IsAlive() && (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length() <= sk_helicopter_max_flare_distance.GetFloat() )
+	{
+		if ( FClassnameIs( GetEnemy(), "rpg_missile" ) || FClassnameIs(GetEnemy(), "apc_missile") )
+		{
+			if(m_iFlaresRemaining > 0 && m_flNextFlareTime < gpGlobals->curtime)
+			{
+				CMissile *missile = dynamic_cast<CMissile *>( GetEnemy() );
+				if(missile != NULL)
+				{
+					CreateFlares();
+					//Fire a flare
+					--m_iFlaresRemaining;
+					m_flFlaresRechargeTime = gpGlobals->curtime + sk_helicopter_flare_reload_time.GetFloat();
+					m_flNextFlareTime = gpGlobals->curtime + 3;
+					//Jam missile
+					missile->Jammed();
+				}
+			}
+		}
+	}
+	if(m_flFlaresRechargeTime < gpGlobals->curtime)
+	{
+		if( m_iFlaresRemaining + 1 <= sk_helicopter_num_flares.GetInt())
+		{
+			m_iFlaresRemaining++;
+			m_flFlaresRechargeTime = gpGlobals->curtime + sk_helicopter_flare_reload_time.GetFloat();
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
 // Purpose :
 //------------------------------------------------------------------------------
 void CNPC_AttackHelicopter::Hunt( void )
@@ -5170,6 +5310,8 @@ void CNPC_AttackHelicopter::Hunt( void )
 	SetFarthestPathDist( GetMaxFiringDistance() );
 
 	UpdateEnemy();
+
+	FlareIncommingMissiles();
 
 	// Give free knowledge of the enemy position if the chopper is "aggressive"
 	if ( HasSpawnFlags( SF_HELICOPTER_AGGRESSIVE ) && GetEnemy() )

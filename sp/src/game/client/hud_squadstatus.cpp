@@ -45,9 +45,9 @@ private:
 	CPanelAnimationVarAliasType( float, text_ypos, "text_ypos", "20", "proportional_float" );
 
 	CPanelAnimationVar( vgui::HFont, m_hIconFont, "IconFont", "SquadIcon" );
-	CPanelAnimationVarAliasType( float, m_flIconInsetX, "IconInsetX", "8", "proportional_float" );
-	CPanelAnimationVarAliasType( float, m_flIconInsetY, "IconInsetY", "8", "proportional_float" );
-	CPanelAnimationVarAliasType( float, m_flIconGap, "IconGap", "20", "proportional_float" );
+	CPanelAnimationVar( float, m_flIconInsetX, "IconInsetX", "8" );
+	CPanelAnimationVar( float, m_flIconInsetY, "IconInsetY", "8" );
+	CPanelAnimationVar( float, m_flIconGap, "IconGap", "20" );
 
 	CPanelAnimationVar( Color, m_SquadIconColor, "SquadIconColor", "255 220 0 160" );
 	CPanelAnimationVar( Color, m_LastMemberColor, "LastMemberColor", "255 220 0 0" );

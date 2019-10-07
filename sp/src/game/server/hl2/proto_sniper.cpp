@@ -1897,6 +1897,11 @@ bool CProtoSniper::VerifyShot( CBaseEntity *pTarget )
 
 	if( tr.fraction != 1.0 )
 	{
+		if (FVisible( pTarget, MASK_SHOT_PENETRATE, NULL ))
+		{
+			return true;
+		}
+
 		if( pTarget->IsPlayer() )
 		{
 			// if the target is the player, do another trace to see if we can shoot his eyeposition. This should help 

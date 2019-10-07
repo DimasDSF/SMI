@@ -339,7 +339,6 @@ void CGrenadeFrag::DelayThink()
 	{
 		FireBulletsInfo_t info( sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5), GetAbsOrigin(), Vector(0,0,1), Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()), sk_fraggrenade_shrapnel_max_dist.GetFloat(), GetAmmoDef()->Index( "GrenadeShrapnel" ) );
 		info.m_pAttacker = GetOwnerEntity();
-		NDebugOverlay::Line( GetAbsOrigin(), GetAbsOrigin() + Vector(0,0,1) * sk_fraggrenade_shrapnel_max_dist.GetFloat(), 0, 0, 255, true, 10.0f );
 		FireBullets(info);
 		Detonate();
 		return;

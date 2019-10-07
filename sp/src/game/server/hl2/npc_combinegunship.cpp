@@ -69,6 +69,8 @@ int g_iGunshipEffectIndex = -1;
 ConVar sk_gunship_burst_size("sk_gunship_burst_size", "15" );
 ConVar sk_gunship_burst_min("sk_gunship_burst_min", "800" );
 ConVar sk_gunship_burst_dist("sk_gunship_burst_dist", "768" );
+ConVar sk_gunship_ground_attack_radius("sk_gunship_ground_attack_radius", "300");
+ConVar sk_gunship_ground_attack_damage("sk_gunship_ground_attack_damage", "150");
 
 // Number of times the gunship must be struck by explosive damage
 ConVar	sk_gunship_health_increments( "sk_gunship_health_increments", "0" );
@@ -1034,13 +1036,8 @@ void CNPC_CombineGunship::DoBellyBlastDamage( trace_t &tr, Vector vMins, Vector 
 		if ( pEntity->m_takedamage == DAMAGE_NO )
 			continue;
 
-		float damage = 150;
-
-		if ( pEntity->IsPlayer() )
-		{
-			float damageDist = ( pEntity->GetAbsOrigin() - tr.endpos ).Length();
-			damage = RemapValClamped( damageDist, 0, 300, 200, 0 );
-		}
+		float damageDist = ( pEntity->GetAbsOrigin() - tr.endpos ).Length();
+		float damage = RemapValClamped( damageDist, 0, sk_gunship_ground_attack_radius.GetInt(), sk_gunship_ground_attack_damage.GetInt(), 0 );
 
 		CTakeDamageInfo	info( this, this, damage, DMG_DISSOLVE );
 
@@ -1062,7 +1059,14 @@ void CNPC_CombineGunship::DoBellyBlastDamage( trace_t &tr, Vector vMins, Vector 
 			CEffectData	data;
 
 			// Find the floor and add a dissolve explosion at that point
-			data.m_flRadius = GUNSHIP_BELLY_BLAST_RADIUS * 0.5f;
+			if (pEntity->GetModel())
+			{
+				data.m_flRadius = pEntity->BoundingRadius()*0.75;
+			}
+			else
+			{
+				data.m_flRadius = 64.0f;
+			}
 			data.m_vNormal	= groundTrace.plane.normal;
 			data.m_vOrigin	= groundTrace.endpos;
 
@@ -1111,7 +1115,7 @@ void CNPC_CombineGunship::DoGroundAttackExplosion( void )
 		te->BeamRingPoint( filter, 0.0, 
 			tr.endpos,							//origin
 			0,									//start radius
-			GUNSHIP_BELLY_BLAST_RADIUS,			//end radius
+			sk_gunship_ground_attack_radius.GetInt(),			//end radius
 			g_iGunshipEffectIndex,				//texture
 			0,									//halo index
 			0,									//start frame
@@ -1135,7 +1139,7 @@ void CNPC_CombineGunship::DoGroundAttackExplosion( void )
 	// Do an extra effect if we struck the world
 	if ( tr.m_pEnt && tr.m_pEnt->IsWorld() )
 	{
-		data.m_flRadius = GUNSHIP_BELLY_BLAST_RADIUS;
+		data.m_flRadius = sk_gunship_ground_attack_radius.GetInt();
 		data.m_vNormal	= tr.plane.normal;
 		data.m_vOrigin	= tr.endpos;
 		
@@ -1149,8 +1153,8 @@ void CNPC_CombineGunship::DoGroundAttackExplosion( void )
 
 	DoBellyBlastDamage( tr, vBeamMins, vBeamMaxs );
 
-	Vector vBlastMins = Vector( -GUNSHIP_BELLY_BLAST_RADIUS, -GUNSHIP_BELLY_BLAST_RADIUS, 0 );
-	Vector vBlastMaxs = Vector( GUNSHIP_BELLY_BLAST_RADIUS, GUNSHIP_BELLY_BLAST_RADIUS, 96 );
+	Vector vBlastMins = Vector( -sk_gunship_ground_attack_radius.GetInt(), -sk_gunship_ground_attack_radius.GetInt(), 0 );
+	Vector vBlastMaxs = Vector( sk_gunship_ground_attack_radius.GetInt(), sk_gunship_ground_attack_radius.GetInt(), 96 );
 
 	DoBellyBlastDamage( tr, vBlastMins, vBlastMaxs );
 }

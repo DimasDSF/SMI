@@ -1619,7 +1619,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 
 		Vector right, up;
 		AngleVectors(pPlayer->EyeAngles(),NULL,&right,&up);
-		if (bIsGrenadeShrapnel == false)
+		if (!bIsGrenadeShrapnel && info.m_bFirstImpact)
 		{
 			m_vecShotSrc = info.m_vecSrc + (up * sv_player_bullet_offset_z.GetFloat()) + (right * sv_player_bullet_offset_y.GetFloat());
 		}
@@ -1738,7 +1738,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 #endif
 
 
-		if( IsPlayer() && info.m_iShots > 1 && iShot % 2 )
+		/*if( IsPlayer() && info.m_iShots > 1 && iShot % 2 )
 		{
 			// Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 #ifdef PORTAL
@@ -1754,7 +1754,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 #endif //#ifdef PORTAL
 		}
 		else
-		{
+		{*/
 #ifdef PORTAL
 			Ray_t rayBullet;
 			rayBullet.Init( info.m_vecSrc, vecEnd );
@@ -1777,7 +1777,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 #else
 			AI_TraceLine(m_vecShotSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
 #endif //#ifdef PORTAL
-		}
+		//}
 
 		// Tracker 70354/63250:  ywb 8/2/07
 		// Fixes bug where trace from turret with attachment point outside of Vcollide
@@ -1964,20 +1964,24 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 		}
 
 		// See if we hit glass
-		if ( tr.m_pEnt != NULL )
-		{
 #ifdef GAME_DLL
-			surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
-			if ( ( psurf != NULL ) && ( psurf->game.material == CHAR_TEX_GLASS ) && ( tr.m_pEnt->ClassMatches( "func_breakable" ) ) )
+		surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+		if (( psurf != NULL ) && ( psurf->game.material == CHAR_TEX_GLASS ))
+		{
+			bHitGlass = true;
+			if ( tr.m_pEnt != NULL)
 			{
-				// Query the func_breakable for whether it wants to allow for bullet penetration
-				if ( tr.m_pEnt->HasSpawnFlags( SF_BREAK_NO_BULLET_PENETRATION ) == false )
+				if ( tr.m_pEnt->ClassMatches( "func_breakable" ))
 				{
-					bHitGlass = true;
+					// Query the func_breakable for whether it wants to allow for bullet penetration
+					if ( tr.m_pEnt->HasSpawnFlags( SF_BREAK_NO_BULLET_PENETRATION ))
+					{
+						bHitGlass = false;
+					}
 				}
 			}
-#endif
 		}
+#endif
 
 		if ( ( info.m_iTracerFreq != 0 ) && ( tracerCount++ % info.m_iTracerFreq ) == 0 && ( bHitGlass == false ) )
 		{

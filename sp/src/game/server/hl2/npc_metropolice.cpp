@@ -3259,7 +3259,11 @@ int CNPC_MetroPolice::SelectRangeAttackSchedule()
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 	}
 
-	return SCHED_METROPOLICE_ADVANCE;
+	if(random->RandomFloat(0.0f, 1.0f) < 0.4f)
+	{
+		return SCHED_METROPOLICE_ADVANCE;
+	}
+	return SCHED_COMBAT_FACE;
 }
 
 
@@ -3406,8 +3410,14 @@ int CNPC_MetroPolice::SelectScheduleNoDirectEnemy()
 		m_hBlockingProp = NULL;
 		return SCHED_METROPOLICE_SMASH_PROP;
 	}
-
-	return SCHED_METROPOLICE_CHASE_ENEMY;
+	if(IsEnemyMelee())
+	{
+		return SCHED_ESTABLISH_LINE_OF_FIRE;
+	}
+	else
+	{
+		return SCHED_METROPOLICE_CHASE_ENEMY;
+	}
 }
 
 
@@ -3445,10 +3455,35 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 
 	if ( HasCondition( COND_CAN_RANGE_ATTACK1 ) )
 	{
-		if ( !GetShotRegulator()->IsInRestInterval() )
-			return SelectRangeAttackSchedule();
+		if(!HasBaton() && IsEnemyMelee())
+		{
+			if( (!FClassnameIs(GetActiveWeapon(), "weapon_shotgun") && (GetEnemy()->GetAbsOrigin()-GetAbsOrigin()).Length2D() < 160) || (GetEnemy()->GetAbsOrigin()-GetAbsOrigin()).Length2D() < 100)
+			{
+				if( !HasCondition(COND_BACK_RAYTRACE_HIT_WALL) )
+				{
+					return SCHED_BACK_AWAY_FROM_ENEMY;
+				}
+				else
+				{
+					return SCHED_RANGE_ATTACK1;
+				}
+			}
+			else
+			{
+				if ( !GetShotRegulator()->IsInRestInterval() )
+					return SelectRangeAttackSchedule();
+			}
+		}
 		else
-			return SCHED_METROPOLICE_ADVANCE;
+		{
+			if ( !GetShotRegulator()->IsInRestInterval() )
+				return SelectRangeAttackSchedule();
+			else
+			{
+				if(random->RandomFloat(0.0f, 1.0f) < 0.4f)
+					return SCHED_METROPOLICE_ADVANCE;
+			}
+		}
 	}
 
 	if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
@@ -4456,6 +4491,10 @@ int CNPC_MetroPolice::TranslateSchedule( int scheduleType )
 //-----------------------------------------------------------------------------
 bool CNPC_MetroPolice::ShouldMoveAndShoot()
 {
+	//Metrocops use SMG anims for shotgun handling. Running and shooting usually results in unfinished aiming anim and a shot to the ground 
+	if ( FClassnameIs(GetActiveWeapon(), "weapon_shotgun"))
+		return false;
+
 	if ( HasSpawnFlags( SF_METROPOLICE_ARREST_ENEMY ) )
 		return false;
 
@@ -5142,6 +5181,28 @@ void CNPC_MetroPolice::GatherConditions( void )
 					pWeapon->AddEffects( EF_NODRAW );
 				}
 			}
+	}
+
+	if(GetEnemy())
+	{
+		trace_t backtr;
+		Vector vecBack, vecUp;
+
+		AngleVectors(GetAbsAngles(), &vecBack, NULL, &vecUp);
+		vecBack.Negate();
+		UTIL_TraceLine(GetAbsOrigin() + 25*vecUp, GetAbsOrigin() + 25*vecUp + 70*vecBack, MASK_NPCSOLID, this, COLLISION_GROUP_NONE, &backtr);
+		if (backtr.fraction != 1.0)
+		{
+			SetCondition( COND_BACK_RAYTRACE_HIT_WALL );
+		}
+		else
+		{
+			ClearCondition( COND_BACK_RAYTRACE_HIT_WALL );
+		}
+	}
+	else
+	{
+		ClearCondition( COND_BACK_RAYTRACE_HIT_WALL );
 	}
 
 	CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 );

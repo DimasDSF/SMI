@@ -43,6 +43,8 @@
 
 static ConVar sk_apc_missile_damage("sk_apc_missile_damage", "15");
 ConVar rpg_missle_use_custom_detonators( "rpg_missle_use_custom_detonators", "1" );
+ConVar sk_rpg_missile_explosion_radius("sk_rpg_missile_explosion_radius", "200");
+ConVar sk_apc_missile_explosion_radius("sk_apc_missile_explosion_radius", "100");
 
 #define APC_MISSILE_DAMAGE	sk_apc_missile_damage.GetFloat()
 
@@ -102,6 +104,7 @@ BEGIN_DATADESC( CMissile )
 	DEFINE_FIELD( m_hOwner,					FIELD_EHANDLE ),
 	DEFINE_FIELD( m_hRocketTrail,			FIELD_EHANDLE ),
 	DEFINE_FIELD( m_flAugerTime,			FIELD_TIME ),
+	DEFINE_FIELD( m_flJamTime,				FIELD_TIME ),
 	DEFINE_FIELD( m_flMarkDeadTime,			FIELD_TIME ),
 	DEFINE_FIELD( m_flGracePeriodEndsAt,	FIELD_TIME ),
 	DEFINE_FIELD( m_flDamage,				FIELD_FLOAT ),
@@ -306,6 +309,38 @@ void CMissile::AugerThink( void )
 	SetNextThink( gpGlobals->curtime + 0.05f );
 }
 
+//---------------------------------------------------------
+//---------------------------------------------------------
+void CMissile::JammedThink( void )
+{
+	// If we are jammed for long enough, just explode
+	if ( m_flJamTime < gpGlobals->curtime )
+	{
+		Explode();
+		return;
+	}
+
+	if ( m_flMarkDeadTime < gpGlobals->curtime )
+	{
+		m_lifeState = LIFE_DYING;
+	}
+
+	QAngle angles = GetLocalAngles();
+
+	angles.y += random->RandomFloat( -AUGER_YDEVIANCE, AUGER_YDEVIANCE );
+	angles.x += random->RandomFloat( -AUGER_XDEVIANCEDOWN, AUGER_XDEVIANCEUP );
+
+	SetLocalAngles( angles );
+
+	Vector vecForward;
+
+	AngleVectors( GetLocalAngles(), &vecForward );
+	
+	SetAbsVelocity( vecForward * 1000.0f );
+
+	SetNextThink( gpGlobals->curtime + 0.05f );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Causes the missile to spiral to the ground and explode, due to damage
 //-----------------------------------------------------------------------------
@@ -334,6 +369,24 @@ void CMissile::ShotDown( void )
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Causes the missile to spiral to the ground and explode, due to jamming
+//-----------------------------------------------------------------------------
+void CMissile::Jammed( void )
+{
+	SetThink( &CMissile::JammedThink );
+	SetNextThink( gpGlobals->curtime );
+	m_flJamTime = gpGlobals->curtime + 5.0f;
+	m_flMarkDeadTime = gpGlobals->curtime + 0.75;
+
+	// Let the RPG start reloading immediately
+	if ( m_hOwner != NULL )
+	{
+		m_hOwner->NotifyRocketDied();
+		m_hOwner = NULL;
+	}
+}
+
 
 //-----------------------------------------------------------------------------
 // The actual explosion 
@@ -341,7 +394,7 @@ void CMissile::ShotDown( void )
 void CMissile::DoExplosion( void )
 {
 	// Explode
-	ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity(), GetDamage(), CMissile::EXPLOSION_RADIUS, 
+	ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity(), GetDamage(), sk_rpg_missile_explosion_radius.GetInt(), 
 		SF_ENVEXPLOSION_NOSPARKS | SF_ENVEXPLOSION_NODLIGHTS | SF_ENVEXPLOSION_NOSMOKE, 0.0f, this);
 }
 
@@ -1166,9 +1219,9 @@ void CAPCMissile::DoExplosion( void )
 	else
 	{
 #ifdef HL2_EPISODIC
-		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), this, APC_MISSILE_DAMAGE, 100, true, 20000 );
+		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), this, APC_MISSILE_DAMAGE, sk_apc_missile_explosion_radius.GetInt(), true, 20000 );
 #else
-		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity(), APC_MISSILE_DAMAGE, 100, true, 20000 );
+		ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity(), APC_MISSILE_DAMAGE, sk_apc_missile_explosion_radius.GetInt(), true, 20000 );
 #endif
 	}
 }
