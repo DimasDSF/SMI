@@ -4191,8 +4191,11 @@ void CGameMovement::FinishUnDuckJump( trace_t &trace )
 //-----------------------------------------------------------------------------
 void CGameMovement::FinishDuck( void )
 {
+	// Disabled: No we dont want to get stuck mid-state
+	/*
 	if ( player->GetFlags() & FL_DUCKING )
 		return;
+	*/
 
 	player->AddFlag( FL_DUCKING );
 	player->m_Local.m_bDucked = true;

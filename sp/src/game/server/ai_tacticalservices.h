@@ -41,6 +41,7 @@ public:
 	bool			FindLos( const Vector &threatPos, const Vector &threatEyePos, float minThreatDist, float maxThreatDist, float blockTime, FlankType_t eFlankType, const Vector &VecFlankRefPos, float flFlankParam, Vector *pResult );
 	bool			FindLateralLos( const Vector &threatPos, Vector *pResult );
 	bool			FindBackAwayPos( const Vector &vecThreat, Vector *pResult );
+	bool			FindBackAwayPosDist(const Vector &vecThreat, Vector *pResult, int iDist);
 	bool			FindCoverPos( const Vector &vThreatPos, const Vector &vThreatEyePos, float flMinDist, float flMaxDist, Vector *pResult );
 	bool			FindCoverPos( const Vector &vNearPos, const Vector &vThreatPos, const Vector &vThreatEyePos, float flMinDist, float flMaxDist, Vector *pResult );
 	bool			FindLateralCover( const Vector &vecThreat, float flMinDist, Vector *pResult );

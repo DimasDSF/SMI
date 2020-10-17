@@ -80,7 +80,7 @@ LINK_ENTITY_TO_CLASS( npc_barnacle, CNPC_Barnacle );
 #define BARNACLE_TONGUE_TIP_MASS						100
 #define BARNACLE_TONGUE_MAX_LIFT_MASS					70
 
-#define BARNACLE_BITE_DAMAGE_TO_PLAYER					15
+#define BARNACLE_BITE_DAMAGE_TO_PLAYER					100
 #define BARNACLE_DEAD_TONGUE_ALTITUDE					164
 #define BARNACLE_MIN_DEAD_TONGUE_CLEARANCE				78
 
@@ -1622,8 +1622,15 @@ void CNPC_Barnacle::BitePrey( void )
 	// Kill the victim instantly
 	int iDamageType = DMG_SLASH | DMG_ALWAYSGIB;
 	int nDamage; 
-	iDamageType |= DMG_ALWAYSGIB;
-	nDamage = pVictim->m_iHealth; 
+	if ( !pVictim->IsPlayer() )
+	{
+		iDamageType |= DMG_ALWAYSGIB;
+		nDamage = pVictim->m_iHealth; 
+	}
+	else
+	{
+		nDamage = BARNACLE_BITE_DAMAGE_TO_PLAYER; 
+	}
 
 	if ( m_hRagdoll )
 	{

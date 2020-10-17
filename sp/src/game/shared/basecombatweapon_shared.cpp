@@ -1503,27 +1503,21 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 	{
 		if ( !GetOwner()->IsAlive() )
 			return false;
-		#ifdef SERVER_DLL
+
 		if (GetOwner()->IsPlayer())
 		{
+			#ifdef SERVER_DLL
 			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(UTIL_GetLocalPlayer());
-
-			if ( pPlayer->m_bHolsteredImpulse )
-			{
-				return false;
-			}
-		}
-		#else
-		if (GetOwner()->IsPlayer())
-		{
+			#else
 			CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
-
+			#endif
 			if ( pPlayer->m_bHolsteredImpulse )
 			{
+				//if (pPlayer->GetActiveWeapon() && (pPlayer->GetActiveWeapon()->GetActivity() == ACT_VM_HOLSTER || pPlayer->GetActiveWeapon()->GetActivity() == ACT_VM_HOLSTEREMPTY))
 				return false;
 			}
 		}
-		#endif
+
 		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 		if ( pOwner )
 		{
@@ -1559,14 +1553,34 @@ bool CBaseCombatWeapon::Deploy( )
 
 Activity CBaseCombatWeapon::GetDrawActivity( void )
 {
-	if( m_iClip1 == 0 && HasEmptyAnimations() )
+	if (GetOwner() && GetOwner()->IsPlayer())
 	{
-		return ACT_VM_DRAWEMPTY;
+		#ifdef SERVER_DLL
+		CBasePlayer *pPlayer = static_cast<CBasePlayer *>(UTIL_GetLocalPlayer());
+		#else
+		CBasePlayer *pPlayer = static_cast<CBasePlayer *>(GetOwner());
+		#endif
+		if ( pPlayer->m_bHolsteredImpulse )
+		{
+			if( m_iClip1 == 0 && HasEmptyAnimations())
+			{
+				return ACT_VM_HOLSTEREMPTY;
+			}
+			else
+			{
+				return ACT_VM_HOLSTER;
+			}
+			SetWeaponVisible(false);
+		}
+		else
+		{
+			if( m_iClip1 == 0 && HasEmptyAnimations() )
+			{
+				return ACT_VM_DRAWEMPTY;
+			}
+		}
 	}
-	else
-	{
-		return ACT_VM_DRAW;
-	}
+	return ACT_VM_DRAW;
 }
 
 //-----------------------------------------------------------------------------

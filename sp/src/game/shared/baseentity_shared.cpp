@@ -1595,6 +1595,8 @@ public:
 typedef CTraceFilterSimpleList CBulletsTraceFilter;
 #endif
 
+ConVar g_debug_grenadefragments( "g_debug_grenadefragments", "0" );
+
 void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 {
 	static int	tracerCount;
@@ -1630,7 +1632,7 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 		{
 			if( rumbleEffect == RUMBLE_SHOTGUN_SINGLE )
 			{
-				if( info.m_iShots == 12 )
+				if( info.m_iShots >= 12 )
 				{
 					// Upgrade to double barrel rumble effect
 					rumbleEffect = RUMBLE_SHOTGUN_DOUBLE;
@@ -1775,7 +1777,25 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 				AI_TraceLine(info.m_vecSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
 			}
 #else
-			AI_TraceLine(m_vecShotSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
+			if (bIsGrenadeShrapnel)
+			{	
+				Vector vecStEDir = (vecEnd - m_vecShotSrc).Normalized();
+				AI_TraceLine(m_vecShotSrc, m_vecShotSrc + vecStEDir * info.m_flDistance, MASK_SHOT, &traceFilter, &tr);
+				if (g_debug_grenadefragments.GetBool())
+				{
+					DebugDrawLine(m_vecShotSrc, m_vecShotSrc + vecStEDir * info.m_flDistance, 0, 255, 0, true, 10);
+					debugoverlay->AddBoxOverlay(m_vecShotSrc + vecStEDir * info.m_flDistance, Vector(-1,-1,-1), Vector(1,1,1), vec3_angle, 0, 255, 0, 120, 10);
+					if(tr.fraction != 1.0)
+					{
+						debugoverlay->AddBoxOverlay(tr.endpos, Vector(-1,-1,-1), Vector(1,1,1), vec3_angle, 128, 128, 0, 200, 10);
+						debugoverlay->AddTextOverlayRGB(tr.endpos, 0, 10.0f, 255, 255, 255, 180, "%.2f", float(Vector(m_vecShotSrc - tr.endpos).Length()));
+					}
+				}
+			}
+			else
+			{
+				AI_TraceLine(m_vecShotSrc, vecEnd, MASK_SHOT, &traceFilter, &tr);
+			}
 #endif //#ifdef PORTAL
 		//}
 
@@ -1961,6 +1981,14 @@ void CBaseEntity::FireBullets( const FireBulletsInfo_t &info )
 				}
 #endif
 			}
+		}
+
+		// Draw Shrapnel Tracer
+		if (bIsGrenadeShrapnel)
+		{
+			QAngle dirangle;
+			VectorAngles(vecDir, dirangle);
+			DispatchParticleEffect("ayykyu_bullettracer", tr.startpos, tr.endpos, dirangle, NULL);
 		}
 
 		// See if we hit glass

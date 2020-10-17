@@ -115,6 +115,7 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	DEFINE_KEYFIELD( m_flTurnSpeed, FIELD_FLOAT, "TurnSpeed" ),
 	DEFINE_KEYFIELD( m_fForceTargetDelay, FIELD_FLOAT, "DelayOfForceTarget" ),
 	DEFINE_KEYFIELD( m_flMaxTargetRange, FIELD_FLOAT, "TurretMaxRange" ),
+	DEFINE_KEYFIELD( m_bStartsMotionDisabled, FIELD_BOOLEAN, "StartsMotionDisabled" ),
 	
 	DEFINE_THINKFUNC( Retire ),
 	DEFINE_THINKFUNC( Deploy ),
@@ -133,6 +134,8 @@ BEGIN_DATADESC( CNPC_FloorTurret )
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Toggle", InputToggle ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableMotion", InputEnableMotion ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableMotion", InputDisableMotion ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "DepleteAmmo", InputDepleteAmmo ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "RestoreAmmo", InputRestoreAmmo ),
@@ -361,6 +364,11 @@ void CNPC_FloorTurret::Spawn( void )
 	SetBoneCacheFlags( BCF_NO_ANIMATION_SKIP );
 
 	CreateVPhysics();
+
+	if (m_bStartsMotionDisabled)
+	{
+		VPhysicsGetObject()->EnableMotion(false);
+	}
 
 	SetState(NPC_STATE_IDLE);
 }
@@ -1244,12 +1252,24 @@ bool CNPC_FloorTurret::IsValidEnemy( CBaseEntity *pEnemy )
 //-----------------------------------------------------------------------------
 bool CNPC_FloorTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 {
+	// No point trying to tip over a turret that cannot be moved.
+	if (!VPhysicsGetObject()->IsMotionEnabled())
+		return false;
+
+	// No point for zombies to try tiping over a turret that cannot be reached.
+	if ( pEnemy->Classify() == CLASS_ZOMBIE && ((GetAbsOrigin() - pEnemy->GetAbsOrigin()).z > 100) )
+		return false;
+
+	// No point for melee enemies to try to tip over unreachable turrets
+	if ( !(pEnemy->MyNPCPointer()->CapabilitiesGet() & ( bits_CAP_WEAPON_RANGE_ATTACK1 | bits_CAP_WEAPON_RANGE_ATTACK2 | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_RANGE_ATTACK2 )) && pEnemy->MyNPCPointer()->IsUnreachable(this) )
+		return false;
+
 	// If we're out of ammo, make friendly companions ignore us
 	if ( m_spawnflags & SF_FLOOR_TURRET_OUT_OF_AMMO )
 	{
 		if ( pEnemy->Classify() == CLASS_PLAYER_ALLY_VITAL )
 			return false;
-	} 
+	}
 
 	// If we're on the side, we're never anyone's enemy
 	if ( OnSide() )

@@ -29,6 +29,7 @@ public:
 	void	ItemPostFrame( void );
 	void	Precache( void );
 	
+	void	PrimaryAttack( void );
 	void	SecondaryAttack( void );
 	void	DelayedAttack( void );
 
@@ -51,6 +52,7 @@ public:
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
 
 	Activity	GetPrimaryAttackActivity( void );
+	void	MakeTracer( const Vector &vecTracerSrc, const trace_t &tr, int iTracerType );
 	
 	void	DoImpactEffect( trace_t &tr, int nDamageType );
 

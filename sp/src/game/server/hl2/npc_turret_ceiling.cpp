@@ -1342,6 +1342,14 @@ void CNPC_CeilingTurret::SetHeight( float height )
 //-----------------------------------------------------------------------------
 bool CNPC_CeilingTurret::CanBeAnEnemyOf( CBaseEntity *pEnemy )
 {
+	// No point for zombies to try tiping over a turret that cannot be reached.
+	if ( pEnemy->Classify() == CLASS_ZOMBIE && ((GetAbsOrigin() - pEnemy->GetAbsOrigin()).z > 100) )
+		return false;
+
+	// No point for melee enemies to try to tip over unreachable turrets
+	if ( !(pEnemy->MyNPCPointer()->CapabilitiesGet() & ( bits_CAP_WEAPON_RANGE_ATTACK1 | bits_CAP_WEAPON_RANGE_ATTACK2 | bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_RANGE_ATTACK2 )))
+		return false;
+
 	// If we're out of ammo, make friendly companions ignore us
 	if ( m_spawnflags & SF_CEILING_TURRET_OUT_OF_AMMO )
 	{

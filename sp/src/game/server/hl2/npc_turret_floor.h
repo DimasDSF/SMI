@@ -127,6 +127,8 @@ public:
 	// Inputs
 	void	InputToggle( inputdata_t &inputdata );
 	void	InputEnable( inputdata_t &inputdata );
+	void	InputEnableMotion( inputdata_t &inputdata ) {VPhysicsGetObject()->EnableMotion( true );};
+	void	InputDisableMotion( inputdata_t &inputdata ) {VPhysicsGetObject()->EnableMotion( false );};
 	void	InputDisable( inputdata_t &inputdata );
 	void	InputDepleteAmmo( inputdata_t &inputdata );
 	void	InputRestoreAmmo( inputdata_t &inputdata );
@@ -236,6 +238,7 @@ protected:
 	bool	m_bUseCarryAngles;
 	float	m_flPlayerDropTime;
 	int		m_iKeySkin;
+	bool	m_bStartsMotionDisabled;
 
 	CHandle<CBaseCombatCharacter> m_hLastNPCToKickMe;		// Stores the last NPC who tried to knock me over
 	float	m_flKnockOverFailedTime;						// Time at which we should tell the NPC that he failed to knock me over

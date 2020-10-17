@@ -27,6 +27,7 @@
 #include "npc_combine.h"
 #include "rumble_shared.h"
 #include "gamestats.h"
+#include "gib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -126,6 +127,13 @@ void CWeaponAR2::Precache( void )
 {
 	BaseClass::Precache();
 
+	PrecacheParticleSystem("ar2_muzzle_tracer");
+	PrecacheParticleSystem("ar2_muzzle");
+	PrecacheParticleSystem("ar2_muzzle_cell");
+	PrecacheParticleSystem("ar2_muzzle_npc");
+	PrecacheParticleSystem("ar2_muzzle_charge");
+	PrecacheParticleSystem("ar2_muzzle_charged_fire");
+
 	UTIL_PrecacheOther( "prop_combine_ball" );
 	UTIL_PrecacheOther( "env_entity_dissolver" );
 }
@@ -194,6 +202,12 @@ void CWeaponAR2::ItemPostFrame( void )
 //-----------------------------------------------------------------------------
 Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 {
+	if ( m_nShotsFired > 10 )
+	{
+		m_flForcedVentPose = 1.0;
+		m_bOverHeat = true;
+	}
+
 	if ( m_nShotsFired < 2 )
 		return ACT_VM_PRIMARYATTACK;
 
@@ -203,13 +217,41 @@ Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 	if ( m_nShotsFired < 4 )
 		return ACT_VM_RECOIL2;
 
-	if ( m_nShotsFired > 10 )
-	{
-		m_flForcedVentPose = 1.0;
-		m_bOverHeat = true;
-	}
-
 	return ACT_VM_RECOIL3;
+}
+
+void CWeaponAR2::MakeTracer( const Vector &vecTracerSrc, const trace_t &tr, int iTracerType )
+{	Vector muzzleOrigin;
+	QAngle muzzleAngles;
+	if (GetOwner()->IsPlayer())
+	{
+		Vector vF_muzzle, vR_muzzle, vU_muzzle;
+		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+		pOwner->EyeVectors(&vF_muzzle, &vR_muzzle, &vU_muzzle);
+		muzzleOrigin = pOwner->Weapon_ShootPosition() + vF_muzzle * 60.0f + vR_muzzle * 6.0f + vU_muzzle * -10.0f;
+		VectorAngles(Vector(muzzleOrigin-tr.endpos).Normalized(), muzzleAngles);
+	}
+	else
+	{
+		this->GetAttachment("muzzle", muzzleOrigin, muzzleAngles);
+	}
+	Vector muzzleToEp = (muzzleOrigin-tr.endpos);
+	if (muzzleToEp.Length() >= 256)
+	{	
+		if (GetOwner()->IsPlayer())
+		{
+			muzzleOrigin = muzzleOrigin - (muzzleToEp.Normalized() * 256);
+		}
+		else
+		{
+			muzzleOrigin = muzzleOrigin - (muzzleToEp.Normalized() * 128);
+		}
+		DispatchParticleEffect( "ar2_muzzle_tracer", muzzleOrigin, tr.endpos, muzzleAngles, this );
+	}
+	else
+	{
+		BaseClass::MakeTracer( vecTracerSrc, tr, iTracerType );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -252,6 +294,9 @@ void CWeaponAR2::DelayedAttack( void )
 	WeaponSound( WPN_DOUBLE );
 
 	m_flForcedVentPose = 1.0;
+
+	CBaseViewModel *pViewModel = pOwner->GetViewModel();
+	DispatchParticleEffect("ar2_muzzle_charged_fire", PATTACH_POINT_FOLLOW, pViewModel, "secondary");
 
 	pOwner->RumbleEffect(RUMBLE_SHOTGUN_DOUBLE, 0, RUMBLE_FLAG_RESTART );
 
@@ -296,6 +341,21 @@ void CWeaponAR2::DelayedAttack( void )
 	m_flNextSecondaryAttack = gpGlobals->curtime + 1.0f;
 }
 
+void CWeaponAR2::PrimaryAttack( void )
+{	
+	if (GetOwner()->IsPlayer())
+	{
+		CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+		if (pOwner)
+		{
+			CBaseViewModel *pViewModel = pOwner->GetViewModel();
+			DispatchParticleEffect("ar2_muzzle", PATTACH_POINT_FOLLOW, pViewModel, "muzzle");
+			DispatchParticleEffect("ar2_muzzle_cell", PATTACH_POINT_FOLLOW, pViewModel, "punch");
+		}
+	}
+	BaseClass::PrimaryAttack();
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -320,6 +380,8 @@ void CWeaponAR2::SecondaryAttack( void )
 	if( pPlayer )
 	{
 		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
+		CBaseViewModel *pViewModel = pPlayer->GetViewModel();
+		DispatchParticleEffect("ar2_muzzle_charge", PATTACH_POINT_FOLLOW, pViewModel, "secondary");
 	}
 
 	SendWeaponAnim( ACT_VM_FIDGET );
@@ -381,6 +443,8 @@ void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUs
 
 	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, VECTOR_CONE_PRECALCULATED, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2 );
 
+	DispatchParticleEffect("ar2_muzzle_npc", PATTACH_POINT_FOLLOW, this, "muzzle");
+
 	// NOTENOTE: This is overriden on the client-side
 	// pOperator->DoMuzzleFlash();
 
@@ -436,6 +500,8 @@ void CWeaponAR2::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool b
 		vecAiming = vecTarget - vecSrc;
 		VectorNormalize( vecAiming );
 	}
+
+	DispatchParticleEffect("ar2_muzzle_charged_fire", PATTACH_POINT_FOLLOW, this, "muzzle");
 
 	Vector impactPoint = vecSrc + ( vecAiming * MAX_TRACE_LENGTH );
 

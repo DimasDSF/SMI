@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 class CFuncCombineBallSpawner;
 class CSpriteTrail;
+class CParticleSystem;
 
 //-----------------------------------------------------------------------------
 // Looks for enemies, bounces a max # of times before it breaks
@@ -181,6 +182,8 @@ private:
 
 	CSpriteTrail *m_pGlowTrail;
 	CSoundPatch *m_pHoldingSound;
+	CHandle< CParticleSystem >	m_hBallEffect;
+	CHandle< CParticleSystem >  m_hBallEffect2;
 
 	float	m_flNextDamageTime;
 	float	m_flLastCaptureTime;

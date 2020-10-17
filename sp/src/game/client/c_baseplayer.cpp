@@ -691,16 +691,22 @@ surfacedata_t* C_BasePlayer::GetGroundSurface()
 	VectorCopy( GetAbsOrigin(), start );
 	VectorCopy( start, end );
 
+	// Start 1 higher to prevent starting in a prop
+	start.z += 1;
+
 	// Straight down
 	end.z -= 64;
 
 	// Fill in default values, just in case.
 	
 	Ray_t ray;
-	ray.Init( start, end, GetPlayerMins(), GetPlayerMaxs() );
+	Vector playermins = GetPlayerMins();
+	Vector playermaxs = GetPlayerMaxs();
+	playermaxs.z = playermins.z + 1;
+	ray.Init( start, end, playermins, playermaxs );
 
 	trace_t	trace;
-	UTIL_TraceRay( ray, MASK_PLAYERSOLID_BRUSHONLY, this, COLLISION_GROUP_PLAYER_MOVEMENT, &trace );
+	UTIL_TraceRay( ray, MASK_PLAYERSOLID, this, COLLISION_GROUP_PLAYER_MOVEMENT, &trace );
 
 	if ( trace.fraction == 1.0f )
 		return NULL;	// no ground

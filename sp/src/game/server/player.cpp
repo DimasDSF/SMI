@@ -5906,6 +5906,10 @@ void CBasePlayer::ImpulseCommands( )
 					pWeapon->Holster();
 				}
 			}
+			else
+			{
+				m_bHolsteredImpulse = false;
+			}
 		break;
 
 	case	201:// paint decal

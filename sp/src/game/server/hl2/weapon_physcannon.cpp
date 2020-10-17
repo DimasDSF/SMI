@@ -1550,7 +1550,7 @@ void CWeaponPhysCannon::OnRestore()
 
 	// Tracker 8106:  Physcannon effects disappear through level transition, so
 	//  just recreate any effects here
-	if ( m_EffectState != EFFECT_NONE )
+	if ( m_EffectState != EFFECT_NONE && GetOwner()->GetActiveWeapon() == this && this->IsWeaponVisible())
 	{
 		DoEffect( m_EffectState, NULL );
 	}
@@ -1699,6 +1699,8 @@ bool CWeaponPhysCannon::Holster( CBaseCombatWeapon *pSwitchingTo )
 	{
 		pOwner->RumbleEffect( RUMBLE_PHYSCANNON_OPEN, 0, RUMBLE_FLAG_STOP );
 	}
+
+	DoEffectNone();
 
 	ForceDrop();
 
@@ -3350,7 +3352,10 @@ void CWeaponPhysCannon::ItemPostFrame()
 	}
 
 	// Update our idle effects (flickers, etc)
-	DoEffectIdle();
+	if (GetOwner()->GetActiveWeapon() == this && this->IsWeaponVisible())
+	{
+		DoEffectIdle();
+	}
 }
 
 
@@ -4314,6 +4319,11 @@ void CWeaponPhysCannon::DoMegaEffect( int effectType, Vector *pos )
 //-----------------------------------------------------------------------------
 void CWeaponPhysCannon::DoEffect( int effectType, Vector *pos )
 {
+	// Stop those pesky effects from sipping through onto other weapons.
+	if ((GetOwner()->GetActiveWeapon() != this) && (effectType != EFFECT_NONE))
+	{
+		return;
+	}
 	// Make sure we're active
 	StartEffects();
 

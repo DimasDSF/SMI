@@ -373,7 +373,7 @@ void CNPC_Advisor::Spawn()
 
 	Precache();
 
-	SetModel( "models\advisor.mdl" );
+	SetModel( STRING( GetModelName() ) );
 
 	m_iHealth = sk_advisor_health.GetFloat();
 	m_takedamage = DAMAGE_NO;
@@ -1551,7 +1551,7 @@ void CNPC_Advisor::Precache()
 {
 	BaseClass::Precache();
 	
-	PrecacheModel( "models\advisor.mdl" );
+	PrecacheModel( "models/advisor.mdl" );
 
 #if NPC_ADVISOR_HAS_BEHAVIOR
 	PrecacheModel( "sprites/lgtning.vmt" );

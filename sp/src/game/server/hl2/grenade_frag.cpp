@@ -12,6 +12,8 @@
 #include "Sprite.h"
 #include "SpriteTrail.h"
 #include "soundent.h"
+#include "particle_parse.h"
+#include "particle_system.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -290,6 +292,9 @@ void CGrenadeFrag::Precache( void )
 
 	PrecacheScriptSound( "Grenade.Blip" );
 
+	PrecacheParticleSystem("hl2mmod_explosion_grenade");
+	PrecacheParticleSystem("ayykyu_bullettracer");
+
 	PrecacheModel( "sprites/redglow1.vmt" );
 	PrecacheModel( "sprites/bluelaser1.vmt" );
 
@@ -340,6 +345,10 @@ void CGrenadeFrag::DelayThink()
 		FireBulletsInfo_t info( sk_fraggrenade_shrapnel.GetInt() + random->RandomInt(-5,5), GetAbsOrigin(), Vector(0,0,1), Vector(sk_fraggrenade_shrapnel_cone_x.GetFloat(),sk_fraggrenade_shrapnel_cone_y.GetFloat(),sk_fraggrenade_shrapnel_cone_z.GetFloat()), sk_fraggrenade_shrapnel_max_dist.GetFloat(), GetAmmoDef()->Index( "GrenadeShrapnel" ) );
 		info.m_pAttacker = GetOwnerEntity();
 		FireBullets(info);
+		if (GetWaterLevel() < 3)
+		{
+			DispatchParticleEffect( "hl2mmod_explosion_grenade", GetAbsOrigin()+Vector(0,0,1), QAngle(270, 0, 0), GetOwnerEntity());
+		}
 		Detonate();
 		return;
 	}

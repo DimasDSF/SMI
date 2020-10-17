@@ -11889,6 +11889,45 @@ bool CAI_BaseNPC::IsEnemyMelee( void )
 		return false;
 	}
 
+	if (GetEnemy()->IsPlayer())
+	{
+		CBasePlayer *pPlayer = ToBasePlayer( GetEnemy() );
+		if (pPlayer)
+		{
+			if (pPlayer->GetActiveWeapon())
+			{
+				if(FClassnameIs(pPlayer->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(pPlayer->GetActiveWeapon(), "weapon_stunstick"))
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+			{
+				return true;
+			}
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if ( GetEnemy()->MyNPCPointer()->CapabilitiesGet() & ( bits_CAP_INNATE_RANGE_ATTACK1 | bits_CAP_INNATE_RANGE_ATTACK2 ) )
+			return false;
+
+		if ( GetEnemy()->MyNPCPointer()->CapabilitiesGet() & ( bits_CAP_WEAPON_RANGE_ATTACK1 | bits_CAP_WEAPON_RANGE_ATTACK2) )
+		{
+			if ( GetEnemy()->MyNPCPointer()->GetActiveWeapon() && (FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_crowbar") || FClassnameIs(GetEnemy()->MyNPCPointer()->GetActiveWeapon(), "weapon_stunstick")) )
+				return false;
+		}
+	}
+
+	// Dirty Hardcode. -_-
 	if (FClassnameIs(GetEnemy(), "npc_zombie") || ( FClassnameIs(GetEnemy(), "npc_zombie_torso")) || FClassnameIs(GetEnemy(), "npc_fastzombie") || FClassnameIs(GetEnemy(), "npc_fastzombie_torso") || FClassnameIs(GetEnemy(), "npc_poisonzombie") || FClassnameIs(GetEnemy(), "npc_zombine"))
 	{
 		return true;

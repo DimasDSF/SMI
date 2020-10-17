@@ -26,6 +26,8 @@
 #include "eventqueue.h"
 #include "physics_collisionevent.h"
 #include "gamestats.h"
+#include "particle_parse.h"
+#include "particle_system.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -256,6 +258,10 @@ void CPropCombineBall::Precache( void )
 	PrecacheModel( PROP_COMBINE_BALL_MODEL );
 	PrecacheModel( PROP_COMBINE_BALL_SPRITE_TRAIL );
 
+	PrecacheParticleSystem( "ar2_combineball" );
+	PrecacheParticleSystem( "hl2mmod_ar2_energyshpere_trail" );
+	PrecacheParticleSystem( "hl2mmod_prop_combineballexplosion" );
+
 	s_nExplosionTexture = PrecacheModel( "sprites/lgtning.vmt" );
 
 	PrecacheScriptSound( "NPC_CombineBall.Launch" );
@@ -369,6 +375,32 @@ void CPropCombineBall::Spawn( void )
 	BaseClass::Spawn();
 
 	SetModel( PROP_COMBINE_BALL_MODEL );
+
+	m_hBallEffect = (CParticleSystem *) CreateEntityByName( "info_particle_system" );
+	if ( m_hBallEffect != NULL )
+	{
+		// Setup our basic parameters
+		m_hBallEffect->KeyValue( "start_active", "1" );
+		m_hBallEffect->KeyValue( "effect_name", "ar2_combineball" );
+		m_hBallEffect->SetParent( this );
+		m_hBallEffect->SetLocalOrigin( vec3_origin );
+		DispatchSpawn( m_hBallEffect );
+		if ( gpGlobals->curtime > 0.5f )
+			m_hBallEffect->Activate();
+	}
+
+	m_hBallEffect2 = (CParticleSystem *) CreateEntityByName( "info_particle_system" );
+	if ( m_hBallEffect2 != NULL )
+	{
+		// Setup our basic parameters
+		m_hBallEffect2->KeyValue( "start_active", "1" );
+		m_hBallEffect2->KeyValue( "effect_name", "hl2mmod_ar2_energyshpere_trail" );
+		m_hBallEffect2->SetParent( this );
+		m_hBallEffect2->SetLocalOrigin( vec3_origin );
+		DispatchSpawn( m_hBallEffect2 );
+		if ( gpGlobals->curtime > 0.5f )
+			m_hBallEffect2->Activate();
+	}
 
 	if( ShouldHitPlayer() )
 	{
@@ -656,6 +688,16 @@ void CPropCombineBall::DieThink()
 		}
 
 		GetSpawner()->RespawnBall( 0.1 );
+	}
+
+	if ( m_hBallEffect )
+	{
+		UTIL_Remove( m_hBallEffect );
+	}
+
+	if ( m_hBallEffect2 )
+	{
+		UTIL_Remove( m_hBallEffect2 );
 	}
 
 	UTIL_Remove( this );
@@ -1100,6 +1142,8 @@ void CPropCombineBall::DoExplosion( )
 			FBEAM_FADEOUT
 			);
 	}
+
+	DispatchParticleEffect("hl2mmod_prop_combineballexplosion", GetAbsOrigin(), GetAbsOrigin(), vec3_angle, this);
 
 	if( hl2_episodic.GetBool() )
 	{

@@ -129,6 +129,9 @@ int	AE_METROPOLICE_BATON_OFF;
 int AE_METROPOLICE_SHOVE;
 int AE_METROPOLICE_START_DEPLOY;
 int AE_METROPOLICE_DRAW_PISTOL;		// was	50
+int AE_METROPOLICE_HOLSTER_PISTOL;
+int AE_METROPOLICE_DRAW_BATON;
+int AE_METROPOLICE_HOLSTER_BATON;
 int AE_METROPOLICE_DEPLOY_MANHACK;	// was	51
 
 // -----------------------------------------------
@@ -151,6 +154,10 @@ enum SquadSlot_T
 // Metro Police  Activities
 //=========================================================
 int ACT_METROPOLICE_DRAW_PISTOL;
+int ACT_METROPOLICE_HOLSTER_PISTOL;
+int ACT_METROPOLICE_DRAW_BATON;
+int ACT_METROPOLICE_DRAW_BATON_ANGRY;
+int ACT_METROPOLICE_HOLSTER_BATON;
 int ACT_METROPOLICE_DEPLOY_MANHACK;
 int ACT_METROPOLICE_FLINCH_BEHIND;
 
@@ -171,6 +178,7 @@ BEGIN_DATADESC( CNPC_MetroPolice )
 	DEFINE_FIELD( m_bShouldActivateBaton, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_iPistolClips, FIELD_INTEGER ),
 	DEFINE_KEYFIELD( m_fWeaponDrawn, FIELD_BOOLEAN, "weapondrawn" ),
+	DEFINE_KEYFIELD( m_fBatonDrawn, FIELD_BOOLEAN, "batondrawn" ),
 	DEFINE_FIELD( m_LastShootSlot, FIELD_INTEGER ),
 	DEFINE_EMBEDDED( m_TimeYieldShootSlot ),
 	DEFINE_EMBEDDED( m_Sentences ),
@@ -692,8 +700,14 @@ void CNPC_MetroPolice::Spawn( void )
 		{
 			m_fWeaponDrawn = true;
 		}
+
+		if (FClassnameIs(pWeapon, "weapon_stunstick"))
+		{
+			m_iLostEnemyTime = gpGlobals->curtime;
+			m_fBatonDrawn = true;
+		}
 		
-		if( !m_fWeaponDrawn ) 
+		if( (FClassnameIs( pWeapon, "weapon_pistol" ) && !m_fWeaponDrawn) || (FClassnameIs( pWeapon, "weapon_stunstick") && !m_fBatonDrawn)) 
 		{
 			GetActiveWeapon()->AddEffects( EF_NODRAW );
 		}
@@ -2526,6 +2540,11 @@ void CNPC_MetroPolice::InputHideWeapon( inputdata_t &inputdata )
 			m_fWeaponDrawn = false;
 			pWeapon->AddEffects( EF_NODRAW );
 		}
+		else if (FClassnameIs(pWeapon, "weapon_stunstick"))
+		{
+			m_fBatonDrawn = false;
+			pWeapon->AddEffects(EF_NODRAW);
+		}
 	}
 }
 
@@ -3022,6 +3041,36 @@ void CNPC_MetroPolice::HandleAnimEvent( animevent_t *pEvent )
 		return;
 	}
 
+	if (pEvent->event == AE_METROPOLICE_HOLSTER_PISTOL)
+	{
+		m_fWeaponDrawn = false;
+		if (GetActiveWeapon())
+		{
+			GetActiveWeapon()->AddEffects(EF_NODRAW);
+		}
+		return;
+	}
+
+	if (pEvent->event == AE_METROPOLICE_DRAW_BATON)
+	{
+		m_fBatonDrawn = true;
+		if (GetActiveWeapon())
+		{
+			GetActiveWeapon()->RemoveEffects(EF_NODRAW);
+		}
+		return;
+	}
+
+	if (pEvent->event == AE_METROPOLICE_HOLSTER_BATON)
+	{
+		m_fBatonDrawn = false;
+		if (GetActiveWeapon())
+		{
+			GetActiveWeapon()->AddEffects(EF_NODRAW);
+		}
+		return;
+	}
+
 	if ( pEvent->event == AE_METROPOLICE_DEPLOY_MANHACK )
 	{
 		OnAnimEventDeployManhack( pEvent );
@@ -3120,7 +3169,7 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 
 	// This will put him into an angry idle, which will then be translated
 	// by the weapon to the appropriate type. 
-	if ( m_fWeaponDrawn && newActivity == ACT_IDLE && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
+	if ( m_fWeaponDrawn && newActivity == ACT_IDLE && ( GetState() == NPC_STATE_COMBAT || (BatonActive() && m_fBatonDrawn) ) )
 	{
 		newActivity = ACT_IDLE_ANGRY;
 	}
@@ -3130,17 +3179,17 @@ Activity CNPC_MetroPolice::NPC_TranslateActivity( Activity newActivity )
 		newActivity = ACT_IDLE_ANGRY_SMGANIM;
 	}
 
-	if ( !m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	if ( !m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_IDLE || (!BatonActive() || !m_fBatonDrawn) ) )
 	{
 		newActivity = ACT_WALK_PASSIVE;
 	}
 
-	if ( !m_fWeaponDrawn && newActivity == ACT_RUN && ( GetState() == NPC_STATE_IDLE || !BatonActive() ) )
+	if ( !m_fWeaponDrawn && newActivity == ACT_RUN && ( GetState() == NPC_STATE_IDLE || (!BatonActive() || !m_fBatonDrawn) ) )
 	{
 		newActivity = ACT_RUN_PASSIVE;
 	}
 
-	if ( m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_COMBAT || BatonActive() ) )
+	if ( m_fWeaponDrawn && newActivity == ACT_WALK && ( GetState() == NPC_STATE_COMBAT || (BatonActive() && m_fBatonDrawn) ) )
 	{
 		newActivity = ACT_WALK;
 	}
@@ -3302,6 +3351,9 @@ int CNPC_MetroPolice::SelectScheduleArrestEnemy()
 	if ( !HasCondition( COND_SEE_ENEMY ) )
 		return SCHED_NONE;
 
+	if (FClassnameIs(GetActiveWeapon(), "weapon_stunstick") && !m_fBatonDrawn)
+		return SCHED_METROPOLICE_DRAW_ACTIVATE_BATON;
+
 	if ( !m_fWeaponDrawn )
 		return SCHED_METROPOLICE_DRAW_PISTOL;
 
@@ -3338,12 +3390,28 @@ int CNPC_MetroPolice::SelectScheduleNewEnemy()
 		return SCHED_METROPOLICE_DRAW_PISTOL;
 
 	// Switch our baton on, if it's not already
-	if ( HasBaton() && BatonActive() == false && IsCurSchedule( SCHED_METROPOLICE_ACTIVATE_BATON ) == false )
+	if (HasBaton())
 	{
-		SetTarget( GetEnemy() );
-		SetBatonState( true );
-		m_flBatonDebounceTime = gpGlobals->curtime + random->RandomFloat( 2.5f, 4.0f );
-		return SCHED_METROPOLICE_ACTIVATE_BATON;
+		if (m_fBatonDrawn)
+		{
+			if ( BatonActive() == false && IsCurSchedule( SCHED_METROPOLICE_ACTIVATE_BATON ) == false )
+			{
+				SetTarget( GetEnemy() );
+				SetBatonState( true );
+				m_flBatonDebounceTime = gpGlobals->curtime + random->RandomFloat( 2.5f, 4.0f );
+				return SCHED_METROPOLICE_ACTIVATE_BATON;
+			}
+		}
+		else
+		{
+			if (IsCurSchedule(SCHED_METROPOLICE_DRAW_ACTIVATE_BATON) == false)
+			{
+				SetTarget(GetEnemy());
+				SetBatonState(true);
+				m_flBatonDebounceTime = gpGlobals->curtime + random->RandomFloat(2.5f, 4.0f);
+				return SCHED_METROPOLICE_DRAW_ACTIVATE_BATON;
+			}
+		}
 	}
 
 	return SCHED_NONE;
@@ -3403,6 +3471,9 @@ int CNPC_MetroPolice::SelectScheduleNoDirectEnemy()
 	if( CanDeployManhack() && (OccupyStrategySlot( SQUAD_SLOT_POLICE_DEPLOY_MANHACK ) || m_bForceManhackThrow))
 		return SCHED_METROPOLICE_DEPLOY_MANHACK;
 
+	if (HasBaton() && !m_fBatonDrawn)
+		return SCHED_METROPOLICE_DRAW_BATON_ANGRY;
+
 	// If you can't attack, but you have a baton & there's a physics object in front of you, swat it
 	if ( m_hBlockingProp && HasBaton() )
 	{
@@ -3410,7 +3481,7 @@ int CNPC_MetroPolice::SelectScheduleNoDirectEnemy()
 		m_hBlockingProp = NULL;
 		return SCHED_METROPOLICE_SMASH_PROP;
 	}
-	if(IsEnemyMelee())
+	if(IsEnemyMelee() && !HasBaton())
 	{
 		return SCHED_ESTABLISH_LINE_OF_FIRE;
 	}
@@ -3444,6 +3515,11 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 		return SCHED_METROPOLICE_DRAW_PISTOL;
 	}
 
+	if (HasBaton() && !m_fBatonDrawn)
+	{
+		return SCHED_METROPOLICE_DRAW_BATON_ANGRY;
+	}
+
 	if (!HasBaton() && ((float)m_nRecentDamage / (float)GetMaxHealth()) > RECENT_DAMAGE_THRESHOLD)
 	{
 		m_nRecentDamage = 0;
@@ -3455,33 +3531,36 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 
 	if ( HasCondition( COND_CAN_RANGE_ATTACK1 ) )
 	{
-		if(!HasBaton() && IsEnemyMelee())
+		if (!HasBaton())
 		{
-			if( (!FClassnameIs(GetActiveWeapon(), "weapon_shotgun") && (GetEnemy()->GetAbsOrigin()-GetAbsOrigin()).Length2D() < 160) || (GetEnemy()->GetAbsOrigin()-GetAbsOrigin()).Length2D() < 100)
+			if (IsEnemyMelee())
 			{
-				if( !HasCondition(COND_BACK_RAYTRACE_HIT_WALL) )
+				if ((!FClassnameIs(GetActiveWeapon(), "weapon_shotgun") && (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() < 160) || (GetEnemy()->GetAbsOrigin() - GetAbsOrigin()).Length2D() < 100)
 				{
-					return SCHED_BACK_AWAY_FROM_ENEMY;
+					if (!HasCondition(COND_BACK_RAYTRACE_HIT_WALL))
+					{
+						return SCHED_BACK_AWAY_FROM_ENEMY;
+					}
+					else
+					{
+						return SCHED_RANGE_ATTACK1;
+					}
 				}
 				else
 				{
-					return SCHED_RANGE_ATTACK1;
+					if (!GetShotRegulator()->IsInRestInterval())
+						return SelectRangeAttackSchedule();
 				}
 			}
 			else
 			{
-				if ( !GetShotRegulator()->IsInRestInterval() )
+				if (!GetShotRegulator()->IsInRestInterval())
 					return SelectRangeAttackSchedule();
-			}
-		}
-		else
-		{
-			if ( !GetShotRegulator()->IsInRestInterval() )
-				return SelectRangeAttackSchedule();
-			else
-			{
-				if(random->RandomFloat(0.0f, 1.0f) < 0.4f)
-					return SCHED_METROPOLICE_ADVANCE;
+				else
+				{
+					if (random->RandomFloat(0.0f, 1.0f) < 0.4f)
+						return SCHED_METROPOLICE_ADVANCE;
+				}
 			}
 		}
 	}
@@ -3496,7 +3575,19 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 			return SCHED_MELEE_ATTACK1;
 		}
 		else
-			return SCHED_COMBAT_FACE;
+		{
+			if (IsEnemyMelee()
+				&& GetEnemy()->GetHealth() > cvar->FindVar("sk_npc_dmg_stunstick")->GetInt()
+				&& (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length2D() < 65
+				&& !HasCondition(COND_BACK_RAYTRACE_HIT_WALL))
+			{
+				return SCHED_METROPOLICE_BACK_AWAY_FROM_MELEE_ENEMY;
+			}
+			else
+			{
+				return SCHED_COMBAT_FACE;
+			}
+		}
 	}
 
 	if ( HasCondition( COND_TOO_CLOSE_TO_ATTACK ) )
@@ -3526,7 +3617,14 @@ int CNPC_MetroPolice::SelectCombatSchedule()
 		if ( GetEnemy() && !(GetEnemy()->GetFlags() & FL_NOTARGET) )
 		{
 			// Charge in and break the enemy's cover!
-			return SCHED_ESTABLISH_LINE_OF_FIRE;
+			if (!HasBaton())
+			{ 
+				return SCHED_ESTABLISH_LINE_OF_FIRE;
+			}
+			else
+			{
+				return SCHED_METROPOLICE_CHASE_ENEMY;
+			}
 		}
 	}
 
@@ -4191,6 +4289,8 @@ int CNPC_MetroPolice::SelectSchedule( void )
 			CNPC_Manhack *pManhack = dynamic_cast<CNPC_Manhack*>( m_hPickupManhack );
 			if( pManhack && !pManhack->GetEnemy() && GetSquad() == pManhack->GetSquad() )
 			{
+				//Remove from squad before deleting to prevent panic
+				pManhack->RemoveFromSquad();
 				UTIL_Remove( pManhack );
 				m_iManhacks = m_iManhacks + 1;
 				SetBodygroup( METROPOLICE_BODYGROUP_MANHACK, true );
@@ -4198,10 +4298,35 @@ int CNPC_MetroPolice::SelectSchedule( void )
 		}
 	}
 
+	if ( ((HasBaton() && m_fBatonDrawn) || (!HasBaton() && m_fWeaponDrawn)) && m_NPCState == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 15 && m_bAllowAutoWeaponHide)
+	{
+		if (GetActiveWeapon())
+		{
+			CBaseCombatWeapon *pWeapon;
+
+			pWeapon = GetActiveWeapon();
+
+			if (FClassnameIs(pWeapon, "weapon_pistol"))
+			{
+				return SCHED_METROPOLICE_HOLSTER_PISTOL;
+			}
+			else if (FClassnameIs(pWeapon, "weapon_stunstick"))
+			{
+				if (BatonActive() && !IsCurSchedule(SCHED_METROPOLICE_DEACTIVATE_BATON))
+					return SCHED_METROPOLICE_DEACTIVATE_BATON;
+				return SCHED_METROPOLICE_HOLSTER_BATON;
+			}
+		}
+	}
+
 	if ( HasBaton() )
 	{
+		// if baton is holstered draw first
+		if (m_bShouldActivateBaton && BatonActive() == false && m_fBatonDrawn == false && IsCurSchedule(SCHED_METROPOLICE_DRAW_ACTIVATE_BATON) == false)
+			return SCHED_METROPOLICE_DRAW_ACTIVATE_BATON;
+
 		// See if we're being told to activate our baton
-		if ( m_bShouldActivateBaton && BatonActive() == false && IsCurSchedule( SCHED_METROPOLICE_ACTIVATE_BATON ) == false )
+		if ( m_bShouldActivateBaton && BatonActive() == false && !(IsCurSchedule( SCHED_METROPOLICE_ACTIVATE_BATON ) || IsCurSchedule( SCHED_METROPOLICE_DRAW_ACTIVATE_BATON)) )
 			return SCHED_METROPOLICE_ACTIVATE_BATON;
 
 		if ( m_bShouldActivateBaton == false && BatonActive() && IsCurSchedule( SCHED_METROPOLICE_DEACTIVATE_BATON ) == false )
@@ -4800,6 +4925,11 @@ void CNPC_MetroPolice::StartTask( const Task_t *pTask )
 		}
 		break;
 
+	case TASK_METROPOLICE_FIND_BACKAWAY_FROM_SAVEPOSITION:
+		{
+		}
+		break;
+
 	default:
 		BaseClass::StartTask( pTask );
 		break;
@@ -4965,10 +5095,18 @@ void CNPC_MetroPolice::RunTask( const Task_t *pTask )
 					{
 						float flMaxRange = 2000;
 						float flMinRange = 0;
-						if ( GetActiveWeapon() )
+						if ( GetActiveWeapon() && !HasBaton() )
 						{
-							flMaxRange = MAX( GetActiveWeapon()->m_fMaxRange1, GetActiveWeapon()->m_fMaxRange2 );
-							flMinRange = MIN( GetActiveWeapon()->m_fMinRange1, GetActiveWeapon()->m_fMinRange2 );
+							if (!HasBaton())
+							{
+								flMaxRange = MAX(GetActiveWeapon()->m_fMaxRange1, GetActiveWeapon()->m_fMaxRange2);
+								flMinRange = MIN(GetActiveWeapon()->m_fMinRange1, GetActiveWeapon()->m_fMinRange2);
+							}
+							else
+							{
+								flMaxRange = 1400;
+								flMinRange = 0;
+							}
 						}
 
 						// Check against NPC's max range
@@ -5001,6 +5139,42 @@ void CNPC_MetroPolice::RunTask( const Task_t *pTask )
 			}
 		}
 		break;
+
+	case TASK_METROPOLICE_FIND_BACKAWAY_FROM_SAVEPOSITION:
+	{
+		if (GetEnemy() != NULL)
+		{
+			Vector backPos;
+			if (!GetTacticalServices()->FindBackAwayPosDist(m_vSavePosition, &backPos, 100))
+			{
+				// no place to backaway
+				TaskFail(FAIL_NO_BACKAWAY_NODE);
+			}
+			else
+			{
+				GetMotor()->SetIdealYawToTarget(GetEnemy()->GetAbsOrigin());
+				float m_fYaw = CalcReasonableFacing(true);
+				GetMotor()->SetIdealYaw(m_fYaw);
+				SetTurnActivity();
+				if (GetNavigator()->SetGoal(AI_NavGoal_t(backPos, ACT_RUN)))
+				{
+					QAngle endAngles(0, m_fYaw, 0);
+					GetNavigator()->SetArrivalDirection(endAngles);
+					TaskComplete();
+				}
+				else
+				{
+					// no place to backaway
+					TaskFail(FAIL_NO_ROUTE);
+				}
+			}
+		}
+		else
+		{
+			TaskFail(FAIL_NO_ENEMY);
+		}
+	}
+	break;
 
 	default:
 		BaseClass::RunTask( pTask );
@@ -5165,22 +5339,6 @@ void CNPC_MetroPolice::GatherConditions( void )
 	if ( m_bPlayerTooClose == false )
 	{
 		ClearCondition( COND_METROPOLICE_PLAYER_TOO_CLOSE );
-	}
-
-	if ( GetState() == NPC_STATE_IDLE && gpGlobals->curtime > m_iLostEnemyTime + 15 && m_bAllowAutoWeaponHide )
-	{
-			if ( GetActiveWeapon() )
-			{
-				CBaseCombatWeapon *pWeapon;
-
-				pWeapon = GetActiveWeapon();
-
-				if( FClassnameIs( pWeapon, "weapon_pistol" ) )
-				{
-					m_fWeaponDrawn = false;
-					pWeapon->AddEffects( EF_NODRAW );
-				}
-			}
 	}
 
 	if(GetEnemy())
@@ -5406,6 +5564,9 @@ AI_BEGIN_CUSTOM_NPC( npc_metropolice, CNPC_MetroPolice )
 	DECLARE_ANIMEVENT( AE_METROPOLICE_SHOVE );
 	DECLARE_ANIMEVENT( AE_METROPOLICE_START_DEPLOY );
 	DECLARE_ANIMEVENT( AE_METROPOLICE_DRAW_PISTOL );
+	DECLARE_ANIMEVENT( AE_METROPOLICE_HOLSTER_PISTOL );
+	DECLARE_ANIMEVENT( AE_METROPOLICE_DRAW_BATON );
+	DECLARE_ANIMEVENT( AE_METROPOLICE_HOLSTER_BATON );
 	DECLARE_ANIMEVENT( AE_METROPOLICE_DEPLOY_MANHACK );
 
 	DECLARE_SQUADSLOT( SQUAD_SLOT_POLICE_CHARGE_ENEMY );
@@ -5416,6 +5577,10 @@ AI_BEGIN_CUSTOM_NPC( npc_metropolice, CNPC_MetroPolice )
 	DECLARE_SQUADSLOT( SQUAD_SLOT_POLICE_ARREST_ENEMY );
 
 	DECLARE_ACTIVITY( ACT_METROPOLICE_DRAW_PISTOL );
+	DECLARE_ACTIVITY( ACT_METROPOLICE_HOLSTER_PISTOL );
+	DECLARE_ACTIVITY( ACT_METROPOLICE_DRAW_BATON );
+	DECLARE_ACTIVITY( ACT_METROPOLICE_DRAW_BATON_ANGRY );
+	DECLARE_ACTIVITY( ACT_METROPOLICE_HOLSTER_BATON );
 	DECLARE_ACTIVITY( ACT_METROPOLICE_DEPLOY_MANHACK );
 	DECLARE_ACTIVITY( ACT_METROPOLICE_FLINCH_BEHIND );
 	DECLARE_ACTIVITY( ACT_PUSH_PLAYER );
@@ -5443,12 +5608,14 @@ AI_BEGIN_CUSTOM_NPC( npc_metropolice, CNPC_MetroPolice )
 	DECLARE_TASK( TASK_METROPOLICE_GET_PATH_TO_STITCH );
 	DECLARE_TASK( TASK_METROPOLICE_RESET_LEDGE_CHECK_TIME );
 	DECLARE_TASK( TASK_METROPOLICE_GET_PATH_TO_BESTSOUND_LOS );
+	DECLARE_TASK( TASK_METROPOLICE_FIND_BACKAWAY_FROM_SAVEPOSITION );
 	DECLARE_TASK( TASK_METROPOLICE_ARREST_ENEMY );
 	DECLARE_TASK( TASK_METROPOLICE_LEAD_ARREST_ENEMY );
 	DECLARE_TASK( TASK_METROPOLICE_SIGNAL_FIRING_TIME );
 	DECLARE_TASK( TASK_METROPOLICE_ACTIVATE_BATON );
 	DECLARE_TASK( TASK_METROPOLICE_WAIT_FOR_SENTENCE );
 	DECLARE_TASK( TASK_METROPOLICE_GET_PATH_TO_PRECHASE );
+	DECLARE_TASK( TASK_METROPOLICE_FIND_BACKAWAY_FROM_SAVEPOSITION );
 	DECLARE_TASK( TASK_METROPOLICE_CLEAR_PRECHASE );
 
 	DECLARE_CONDITION( COND_METROPOLICE_ON_FIRE );
@@ -5514,6 +5681,27 @@ DEFINE_SCHEDULE
 
 
 //=========================================================
+// > BackAwayFromEnemy
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_BACK_AWAY_FROM_MELEE_ENEMY,
+
+	"	Tasks"
+	// If I can't back away from the enemy try to get behind him
+	"		TASK_STOP_MOVING										0"
+	"		TASK_STORE_ENEMY_POSITION_IN_SAVEPOSITION				0"
+	"		TASK_METROPOLICE_FIND_BACKAWAY_FROM_SAVEPOSITION		0"
+	"		TASK_RUN_PATH											0"
+	"		TASK_WAIT_FOR_MOVEMENT									0"
+	"	"
+	"	Interrupts"
+	"	"
+	"		COND_NEW_ENEMY"
+	"		COND_ESCAPED_MELEE"
+);
+
+//=========================================================
 //=========================================================
 DEFINE_SCHEDULE
 (
@@ -5546,6 +5734,83 @@ DEFINE_SCHEDULE
 	"	"
 	"	Interrupts"
 	"	"
+);
+
+//=========================================================
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_HOLSTER_PISTOL,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_PLAY_SEQUENCE_FACE_ENEMY	ACTIVITY:ACT_METROPOLICE_HOLSTER_PISTOL"
+	"	"
+	"	Interrupts"
+	"	"
+	"		COND_NEW_ENEMY"
+);
+
+//=========================================================
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_DRAW_ACTIVATE_BATON,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_FACE_TARGET				0"
+	"		TASK_PLAY_SEQUENCE_FACE_ENEMY	ACTIVITY:ACT_METROPOLICE_DRAW_BATON_ANGRY"
+	"		TASK_WAIT_FACE_ENEMY			0.1"
+	"		TASK_METROPOLICE_ACTIVATE_BATON	1"
+	"	"
+	"	Interrupts"
+	"	"	
+);
+
+//=========================================================
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_DRAW_BATON,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_PLAY_SEQUENCE_FACE_ENEMY	ACTIVITY:ACT_METROPOLICE_DRAW_BATON"
+	"		TASK_WAIT_FACE_ENEMY			0.1"
+	"	"
+	"	Interrupts"
+	"	"	
+);
+
+//=========================================================
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_DRAW_BATON_ANGRY,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_PLAY_SEQUENCE_FACE_ENEMY	ACTIVITY:ACT_METROPOLICE_DRAW_BATON_ANGRY"
+	"		TASK_WAIT_FACE_ENEMY			0.1"
+	"	"
+	"	Interrupts"
+	"	"	
+);
+
+//=========================================================
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_METROPOLICE_HOLSTER_BATON,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING				0"
+	"		TASK_PLAY_SEQUENCE_FACE_ENEMY	ACTIVITY:ACT_METROPOLICE_HOLSTER_BATON"
+	"		TASK_WAIT_FACE_ENEMY			0.1"
+	"	"
+	"	Interrupts"
+	"	"	
 );
 
 //=========================================================
