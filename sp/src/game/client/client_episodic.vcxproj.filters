@@ -3415,12 +3415,6 @@
     <ClCompile Include="toolframework_client.cpp">
       <Filter>Tool Framework</Filter>
     </ClCompile>
-    <ClCompile Include="hl2\c_weapon_gravitygun.cpp">
-      <Filter>Source Files\HL2 DLL</Filter>
-    </ClCompile>
-    <ClCompile Include="hud_fscolor.cpp">
-      <Filter>Source Files\HL2 DLL</Filter>
-    </ClCompile>
     <ClCompile Include="worldlight.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

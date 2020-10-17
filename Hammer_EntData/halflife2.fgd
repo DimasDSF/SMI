@@ -331,6 +331,12 @@
 		1 : "Yes"
 	]
 	
+	StartsMotionDisabled(choices) : "Motion Disabled" : 0 : "Whether this turret should start with motion disabled." =
+	[
+		0 : "No"
+		1 : "Yes"
+	]
+	
 	SkinNumber(integer) : "Skin Number" : 0 : "Which skin to use for this turret. Set to 0 to select randomly."
 
 	TurnSpeed(float) : "Turn Speed" : "360.0" : "Rate the turret will be able to turn in one second. Default:360.0"
@@ -1638,6 +1644,8 @@
 	input DisableRotorWash(void) : "Turns off rotor wash effects"
 	input EnableRotorSound(void) : "Turns on rotor sounds"
 	input DisableRotorSound(void) : "Turns off rotor sounds"
+	input EnableFlares(void) : "Enables the use of missile deflecting flares"
+	input DisableFlares(void) : "Disables the use of missile deflecting flares"
 	input StartBombingVehicle(void) : "Starts the chopper leading enemy vehicles and dropping bombs on them."
 	input StartTrailingVehicle(void) : "Starts the chopper trailing enemy vehicles and shooting at them."
 	input StartBombExplodeonContact(void) : "Makes helicopter bombs explode on contact"

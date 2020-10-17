@@ -122,6 +122,30 @@ bool CAI_TacticalServices::FindBackAwayPos( const Vector &vecThreat, Vector *pRe
 	return false;
 }
 
+bool CAI_TacticalServices::FindBackAwayPosDist(const Vector &vecThreat, Vector *pResult, int iDist = 10*12)
+{
+	MARK_TASK_EXPENSIVE();
+
+	Vector vMoveAway = GetAbsOrigin() - vecThreat;
+	vMoveAway.NormalizeInPlace();
+
+	if (GetOuter()->GetNavigator()->FindVectorGoal(pResult, vMoveAway, iDist, iDist, true))
+		return true;
+
+	int node = FindBackAwayNode(vecThreat);
+
+	if (node != NO_NODE)
+	{
+		*pResult = GetNodePos(node);
+		return true;
+	}
+
+	if (GetOuter()->GetNavigator()->FindVectorGoal(pResult, vMoveAway, GetHullWidth() * 4, GetHullWidth() * 2, true))
+		return true;
+
+	return false;
+}
+
 //-------------------------------------
 
 bool CAI_TacticalServices::FindCoverPos( const Vector &vThreatPos, const Vector &vThreatEyePos, float flMinDist, float flMaxDist, Vector *pResult )
