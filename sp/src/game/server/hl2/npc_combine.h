@@ -262,6 +262,7 @@ private:
 	int				m_nKickDamage;
 	Vector			m_vecTossVelocity;
 	bool			m_bShouldPatrol;
+	int				m_iUsesEasyIdleWalkAnims;
 	bool			m_bFirstEncounter;// only put on the handsign show in the squad's first encounter.
 	float			m_flAlertRelease;
 

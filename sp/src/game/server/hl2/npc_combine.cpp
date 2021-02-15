@@ -99,6 +99,8 @@ Activity ACT_COMBINE_BUGBAIT;
 Activity ACT_COMBINE_AR2_ALTFIRE;
 Activity ACT_WALK_EASY;
 Activity ACT_WALK_MARCH;
+Activity ACT_IDLE_UNARMED;
+Activity ACT_WALK_UNARMED;
 
 // -----------------------------------------------
 //	> Squad slots
@@ -150,6 +152,7 @@ DEFINE_FIELD( m_nShots, FIELD_INTEGER ),
 DEFINE_FIELD( m_flShotDelay, FIELD_FLOAT ),
 DEFINE_FIELD( m_flStopMoveShootTime, FIELD_TIME ),
 DEFINE_KEYFIELD( m_iNumGrenades, FIELD_INTEGER, "NumGrenades" ),
+DEFINE_KEYFIELD( m_iUsesEasyIdleWalkAnims, FIELD_INTEGER, "UsesEasyIdleAnims"),
 DEFINE_EMBEDDED( m_Sentences ),
 
 //							m_AssaultBehavior (auto saved by AI)
@@ -398,7 +401,7 @@ void CNPC_Combine::GatherConditions()
 
 	if( GetState() == NPC_STATE_COMBAT )
 	{
-		if( IsCurSchedule( SCHED_COMBINE_WAIT_IN_COVER, false ) )
+		if( IsCurSchedule( SCHED_COMBINE_WAIT_IN_COVER, false ) && GetActiveWeapon() )
 		{
 			// Soldiers that are standing around doing nothing poll for attack slots so
 			// that they can respond quickly when one comes available. If they can 
@@ -997,7 +1000,7 @@ void CNPC_Combine::StartTask( const Task_t *pTask )
 					}
 					if ( pEntity->MyNPCPointer() )
 					{
-						if ( !(pEntity->MyNPCPointer()->CapabilitiesGet( ) & bits_CAP_WEAPON_RANGE_ATTACK1) && 
+						if ( GetActiveWeapon() && !(pEntity->MyNPCPointer()->CapabilitiesGet( ) & bits_CAP_WEAPON_RANGE_ATTACK1) && 
 							!(pEntity->MyNPCPointer()->CapabilitiesGet( ) & bits_CAP_INNATE_RANGE_ATTACK1) )
 						{
 							TaskComplete();
@@ -1387,6 +1390,19 @@ Activity CNPC_Combine::NPC_TranslateActivity( Activity eNewActivity )
 			break;
 		}
 	}
+	else if (!GetActiveWeapon() && HaveSequenceForActivity(ACT_IDLE_UNARMED))
+	{
+		if (eNewActivity == ACT_IDLE || eNewActivity == ACT_IDLE_ANGRY)
+			eNewActivity = ACT_IDLE_UNARMED;
+		else if (eNewActivity == ACT_WALK)
+			eNewActivity = ACT_WALK_UNARMED;
+		else if (eNewActivity == ACT_RUN)
+			eNewActivity = ACT_RUN_RIFLE;
+	}
+	else if (eNewActivity == ACT_WALK && m_NPCState == NPC_STATE_IDLE && m_iUsesEasyIdleWalkAnims && HaveSequenceForActivity(ACT_WALK_EASY))
+	{
+		eNewActivity = ACT_WALK_EASY;
+	}
 
 	return BaseClass::NPC_TranslateActivity( eNewActivity );
 }
@@ -1558,61 +1574,64 @@ int CNPC_Combine::SelectCombatSchedule()
 			{
 				AnnounceEnemyType( pEnemy );
 			}
-
-			if ( HasCondition( COND_CAN_RANGE_ATTACK1 ) && OccupyStrategySlot( SQUAD_SLOT_ATTACK1 ) )
+			
+			if (GetActiveWeapon())
 			{
-				// Start suppressing if someone isn't firing already (SLOT_ATTACK1). This means
-				// I'm the guy who spotted the enemy, I should react immediately.
-				return SCHED_COMBINE_SUPPRESS;
-			}
-
-			if ( m_pSquad->IsLeader( this ) || ( m_pSquad->GetLeader() && m_pSquad->GetLeader()->GetEnemy() != pEnemy ) )
-			{
-				// I'm the leader, but I didn't get the job suppressing the enemy. We know this because
-				// This code only runs if the code above didn't assign me SCHED_COMBINE_SUPPRESS.
-				if ( HasCondition( COND_CAN_RANGE_ATTACK1 ) && OccupyStrategySlotRange( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 ) )
+				if (HasCondition(COND_CAN_RANGE_ATTACK1) && OccupyStrategySlot(SQUAD_SLOT_ATTACK1))
 				{
-					return SCHED_RANGE_ATTACK1;
+					// Start suppressing if someone isn't firing already (SLOT_ATTACK1). This means
+					// I'm the guy who spotted the enemy, I should react immediately.
+					return SCHED_COMBINE_SUPPRESS;
 				}
 
-				if( HasCondition(COND_WEAPON_HAS_LOS) && IsStrategySlotRangeOccupied( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 ) )
+				if (m_pSquad->IsLeader(this) || (m_pSquad->GetLeader() && m_pSquad->GetLeader()->GetEnemy() != pEnemy))
 				{
-					// If everyone else is attacking and I have line of fire, wait for a chance to cover someone.
-					if( OccupyStrategySlot( SQUAD_SLOT_OVERWATCH ) )
+					// I'm the leader, but I didn't get the job suppressing the enemy. We know this because
+					// This code only runs if the code above didn't assign me SCHED_COMBINE_SUPPRESS.
+					if (HasCondition(COND_CAN_RANGE_ATTACK1) && OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
 					{
-						return SCHED_COMBINE_ENTER_OVERWATCH;
+						return SCHED_RANGE_ATTACK1;
+					}
+
+					if (HasCondition(COND_WEAPON_HAS_LOS) && IsStrategySlotRangeOccupied(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+					{
+						// If everyone else is attacking and I have line of fire, wait for a chance to cover someone.
+						if (OccupyStrategySlot(SQUAD_SLOT_OVERWATCH))
+						{
+							return SCHED_COMBINE_ENTER_OVERWATCH;
+						}
 					}
 				}
-			}
-			else
-			{
-				if ( m_pSquad->GetLeader() && FOkToMakeSound( SENTENCE_PRIORITY_MEDIUM ) )
+				else
 				{
-					JustMadeSound( SENTENCE_PRIORITY_MEDIUM );	// squelch anything that isn't high priority so the leader can speak
-				}
-
-				// First contact, and I'm solo, or not the squad leader.
-				if( HasCondition( COND_SEE_ENEMY ) && CanGrenadeEnemy() )
-				{
-					if( OccupyStrategySlot( SQUAD_SLOT_GRENADE1 ) )
+					if (m_pSquad->GetLeader() && FOkToMakeSound(SENTENCE_PRIORITY_MEDIUM))
 					{
-						return SCHED_RANGE_ATTACK2;
+						JustMadeSound(SENTENCE_PRIORITY_MEDIUM);	// squelch anything that isn't high priority so the leader can speak
 					}
-				}
 
-				if( !bFirstContact && OccupyStrategySlotRange( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 ) )
-				{
-					if( random->RandomInt(0, 100) < 80 )
+					// First contact, and I'm solo, or not the squad leader.
+					if (HasCondition(COND_SEE_ENEMY) && CanGrenadeEnemy())
 					{
-						return SCHED_ESTABLISH_LINE_OF_FIRE;
+						if (OccupyStrategySlot(SQUAD_SLOT_GRENADE1))
+						{
+							return SCHED_RANGE_ATTACK2;
+						}
 					}
-					else
-					{
-						return SCHED_COMBINE_PRESS_ATTACK;
-					}
-				}
 
-				return SCHED_TAKE_COVER_FROM_ENEMY;
+					if (!bFirstContact && OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+					{
+						if (random->RandomInt(0, 100) < 80)
+						{
+							return SCHED_ESTABLISH_LINE_OF_FIRE;
+						}
+						else
+						{
+							return SCHED_COMBINE_PRESS_ATTACK;
+						}
+					}
+
+					return SCHED_TAKE_COVER_FROM_ENEMY;
+				}
 			}
 		}
 	}
@@ -1687,6 +1706,72 @@ int CNPC_Combine::SelectCombatSchedule()
 		}
 	}
 
+	// We are unarmed, stay far away from enemies, unless they are melee only, then stay out of reach
+	if (!GetActiveWeapon())
+	{
+		// --------------------------
+		// Squad is 2x bigger than enemies, noone is throwing a nade, and we are healthier than the current enemy -> Go hit them
+		// --------------------------
+		if (GetSquad())
+		{
+			if (GetEnemies()->NumEnemies() / GetSquad()->NumMembers() <= 0.5 && (dynamic_cast<CBaseHeadcrab *>(GetEnemy()) == NULL) && !IsStrategySlotRangeOccupied(SQUAD_SLOT_GRENADE1, SQUAD_SLOT_GRENADE2) && (GetHealth() / GetMaxHealth() >= 0.7 || GetEnemy()->GetHealth() < GetHealth()))
+			{
+				if (HasCondition(COND_CAN_MELEE_ATTACK1))
+				{
+					return SCHED_MELEE_ATTACK1;
+				}
+				else
+				{
+					return SCHED_COMBINE_MOVE_TO_MELEE;
+				}
+			}
+			else if (IsStrategySlotRangeOccupied(SQUAD_SLOT_GRENADE1, SQUAD_SLOT_GRENADE2) && (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length() <= cvar->FindVar("sk_fraggrenade_radius")->GetInt()*1.3)
+			{
+				FearSound();
+				//ClearCommandGoal();
+				return SCHED_RUN_FROM_ENEMY;
+			}
+			else if (!IsElite() && m_iNumGrenades > 0 && HasCondition(COND_SEE_ENEMY) && CanGrenadeEnemy() && OccupyStrategySlot(SQUAD_SLOT_GRENADE1))
+			{
+				// ---------------------
+				// we dont have a weapon, but we have nades
+				// ---------------------
+				if (GetSquad()->SquadMemberInRange(GetEnemy()->GetAbsOrigin(), cvar->FindVar("sk_fraggrenade_radius")->GetInt()))
+				{
+					CSoundEnt::InsertSound(SOUND_MOVE_AWAY | SOUND_CONTEXT_COMBINE_ONLY, GetEnemy()->GetAbsOrigin(), cvar->FindVar("sk_fraggrenade_radius")->GetInt()*1.2, 0.1);
+				}
+				return SCHED_RANGE_ATTACK2;
+			}
+		}
+		else
+		{
+			if (GetEnemy()->GetHealth() < GetHealth() * 0.8 && (dynamic_cast<CBaseHeadcrab *>(GetEnemy()) == NULL) && (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length() < 250)
+			{
+				if (HasCondition(COND_CAN_MELEE_ATTACK1))
+				{
+					return SCHED_MELEE_ATTACK1;
+				}
+				else
+				{
+					return SCHED_COMBINE_MOVE_TO_MELEE;
+				}
+			}
+		}
+		if (HasCondition(COND_SEE_ENEMY) ||
+			HasCondition(COND_SEE_FEAR) ||
+			HasCondition(COND_LIGHT_DAMAGE) ||
+			HasCondition(COND_HEAVY_DAMAGE))
+		{
+			if ((IsEnemyMelee() && (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length() < 400) || (!IsEnemyMelee() && CanBeSeenBy(GetEnemy()->MyNPCPointer())))
+			{
+				FearSound();
+				//ClearCommandGoal();
+				return SCHED_RUN_FROM_ENEMY;
+			}
+		}
+		
+	}
+
 	int attackSchedule = SelectScheduleAttack();
 	if ( attackSchedule != SCHED_NONE )
 		return attackSchedule;
@@ -1697,7 +1782,7 @@ int CNPC_Combine::SelectCombatSchedule()
 		Stand();
 		DesireStand();
 
-		if( GetEnemy() && !(GetEnemy()->GetFlags() & FL_NOTARGET) && OccupyStrategySlotRange( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 ) )
+		if( GetActiveWeapon() && GetEnemy() && !(GetEnemy()->GetFlags() & FL_NOTARGET) && OccupyStrategySlotRange( SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2 ))
 		{
 			// Charge in and break the enemy's cover!
 			return SCHED_ESTABLISH_LINE_OF_FIRE;
@@ -1706,8 +1791,9 @@ int CNPC_Combine::SelectCombatSchedule()
 		// If I'm a long, long way away, establish a LOF anyway. Once I get there I'll
 		// start respecting the squad slots again.
 		float flDistSq = GetEnemy()->WorldSpaceCenter().DistToSqr( WorldSpaceCenter() );
-		if ( flDistSq > Square(3000) )
-			return SCHED_ESTABLISH_LINE_OF_FIRE;
+		if (flDistSq > Square(3000))
+			if (GetActiveWeapon())
+				return SCHED_ESTABLISH_LINE_OF_FIRE;
 
 		// Otherwise tuck in.
 		Remember( bits_MEMORY_INCOVER );
@@ -1945,7 +2031,7 @@ int CNPC_Combine::SelectSchedule( void )
 			// Don't patrol if I'm in the middle of an assault, because I'll never return to the assault. 
 			if ( !m_AssaultBehavior.HasAssaultCue() )
 			{
-				if( m_bShouldPatrol || HasCondition( COND_COMBINE_SHOULD_PATROL ) )
+				if( GetActiveWeapon() && ( m_bShouldPatrol || HasCondition( COND_COMBINE_SHOULD_PATROL )))
 					return SCHED_COMBINE_PATROL;
 			}
 		}
@@ -3572,6 +3658,8 @@ DECLARE_ACTIVITY( ACT_COMBINE_BUGBAIT )
 DECLARE_ACTIVITY( ACT_COMBINE_AR2_ALTFIRE )
 DECLARE_ACTIVITY( ACT_WALK_EASY )
 DECLARE_ACTIVITY( ACT_WALK_MARCH )
+DECLARE_ACTIVITY(ACT_IDLE_UNARMED)
+DECLARE_ACTIVITY(ACT_WALK_UNARMED)
 
 DECLARE_ANIMEVENT( COMBINE_AE_BEGIN_ALTFIRE )
 DECLARE_ANIMEVENT( COMBINE_AE_ALTFIRE )

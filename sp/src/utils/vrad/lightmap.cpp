@@ -70,6 +70,8 @@ faceneighbor_t faceneighbor[MAX_MAP_FACES];
 static directlight_t *gSkyLight = NULL;
 static directlight_t *gAmbient = NULL;
 
+int iAdditionalEnvLights = 0;
+
 //==========================================================================//
 // CNormalList implementation.
 //==========================================================================//
@@ -1341,7 +1343,7 @@ bool CanLeafTraceToSky( int iLeaf )
 	return false;
 }
 
-void BuildVisForLightEnvironment( void )
+void BuildVisForLightEnvironment( directlight_t *dlSkyLight, directlight_t *dlAmbient )
 {
 	// Create the vis.
 	for ( int iLeaf = 0; iLeaf < numleafs; ++iLeaf )
@@ -1363,8 +1365,8 @@ void BuildVisForLightEnvironment( void )
 				{
 					dleafs[iLeaf].flags |= LEAF_FLAGS_SKY;
 				}
-				MergeDLightVis( gSkyLight, dleafs[iLeaf].cluster );
-				MergeDLightVis( gAmbient, dleafs[iLeaf].cluster );
+				MergeDLightVis( dlSkyLight, dleafs[iLeaf].cluster );
+				MergeDLightVis( dlAmbient, dleafs[iLeaf].cluster );
 				break;
 			}
 		}
@@ -1511,11 +1513,45 @@ static void ParseLightEnvironment( entity_t* e, directlight_t* dl )
 						 gAmbient->light.intensity );
 		}
 		
-		BuildVisForLightEnvironment();
+		BuildVisForLightEnvironment(gSkyLight, gAmbient);
  
 		// Add sky and sky ambient lights to the list.
 		AddDLightToActiveList( gSkyLight );
 		AddDLightToActiveList( gAmbient );
+	}
+	else
+	{
+		iAdditionalEnvLights++;
+		if (iAdditionalEnvLights == 1)
+		{
+			printf("Warning! Dynamic changes to light_environment cause prop_static's to lose lightmaps, alongside other issues.\n");
+		}
+		printf("Calculating light for additional light_environment #%d, this is expiremental!\n", iAdditionalEnvLights);
+		dl->light.type = emit_skylight;
+
+		// Sky ambient light.
+		directlight_t *gnewAmbient = AllocDLight(dl->light.origin, false);
+		gnewAmbient->light.type = emit_skyambient;
+		if (g_bHDR && LightForKey(e, "_ambientHDR", gnewAmbient->light.intensity))
+		{
+			// we have a valid HDR ambient light value
+		}
+		else if (!LightForKey(e, "_ambient", gnewAmbient->light.intensity))
+		{
+			VectorScale(dl->light.intensity, 0.5, gnewAmbient->light.intensity);
+		}
+		if (g_bHDR)
+		{
+			VectorScale(gnewAmbient->light.intensity,
+				FloatForKeyWithDefault(e, "_AmbientScaleHDR", 1.0),
+				gnewAmbient->light.intensity);
+		}
+
+		BuildVisForLightEnvironment( dl, gnewAmbient);
+
+		// Add sky and sky ambient lights to the list.
+		AddDLightToActiveList(dl);
+		AddDLightToActiveList(gnewAmbient);
 	}
 }
 

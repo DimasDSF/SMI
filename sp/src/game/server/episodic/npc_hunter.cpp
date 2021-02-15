@@ -5611,6 +5611,23 @@ int CNPC_Hunter::OnTakeDamage( const CTakeDamageInfo &info )
 			}
 		}
 	}
+	else if (info.GetDamageType() == DMG_CLUB && info.GetInflictor() && info.GetInflictor()->IsNPC())
+	{
+		// If the *inflictor* is a NPC doing club damage, it's most likely an antlion guard or even another hunter charging us.
+		// Add DMG_CRUSH so we ragdoll immediately if we die.
+		myInfo.AddDamageType(DMG_CRUSH);
+	}
+
+	if (myInfo.GetDamageType() & DMG_DISSOLVE && info.GetAttacker() && info.GetAttacker()->IsNPC() && info.GetInflictor() && info.GetInflictor()->ClassMatches("prop_combine_ball"))
+	{
+		// We divide by the ally damage scale to counter its usage in OnTakeDamage_Alive.
+		myInfo.SetDamage((float)GetMaxHealth() / sk_hunter_citizen_damage_scale.GetFloat());
+
+		myInfo.AddDamageType(DMG_CRUSH);
+
+		// Make the NPC's ball explode
+		info.GetInflictor()->AcceptInput("Explode", this, this, variant_t(), 0);
+	}
 	
 	return BaseClass::OnTakeDamage( myInfo );
 }

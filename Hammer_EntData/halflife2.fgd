@@ -529,6 +529,8 @@
 		1 : "Magnussen RDU Beacon"
 		2 : "Dog"
 		3 : "Ally Installation"
+		4 : "Enemy"
+		5 : "Large Enemy (striders)"
 	]
 
 	mode(choices) : "Mode" : 0 =
@@ -1022,6 +1024,12 @@
 		"4" : "4"
 		"5" : "5"
 		"999999" : "Unlimited"
+	]
+	
+	UsesEasyIdleAnims(choices) : "Use Easy Idle Animations" : "0" =
+	[
+		"0" : "No"
+		"1" : "Yes"
 	]
 
 	// Inputs
@@ -2026,6 +2034,11 @@
 		1 : "Yes"
 	]
 
+	AutoHolsterEnabled(choices) : "Enable AutoHolster Behavior" : "1" =
+	[
+		0 : "No"
+		1 : "Yes"
+	]
 
     // Inputs
 	input AllowInteraction(void) : "Allow Alyx's 'hacking' AI to run."

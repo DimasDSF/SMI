@@ -22,6 +22,9 @@ ipch
 *.vpc_crc
 *.filters
 *.sln
+*.cache
+*.sentinel
+*.pdb
 
 # OSX/Linux build products
 *.mak
@@ -51,6 +54,9 @@ client.dylib.dSYM/
 server.dylib
 server.dylib.dSYM/
 
+sp/src/utils/**/*.dll
+sp/src/utils/**/*.lib
+
 # built game directory
 sp/game/*
 
@@ -59,5 +65,3 @@ config.cfg
 
 # shader files
 *.tmp
-
-*.cache
